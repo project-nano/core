@@ -1,0 +1,54 @@
+package imageserver
+
+import (
+	"github.com/project-nano/framework"
+	"log"
+)
+
+type ModifyMediaImageExecutor struct {
+	Sender      framework.MessageSender
+	ImageServer *ImageManager
+}
+
+
+func (executor *ModifyMediaImageExecutor)Execute(id framework.SessionID, request framework.Message,
+	incoming chan framework.Message, terminate chan bool) (err error) {
+	var imageID string
+	if imageID, err = request.GetString(framework.ParamKeyImage); err != nil{
+		return
+	}
+	var config MediaConfig
+	if config.Name, err = request.GetString(framework.ParamKeyName); err != nil {
+		return err
+	}
+	if config.Owner, err = request.GetString(framework.ParamKeyUser); err != nil {
+		return err
+	}
+	if config.Group, err = request.GetString(framework.ParamKeyGroup); err != nil {
+		return err
+	}
+	if config.Description, err = request.GetString(framework.ParamKeyDescription); err != nil {
+		return err
+	}
+	if config.Tags, err = request.GetStringArray(framework.ParamKeyTag); err != nil {
+		return err
+	}
+	var respChan = make(chan error, 1)
+	executor.ImageServer.ModifyMediaImage(imageID, config, respChan)
+	err = <- respChan
+
+	resp, _ := framework.CreateJsonMessage(framework.ModifyMediaImageResponse)
+	resp.SetSuccess(false)
+	resp.SetFromSession(id)
+	resp.SetToSession(request.GetFromSession())
+
+	if err != nil{
+		resp.SetError(err.Error())
+		log.Printf("[%08X] modify media image fail: %s", id, err.Error())
+		return executor.Sender.SendMessage(resp, request.GetSender())
+	}
+	log.Printf("[%08X] media image '%s' modified", id, imageID)
+	resp.SetSuccess(true)
+	return executor.Sender.SendMessage(resp, request.GetSender())
+}
+
