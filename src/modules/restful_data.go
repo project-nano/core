@@ -69,11 +69,12 @@ const (
 
 func UnmarshalGuestConfigListFromMessage(msg framework.Message) (result []restGuestConfig, err error) {
 	result = make([]restGuestConfig, 0)
+
 	count, err := msg.GetUInt(framework.ParamKeyCount)
 	if err != nil{
 		return result, err
 	}
-	var names, ids, pools, cells, users, groups, monitors, addresses, systems, createTime, internal, external []string
+	var names, ids, pools, cells, users, groups, monitors, addresses, systems, createTime, internal, external, hardware []string
 	var cores, options, enables, progress, status, memories, disks, diskCounts, mediaAttached, cpuPriorities, ioLimits []uint64
 	if pools, err = msg.GetStringArray(framework.ParamKeyPool); err != nil {
 		return result, err
@@ -105,7 +106,9 @@ func UnmarshalGuestConfigListFromMessage(msg framework.Message) (result []restGu
 	if external, err = msg.GetStringArray(framework.ParamKeyExternal); err != nil {
 		return result, err
 	}
-
+	if hardware, err = msg.GetStringArray(framework.ParamKeyHardware); err != nil {
+		return
+	}
 	if cores, err = msg.GetUIntArray(framework.ParamKeyCore); err != nil {
 		return result, err
 	}
@@ -168,8 +171,6 @@ func UnmarshalGuestConfigListFromMessage(msg framework.Message) (result []restGu
 		return
 	}
 
-	var guests []restGuestConfig
-
 	var diskOffset = 0
 	for i := 0; i < int(count);i++{
 		var config restGuestConfig
@@ -209,6 +210,7 @@ func UnmarshalGuestConfigListFromMessage(msg framework.Message) (result []restGu
 		}
 		config.System = systems[i]
 		config.CreateTime = createTime[i]
+		config.EthernetAddress = hardware[i]
 		switch PriorityEnum(cpuPriorities[i]) {
 		case PriorityHigh:
 			config.QoS = restInstanceQoS{CPUPriority: priority_label_high}
@@ -226,9 +228,9 @@ func UnmarshalGuestConfigListFromMessage(msg framework.Message) (result []restGu
 		config.QoS.WriteIOPS = ioLimits[ ValidLimitParametersCount * i + WriteIOPSOffset ]
 		config.QoS.ReceiveSpeed = ioLimits[ ValidLimitParametersCount * i + ReceiveOffset ]
 		config.QoS.SendSpeed = ioLimits[ ValidLimitParametersCount * i + SendOffset ]
-		guests = append(guests, config)
+		result = append(result, config)
 	}
-	return guests, nil
+	return result, nil
 }
 
 func (config *restGuestConfig) Unmarshal(msg framework.Message) (err error) {
@@ -320,7 +322,9 @@ func (config *restGuestConfig) Unmarshal(msg framework.Message) (err error) {
 	if createTime, err := msg.GetString(framework.ParamKeyCreate); err == nil{
 		config.CreateTime = createTime
 	}
-
+	if hardware, err := msg.GetString(framework.ParamKeyHardware); err == nil{
+		config.EthernetAddress = hardware
+	}
 	if id, err := msg.GetString(framework.ParamKeyInstance);err == nil{
 		config.ID = id
 	}

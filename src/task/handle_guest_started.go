@@ -3,7 +3,7 @@ package task
 import (
 	"github.com/project-nano/framework"
 	"log"
-	"modules"
+	"github.com/project-nano/core/modules"
 )
 
 type HandleGuestStartedExecutor struct {

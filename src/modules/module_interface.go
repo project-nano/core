@@ -314,7 +314,7 @@ type ResourceModule interface {
 	AllocateInstance(pool string, status InstanceStatus, respChan chan ResourceResult)
 	//running/create/progress/media only
 	UpdateInstanceStatus(status InstanceStatus, respChan chan error)
-	ConfirmInstance(id string, monitorPort uint, monitorSecret string, respChan chan error)
+	ConfirmInstance(id string, monitorPort uint, monitorSecret, ethernetAddress string, respChan chan error)
 	DeallocateInstance(id string, err error, respChan chan error)
 
 	GetInstanceStatus(id string, respChan chan ResourceResult)

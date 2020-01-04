@@ -60,7 +60,7 @@ func (executor *QueryMediaImageExecutor)Execute(id framework.SessionID, request 
 
 	resp.SetUIntArray(framework.ParamKeySize, size)
 	resp.SetUIntArray(framework.ParamKeyCount, tagCount)
-	log.Printf("[%08X] query media image success, %d image(s) available", id, len(result.MediaList))
+	//log.Printf("[%08X] query media image success, %d image(s) available", id, len(result.MediaList))
 	return executor.Sender.SendMessage(resp, request.GetSender())
 
 }

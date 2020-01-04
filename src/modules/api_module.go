@@ -1,20 +1,27 @@
 package modules
 
 import (
-	"github.com/project-nano/framework"
-	"net/http"
-	"path/filepath"
-	"io/ioutil"
+	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"crypto/tls"
+	"encoding/hex"
 	"encoding/json"
-	"log"
+	"errors"
 	"fmt"
 	"github.com/julienschmidt/httprouter"
+	"github.com/project-nano/framework"
 	"io"
-	"errors"
-	"strconv"
-	"net/url"
+	"io/ioutil"
+	"log"
+	"net/http"
 	"net/http/httputil"
-	"crypto/tls"
+	"net/url"
+	"os"
+	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -23,39 +30,89 @@ type APIModule struct {
 	exitChan         chan bool
 	currentImageHost string
 	currentImageURL  string
-
-	//imageServerPort   int
 	currentImageProxy *httputil.ReverseProxy
+	apiCredentials map[string]string
 	proxy             *RequestProxy
 	resource          ResourceModule
 }
 
-type APIConfig struct {
-	Port int `json:"port"`
+type ApiCredential struct {
+	ID  string `json:"id"`
+	Key string `json:"key"`
 }
 
-func CreateAPIModule(configPath string, sender framework.MessageSender, resourceModule ResourceModule) (*APIModule, error) {
+type APIConfig struct {
+	Port        int             `json:"port"`
+	Credentials []ApiCredential `json:"credentials"`
+}
+
+const (
+	HeaderNameHost          = "Host"
+	//HeaderNameContentType   = "Content-Type"
+	//HeaderNameSession       = "Nano-Session"
+	HeaderNameDate          = "Nano-Date"
+	HeaderNameScope         = "Nano-Scope"
+	HeaderNameAuthorization = "Nano-Authorization"
+	APIRoot                 = "/api"
+	APIVersion              = 1
+)
+
+func CreateAPIModule(configPath string, sender framework.MessageSender, resourceModule ResourceModule) (module *APIModule, err error) {
 	//load config
 	const (
 		configFilename = "api.cfg"
 	)
 	var configFile = filepath.Join(configPath, configFilename)
 	var config APIConfig
-	data, err := ioutil.ReadFile(configFile)
-	if err != nil {
-		return nil, err
+	var data []byte
+	if data, err = ioutil.ReadFile(configFile); err != nil {
+		return
 	}
 	if err = json.Unmarshal(data, &config); err != nil {
-		return nil, err
+		return
 	}
-	log.Printf("<api> config loaded from %s, listen port %d", configFile, config.Port)
+	if 0 == len(config.Credentials){
+		const (
+			dummyID  = "dummyID"
+			dummyKey = "ThisIsAKeyPlaceHolder_ChangeToYourContent"
+		)
+		config.Credentials = []ApiCredential{{ID: dummyID, Key: dummyKey}}
+		if data, err = json.MarshalIndent(config, "", " "); err != nil{
+			err = fmt.Errorf("marshal new config fail: %s", err.Error())
+			return
+		}
+		var file *os.File
+		if file, err = os.Create(configFile); err != nil{
+			err = fmt.Errorf("create new config fail: %s", err.Error())
+			return
+		}
+		defer file.Close()
+		if _, err = file.Write(data); err != nil{
+			err = fmt.Errorf("write new config fail: %s", err.Error())
+			return
+		}
+		log.Printf("<api> warning: dummy API credential '%s' created", dummyID)
+	}
+	var proxy *RequestProxy
 
-	proxy, err := CreateRequestProxy(sender)
-	if err != nil {
-		return nil, err
+	if proxy, err = CreateRequestProxy(sender); err != nil {
+		return
 	}
 	var listenAddress = fmt.Sprintf(":%d", config.Port)
-	var module = APIModule{}
+	module = &APIModule{}
+	module.apiCredentials = map[string]string{}
+
+	for _, credential := range config.Credentials{
+		if 0 == len(credential.ID){
+			err = errors.New("empty API ID")
+			return
+		}
+		if 0 == len(credential.Key){
+			err = fmt.Errorf("empty API key for '%s'", credential.ID)
+			return
+		}
+		module.apiCredentials[credential.ID] = credential.Key
+	}
 	module.exitChan = make(chan bool)
 	module.proxy = proxy
 	module.server.Addr = listenAddress
@@ -64,7 +121,9 @@ func CreateAPIModule(configPath string, sender framework.MessageSender, resource
 	log.Println("register finish")
 	module.server.Handler = router
 	module.resource = resourceModule
-	return &module, nil
+	log.Printf("<api> config loaded from %s, listen port %d, %d API credentials available ",
+		configFile, config.Port, len(module.apiCredentials))
+	return
 }
 
 func (module *APIModule) GetServiceAddress() string{
@@ -74,7 +133,7 @@ func (module *APIModule) GetServiceAddress() string{
 func (module *APIModule) GetModuleName() string {
 	return module.proxy.Module
 }
-func (module *APIModule) GetResponseChannel() (chan framework.Message) {
+func (module *APIModule) GetResponseChannel() chan framework.Message {
 	return module.proxy.ResponseChan
 }
 
@@ -100,118 +159,328 @@ func (module *APIModule) routine() {
 	module.exitChan <- true
 }
 
+func apiPath(path string) string{
+	return fmt.Sprintf("%s/v%d%s", APIRoot, APIVersion, path)
+}
+
+func (module *APIModule) verifyRequestSignature(r *http.Request) (err error){
+	const (
+		SignatureMethodHMAC256 = "Nano-HMAC-SHA256"
+		ShortDateFormat        = "20060102"
+	)
+	r.Header.Set(HeaderNameHost, r.Host)
+	var apiID, apiKey, requestScope, signedHeaders, signature, signatureMethod string
+	{
+		//Method Credential=id/scope, SignedHeaders=headers, Signature=signatures
+		//check authorization
+		var authorization = r.Header.Get(HeaderNameAuthorization)
+		var length = len(authorization)
+		if 0 == length{
+			err = errors.New("authorization required")
+			return
+		}
+		if length <= len(SignatureMethodHMAC256){
+			err = fmt.Errorf("insufficent authorization: %s", authorization)
+			return
+		}
+		signatureMethod = authorization[:len(SignatureMethodHMAC256)]
+		if SignatureMethodHMAC256 != signatureMethod {
+			err = fmt.Errorf("invalid signature method: %s", signatureMethod)
+			return
+		}
+		var names, values []string
+		for _, token := range strings.Split(authorization[len(SignatureMethodHMAC256) + 1:], ","){
+			var split = strings.SplitN(token, "=", 2)
+			if 2 != len(split){
+				err = fmt.Errorf("invalid authorization token: %s", token)
+				return
+			}
+			names = append(names, strings.Trim(split[0], " "))
+			values = append(values, strings.Trim(split[1], " "))
+		}
+		const (
+			TokenCount         = 3
+			TokenCredential    = "Credential"
+			TokenSignedHeaders = "SignedHeaders"
+			TokenSignature     = "Signature"
+		)
+		if TokenCount != len(names) || TokenCount != len(values){
+			err = fmt.Errorf("unexpected token count %d/%d", len(names), len(values))
+			return
+		}
+		if TokenCredential != names[0]{
+			err = fmt.Errorf("invalid first token %s", names[0])
+			return
+		}
+		if TokenSignedHeaders != names[1]{
+			err = fmt.Errorf("invalid second token %s", names[1])
+			return
+		}
+		if TokenSignature != names[2]{
+			err = fmt.Errorf("invalid third token %s", names[2])
+			return
+		}
+		var idTail = strings.IndexByte(values[0], '/')
+		if -1 == idTail{
+			err = fmt.Errorf("no API ID in credential: %s", values[0])
+			return
+		}
+		apiID = values[0][:idTail]
+		var exists bool
+		if apiKey, exists = module.apiCredentials[apiID]; !exists{
+			err = fmt.Errorf("invalid API ID: %s", apiID)
+			return
+		}
+		requestScope = values[0][idTail + 1:]
+		signedHeaders = values[1]
+		signature = values[2]
+	}
+	var canonicalRequest, requestDate, stringToSign string
+	{
+		//canonicalRequest
+		var canonicalURI = url.QueryEscape(url.QueryEscape(r.URL.Path))
+		var canonicalQueryString string
+		if 0 != len(r.URL.Query()){
+			var paramNames []string
+			for key := range r.URL.Query(){
+				paramNames = append(paramNames, key)
+			}
+			sort.Sort(sort.StringSlice(paramNames))
+			var queryParams []string
+			for _, name := range paramNames{
+				queryParams = append(queryParams,
+					fmt.Sprintf("%s=%s", url.QueryEscape(name), url.QueryEscape(r.URL.Query().Get(name))))
+			}
+			canonicalQueryString = strings.Join(queryParams, "&")
+		}else{
+			canonicalQueryString = ""
+		}
+		var headerIndexes = map[string]int{}
+		var targetHeaders = strings.Split(signedHeaders, ";")
+		for index, name := range targetHeaders{
+			headerIndexes[name] = index
+		}
+		var signedHeaderToken = make([]string, len(signedHeaders))
+
+		//extract signed headers
+		for name, _ := range r.Header{
+			var lowerName = strings.ToLower(name)
+			if index, exists := headerIndexes[lowerName]; exists{
+				//signed header
+				signedHeaderToken[index] = fmt.Sprintf("%s:%s\n",
+					lowerName, strings.Trim(r.Header.Get(name), " "))
+			}
+			if HeaderNameDate == name{
+				requestDate = r.Header.Get(name)
+				var requestTime time.Time
+				if requestTime, err = time.Parse(time.RFC3339, requestDate); err != nil{
+					err = fmt.Errorf("invalid request date: %s", requestDate)
+				}
+				//must on same day
+				if time.Now().Format(ShortDateFormat) != requestTime.Format(ShortDateFormat){
+					err = fmt.Errorf("expired request with date %s", requestDate)
+					return
+				}
+			}
+			if HeaderNameScope == name{
+				var scope = r.Header.Get(name)
+				if scope != requestScope{
+					err = fmt.Errorf("request scope mismatch: %s => %s", scope, requestScope)
+					return
+				}
+			}
+		}
+		var canonicalHeaders string
+		var headersBuilder strings.Builder
+		for _, token := range signedHeaderToken{
+			headersBuilder.WriteString(token)
+		}
+		canonicalHeaders = headersBuilder.String()
+		//hash with sha256
+		var hash = sha256.New()
+		if http.MethodGet == r.Method || http.MethodHead == r.Method || http.MethodOptions == r.Method{
+			hash.Write([]byte(""))
+		}else {
+			//clone request payload
+			var payload []byte
+			if payload, err = ioutil.ReadAll(r.Body); err != nil{
+				return
+			}
+			hash.Write(payload)
+			r.Body = ioutil.NopCloser(bytes.NewBuffer(payload))
+		}
+		var hashedPayload = strings.ToLower(hex.EncodeToString(hash.Sum(nil)))
+		var canonicalRequestContent = strings.Join([]string{
+			canonicalURI,
+			canonicalQueryString,
+			canonicalHeaders,
+			signedHeaders,
+			hashedPayload,
+		}, "\n")
+		hash.Reset()
+		hash.Write([]byte(canonicalRequestContent))
+		canonicalRequest = hex.EncodeToString(hash.Sum(nil))
+	}
+	{
+		stringToSign = strings.Join([]string{
+			signatureMethod,
+			requestDate,
+			requestScope,
+			canonicalRequest,
+		}, "\n")
+	}
+	var signKey []byte
+	{
+		var builder strings.Builder
+		builder.WriteString("nano")
+		builder.WriteString(apiKey)
+
+		var key = []byte(builder.String())
+		var data = []byte(requestScope)
+		if signKey, err = computeHMACSha256(key, data); err != nil{
+			err = fmt.Errorf("compute signature key fail: %s", err.Error())
+			return
+		}
+		var hmacSignature []byte
+		if hmacSignature, err = computeHMACSha256(signKey, []byte(stringToSign)); err != nil{
+			err = fmt.Errorf("compute signature fail: %s", err.Error())
+			return
+		}
+		var expectedSignature = hex.EncodeToString(hmacSignature)
+		if signature != expectedSignature{
+			err = errors.New("signature corrupted")
+			return
+		}
+	}
+
+	return nil
+}
+
+func computeHMACSha256(key, data []byte) (hash []byte, err error){
+	var h = hmac.New(sha256.New, key)
+	if _, err = h.Write(data); err != nil{
+		return
+	}
+	hash = h.Sum(nil)
+	return
+}
+
 func (module *APIModule) RegisterAPIHandler(router *httprouter.Router) {
-	router.GET("/compute_pools/", module.handleQueryAllPools)
-	router.GET("/compute_pools/:pool", module.handleGetComputePool)
-	router.POST("/compute_pools/:pool", module.handleCreateComputePool)
-	router.PUT("/compute_pools/:pool", module.handleModifyComputePool)
-	router.DELETE("/compute_pools/:pool", module.handleDeleteComputePool)
+	router.GET(apiPath("/compute_pools/"), module.handleQueryAllPools)
+	router.GET(apiPath("/compute_pools/:pool"), module.handleGetComputePool)
+	router.POST(apiPath("/compute_pools/:pool"), module.handleCreateComputePool)
+	router.PUT(apiPath("/compute_pools/:pool"), module.handleModifyComputePool)
+	router.DELETE(apiPath("/compute_pools/:pool"), module.handleDeleteComputePool)
 
-	router.POST("/compute_pool_cells/:pool/:cell", module.handleAddComputeCell)
-	router.DELETE("/compute_pool_cells/:pool/:cell", module.handleRemoveComputeCell)
-	router.PUT("/compute_pool_cells/:pool/:cell", module.handleModifyComputeCell)
-	router.GET("/compute_pool_cells/", module.handleQueryUnallocatedCell)
-	router.GET("/compute_pool_cells/:pool", module.handleQueryCellsInPool)
-	router.GET("/compute_pool_cells/:pool/:cell", module.handleGetComputeCell)
+	router.POST(apiPath("/compute_pool_cells/:pool/:cell"), module.handleAddComputeCell)
+	router.DELETE(apiPath("/compute_pool_cells/:pool/:cell"), module.handleRemoveComputeCell)
+	router.PUT(apiPath("/compute_pool_cells/:pool/:cell"), module.handleModifyComputeCell)
+	router.GET(apiPath("/compute_pool_cells/"), module.handleQueryUnallocatedCell)
+	router.GET(apiPath("/compute_pool_cells/:pool"), module.handleQueryCellsInPool)
+	router.GET(apiPath("/compute_pool_cells/:pool/:cell"), module.handleGetComputeCell)
 
-	router.GET("/storage_pools/", module.handleQueryStoragePool)
-	router.GET("/storage_pools/:pool", module.handleGetStoragePool)
-	router.POST("/storage_pools/:pool", module.handleCreateStoragePool)
-	router.PUT("/storage_pools/:pool", module.handleModifyStoragePool)
-	router.DELETE("/storage_pools/:pool", module.handleDeleteStoragePool)
+	router.GET(apiPath("/storage_pools/"), module.handleQueryStoragePool)
+	router.GET(apiPath("/storage_pools/:pool"), module.handleGetStoragePool)
+	router.POST(apiPath("/storage_pools/:pool"), module.handleCreateStoragePool)
+	router.PUT(apiPath("/storage_pools/:pool"), module.handleModifyStoragePool)
+	router.DELETE(apiPath("/storage_pools/:pool"), module.handleDeleteStoragePool)
 
-	router.GET("/compute_zone_status/", module.queryZoneStatistic)
-	router.GET("/compute_pool_status/", module.queryComputePoolsStatus)
-	router.GET("/compute_pool_status/:pool", module.getComputePoolStatus)
-	router.GET("/compute_cell_status/:pool", module.queryComputeCellStatus)
-	router.GET("/compute_cell_status/:pool/:cell", module.getComputeCellStatus)
+	router.GET(apiPath("/compute_zone_status/"), module.queryZoneStatistic)
+	router.GET(apiPath("/compute_pool_status/"), module.queryComputePoolsStatus)
+	router.GET(apiPath("/compute_pool_status/:pool"), module.getComputePoolStatus)
+	router.GET(apiPath("/compute_cell_status/:pool"), module.queryComputeCellStatus)
+	router.GET(apiPath("/compute_cell_status/:pool/:cell"), module.getComputeCellStatus)
 
-	router.GET("/instance_status/:pool", module.handleQueryInstanceStatusInPool)
-	router.GET("/instance_status/:pool/:cell", module.handleQueryInstanceStatusInCell)
+	router.GET(apiPath("/instance_status/:pool"), module.handleQueryInstanceStatusInPool)
+	router.GET(apiPath("/instance_status/:pool/:cell"), module.handleQueryInstanceStatusInCell)
 
-	router.GET("/guests/:id", module.handleGetGuestConfig)
-	router.POST("/guests/", module.handleCreateGuest)
-	router.DELETE("/guests/:id", module.handleDeleteGuest)
+	router.GET(apiPath("/guests/:id"), module.handleGetGuestConfig)
+	router.POST(apiPath("/guests/"), module.handleCreateGuest)
+	router.DELETE(apiPath("/guests/:id"), module.handleDeleteGuest)
 
-	router.PUT("/guests/:id/name/", module.handleModifyGuestName)
-	router.PUT("/guests/:id/cores", module.handleModifyGuestCores)
-	router.PUT("/guests/:id/memory", module.handleModifyGuestMemory)
-	router.PUT("/guests/:id/qos/cpu", module.handleModifyGuestPriority)
-	router.PUT("/guests/:id/qos/disk", module.handleModifyDiskThreshold)
-	router.PUT("/guests/:id/qos/network", module.handleModifyNetworkThreshold)
-	router.PUT("/guests/:id/system/", module.handleResetGuestSystem)
-	router.PUT("/guests/:id/auth", module.handleModifyGuestPassword)
-	router.GET("/guests/:id/auth", module.handleGetGuestPassword)
-	router.PUT("/guests/:id/disks/resize/:index", module.handleResizeDisk)
-	router.PUT("/guests/:id/disks/shrink/:index", module.handleShrinkDisk)
+	router.PUT(apiPath("/guests/:id/name/"), module.handleModifyGuestName)
+	router.PUT(apiPath("/guests/:id/cores"), module.handleModifyGuestCores)
+	router.PUT(apiPath("/guests/:id/memory"), module.handleModifyGuestMemory)
+	router.PUT(apiPath("/guests/:id/qos/cpu"), module.handleModifyGuestPriority)
+	router.PUT(apiPath("/guests/:id/qos/disk"), module.handleModifyDiskThreshold)
+	router.PUT(apiPath("/guests/:id/qos/network"), module.handleModifyNetworkThreshold)
+	router.PUT(apiPath("/guests/:id/system/"), module.handleResetGuestSystem)
+	router.PUT(apiPath("/guests/:id/auth"), module.handleModifyGuestPassword)
+	router.GET(apiPath("/guests/:id/auth"), module.handleGetGuestPassword)
+	router.PUT(apiPath("/guests/:id/disks/resize/:index"), module.handleResizeDisk)
+	router.PUT(apiPath("/guests/:id/disks/shrink/:index"), module.handleShrinkDisk)
 
-	router.GET("/instances/:id", module.handleGetInstanceStatus)
-	router.POST("/instances/:id", module.handleStartInstance)
-	router.DELETE("/instances/:id", module.handleStopInstance)
+	router.GET(apiPath("/instances/:id"), module.handleGetInstanceStatus)
+	router.POST(apiPath("/instances/:id"), module.handleStartInstance)
+	router.DELETE(apiPath("/instances/:id"), module.handleStopInstance)
 
-	router.GET("/guest_search/*filepath", module.handleQueryGuestConfig)
+	router.GET(apiPath("/guest_search/*filepath"), module.handleQueryGuestConfig)
 
 	//media image
-	router.GET("/media_image_search/*filepath", module.SearchMediaImage)
-	router.GET("/media_images/", module.QueryAllMediaImage)
-	router.GET("/media_images/:id", module.GetMediaImage)
-	router.POST("/media_images/", module.CreateMediaImage)
-	router.PUT("/media_images/:id", module.ModifyMediaImage)
-	router.DELETE("/media_images/:id", module.DeleteMediaImage)
+	router.GET(apiPath("/media_image_search/*filepath"), module.searchMediaImage)
+	router.GET(apiPath("/media_images/"), module.queryAllMediaImage)
+	router.GET(apiPath("/media_images/:id"), module.getMediaImage)
+	router.POST(apiPath("/media_images/"), module.createMediaImage)
+	router.PUT(apiPath("/media_images/:id"), module.modifyMediaImage)
+	router.DELETE(apiPath("/media_images/:id"), module.deleteMediaImage)
 
 
-	router.POST("/media_image_files/:id", module.redirectToImageServer)
+	router.POST(apiPath("/media_images/:id/file/"), module.redirectToImageServer)
 
 	//disk image
-	router.GET("/disk_image_search/*filepath", module.QueryDiskImage)
+	router.GET(apiPath("/disk_image_search/*filepath"), module.queryDiskImage)
 
-	router.GET("/disk_images/:id", module.GetDiskImage)
-	router.POST("/disk_images/", module.CreateDiskImage)
-	router.PUT("/disk_images/:id", module.ModifyDiskImage)
-	router.DELETE("/disk_images/:id", module.DeleteDiskImage)
+	router.GET(apiPath("/disk_images/:id"), module.getDiskImage)
+	router.POST(apiPath("/disk_images/"), module.createDiskImage)
+	router.PUT(apiPath("/disk_images/:id"), module.modifyDiskImage)
+	router.DELETE(apiPath("/disk_images/:id"), module.deleteDiskImage)
 
-	router.GET("/disk_image_files/:id", module.redirectToImageServer)
-	router.POST("/disk_image_files/:id", module.redirectToImageServer)//upload from web
+	router.GET(apiPath("/disk_images/:id/file/"), module.redirectToImageServer)
+	router.POST(apiPath("/disk_images/:id/file/"), module.redirectToImageServer)//upload from web
 
-	router.POST("/instances/:id/media", module.handleInsertMedia)
-	router.DELETE("/instances/:id/media", module.handleEjectMedia)
+	router.POST(apiPath("/instances/:id/media"), module.handleInsertMedia)
+	router.DELETE(apiPath("/instances/:id/media"), module.handleEjectMedia)
 
 	//snapshots
-	router.GET("/instances/:id/snapshots/", module.handleQueryInstanceSnapshots)
-	router.POST("/instances/:id/snapshots/", module.handleCreateInstanceSnapshot)
-	router.PUT("/instances/:id/snapshots/", module.handleRestoreInstanceSnapshot)
-	router.GET("/instances/:id/snapshots/:name", module.handleGetInstanceSnapshot)
-	router.DELETE("/instances/:id/snapshots/:name", module.handleDeleteInstanceSnapshot)
+	router.GET(apiPath("/instances/:id/snapshots/"), module.handleQueryInstanceSnapshots)
+	router.POST(apiPath("/instances/:id/snapshots/"), module.handleCreateInstanceSnapshot)
+	router.PUT(apiPath("/instances/:id/snapshots/"), module.handleRestoreInstanceSnapshot)
+	router.GET(apiPath("/instances/:id/snapshots/:name"), module.handleGetInstanceSnapshot)
+	router.DELETE(apiPath("/instances/:id/snapshots/:name"), module.handleDeleteInstanceSnapshot)
 
 	//migrations
-	router.GET("/migrations/", module.handleQueryMigrations)
-	router.GET("/migrations/:id", module.handleGetMigration)
-	router.POST("/migrations/", module.handleCreateMigration)
+	router.GET(apiPath("/migrations/"), module.handleQueryMigrations)
+	router.GET(apiPath("/migrations/:id"), module.handleGetMigration)
+	router.POST(apiPath("/migrations/"), module.handleCreateMigration)
 
 	//address pool
-	router.GET("/address_pools/", module.handleQueryAddressPool)
-	router.GET("/address_pools/:pool", module.handleGetAddressPool)
-	router.POST("/address_pools/:pool", module.handleCreateAddressPool)
-	router.PUT("/address_pools/:pool", module.handleModifyAddressPool)
-	router.DELETE("/address_pools/:pool", module.handleDeleteAddressPool)
+	router.GET(apiPath("/address_pools/"), module.handleQueryAddressPool)
+	router.GET(apiPath("/address_pools/:pool"), module.handleGetAddressPool)
+	router.POST(apiPath("/address_pools/:pool"), module.handleCreateAddressPool)
+	router.PUT(apiPath("/address_pools/:pool"), module.handleModifyAddressPool)
+	router.DELETE(apiPath("/address_pools/:pool"), module.handleDeleteAddressPool)
 
 	//address range
-	router.GET("/address_pools/:pool/:type/ranges/", module.handleQueryAddressRange)
-	router.GET("/address_pools/:pool/:type/ranges/:start", module.handleGetAddressRange)
-	router.POST("/address_pools/:pool/:type/ranges/:start", module.handleAddAddressRange)
-	router.DELETE("/address_pools/:pool/:type/ranges/:start", module.handleRemoveAddressRange)
+	router.GET(apiPath("/address_pools/:pool/:type/ranges/"), module.handleQueryAddressRange)
+	router.GET(apiPath("/address_pools/:pool/:type/ranges/:start"), module.handleGetAddressRange)
+	router.POST(apiPath("/address_pools/:pool/:type/ranges/:start"), module.handleAddAddressRange)
+	router.DELETE(apiPath("/address_pools/:pool/:type/ranges/:start"), module.handleRemoveAddressRange)
 
 	//batch
-	router.GET("/batch/create_guest/:id", module.handleGetBatchCreateGuest)
-	router.POST("/batch/create_guest/", module.handleStartBatchCreateGuest)
-	router.GET("/batch/delete_guest/:id", module.handleGetBatchDeleteGuest)
-	router.POST("/batch/delete_guest/", module.handleStartBatchDeleteGuest)
-	router.GET("/batch/stop_guest/:id", module.handleGetBatchStopGuest)
-	router.POST("/batch/stop_guest/", module.handleStartBatchStopGuest)
+	router.GET(apiPath("/batch/create_guest/:id"), module.handleGetBatchCreateGuest)
+	router.POST(apiPath("/batch/create_guest/"), module.handleStartBatchCreateGuest)
+	router.GET(apiPath("/batch/delete_guest/:id"), module.handleGetBatchDeleteGuest)
+	router.POST(apiPath("/batch/delete_guest/"), module.handleStartBatchDeleteGuest)
+	router.GET(apiPath("/batch/stop_guest/:id"), module.handleGetBatchStopGuest)
+	router.POST(apiPath("/batch/stop_guest/"), module.handleStartBatchStopGuest)
 
 }
 
 func (module *APIModule) queryZoneStatistic(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	msg, _ := framework.CreateJsonMessage(framework.QueryZoneStatusRequest)
 	respChan := make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -315,6 +584,10 @@ func (module *APIModule) queryZoneStatistic(w http.ResponseWriter, r *http.Reque
 }
 
 func (module *APIModule) queryComputePoolsStatus(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	msg, _ := framework.CreateJsonMessage(framework.QueryComputePoolStatusRequest)
 	respChan := make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -442,6 +715,10 @@ func (module *APIModule) queryComputePoolsStatus(w http.ResponseWriter, r *http.
 }
 
 func (module *APIModule) getComputePoolStatus(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	pool := params.ByName("pool")
 
 	msg, _ := framework.CreateJsonMessage(framework.GetComputePoolStatusRequest)
@@ -542,6 +819,10 @@ func (module *APIModule) getComputePoolStatus(w http.ResponseWriter, r *http.Req
 }
 
 func (module *APIModule) queryComputeCellStatus(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	pool := params.ByName("pool")
 	msg, _ := framework.CreateJsonMessage(framework.QueryComputePoolCellStatusRequest)
 	msg.SetString(framework.ParamKeyPool, pool)
@@ -673,6 +954,10 @@ func (module *APIModule) queryComputeCellStatus(w http.ResponseWriter, r *http.R
 }
 
 func (module *APIModule) getComputeCellStatus(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	pool := params.ByName("pool")
 	cell := params.ByName("cell")
 
@@ -780,6 +1065,10 @@ func (module *APIModule) getComputeCellStatus(w http.ResponseWriter, r *http.Req
 }
 
 func (module *APIModule) handleQueryInstanceStatusInPool(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var poolName = params.ByName("pool")
 	if "" == poolName{
 		err := errors.New("must specify target pool")
@@ -813,6 +1102,10 @@ func (module *APIModule) handleQueryInstanceStatusInPool(w http.ResponseWriter, 
 }
 
 func (module *APIModule) handleQueryInstanceStatusInCell(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var poolName = params.ByName("pool")
 	if "" == poolName{
 		err := errors.New("must specify target pool")
@@ -855,6 +1148,10 @@ func (module *APIModule) handleQueryInstanceStatusInCell(w http.ResponseWriter, 
 }
 
 func (module *APIModule) handleCreateComputePool(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	pool := params.ByName("pool")
 	rawData, err := ioutil.ReadAll(r.Body)
 	if err != nil{
@@ -897,6 +1194,10 @@ func (module *APIModule) handleCreateComputePool(w http.ResponseWriter, r *http.
 }
 
 func (module *APIModule) handleDeleteComputePool(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	pool := params.ByName("pool")
 	msg, _ := framework.CreateJsonMessage(framework.DeleteComputePoolRequest)
 	msg.SetString(framework.ParamKeyPool, pool)
@@ -916,6 +1217,10 @@ func (module *APIModule) handleDeleteComputePool(w http.ResponseWriter, r *http.
 }
 
 func (module *APIModule) handleModifyComputePool(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	pool := params.ByName("pool")
 	type UserRequest struct {
 		Enable   bool   `json:"enable,omitempty"`
@@ -951,6 +1256,10 @@ func (module *APIModule) handleModifyComputePool(w http.ResponseWriter, r *http.
 }
 
 func (module *APIModule) handleQueryStoragePool(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	msg, _ := framework.CreateJsonMessage(framework.QueryStoragePoolRequest)
 	respChan := make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -1014,6 +1323,10 @@ func (module *APIModule) handleQueryStoragePool(w http.ResponseWriter, r *http.R
 }
 
 func (module *APIModule) handleGetStoragePool(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	poolName := params.ByName("pool")
 	if "" == poolName{
 		err := errors.New("must specify pool name")
@@ -1064,6 +1377,10 @@ func (module *APIModule) handleGetStoragePool(w http.ResponseWriter, r *http.Req
 }
 
 func (module *APIModule) handleCreateStoragePool(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	pool := params.ByName("pool")
 	type UserRequest struct {
 		Type string `json:"type"`
@@ -1098,6 +1415,10 @@ func (module *APIModule) handleCreateStoragePool(w http.ResponseWriter, r *http.
 }
 
 func (module *APIModule) handleModifyStoragePool(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	pool := params.ByName("pool")
 	type UserRequest struct {
 		Type string `json:"type"`
@@ -1132,6 +1453,10 @@ func (module *APIModule) handleModifyStoragePool(w http.ResponseWriter, r *http.
 }
 
 func (module *APIModule) handleDeleteStoragePool(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	pool := params.ByName("pool")
 	msg, _ := framework.CreateJsonMessage(framework.DeleteStoragePoolRequest)
 	msg.SetString(framework.ParamKeyStorage, pool)
@@ -1151,6 +1476,10 @@ func (module *APIModule) handleDeleteStoragePool(w http.ResponseWriter, r *http.
 }
 
 func (module *APIModule) handleAddComputeCell(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	pool := params.ByName("pool")
 	cell := params.ByName("cell")
 	msg, _ := framework.CreateJsonMessage(framework.AddComputePoolCellRequest)
@@ -1172,6 +1501,10 @@ func (module *APIModule) handleAddComputeCell(w http.ResponseWriter, r *http.Req
 }
 
 func (module *APIModule) handleRemoveComputeCell(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	pool := params.ByName("pool")
 	cell := params.ByName("cell")
 	msg, _ := framework.CreateJsonMessage(framework.RemoveComputePoolCellRequest)
@@ -1193,6 +1526,10 @@ func (module *APIModule) handleRemoveComputeCell(w http.ResponseWriter, r *http.
 }
 
 func (module *APIModule) handleModifyComputeCell(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	pool := params.ByName("pool")
 	cell := params.ByName("cell")
 	type UserRequest struct {
@@ -1233,6 +1570,10 @@ func (module *APIModule) handleModifyComputeCell(w http.ResponseWriter, r *http.
 }
 
 func (module *APIModule) handleGetComputeCell(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	pool := params.ByName("pool")
 	cell := params.ByName("cell")
 
@@ -1319,6 +1660,10 @@ func (module *APIModule) handleGetComputeCell(w http.ResponseWriter, r *http.Req
 }
 
 func (module *APIModule) handleQueryUnallocatedCell(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	msg, _ := framework.CreateJsonMessage(framework.QueryUnallocatedComputePoolCellRequest)
 	respChan := make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -1342,6 +1687,10 @@ func (module *APIModule) handleQueryUnallocatedCell(w http.ResponseWriter, r *ht
 }
 
 func (module *APIModule) handleQueryCellsInPool(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	pool := params.ByName("pool")
 	msg, _ := framework.CreateJsonMessage(framework.QueryComputePoolCellRequest)
 	msg.SetString(framework.ParamKeyPool, pool)
@@ -1367,6 +1716,10 @@ func (module *APIModule) handleQueryCellsInPool(w http.ResponseWriter, r *http.R
 }
 
 func (module *APIModule) handleQueryAllPools(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	msg, _ := framework.CreateJsonMessage(framework.QueryComputePoolRequest)
 	respChan := make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -1449,6 +1802,10 @@ func (module *APIModule) handleQueryAllPools(w http.ResponseWriter, r *http.Requ
 }
 
 func (module *APIModule) handleGetComputePool(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	poolName := params.ByName("pool")
 	if "" == poolName{
 		err := errors.New("must specify pool name")
@@ -1513,6 +1870,10 @@ func (module *APIModule) handleGetComputePool(w http.ResponseWriter, r *http.Req
 
 
 func (module *APIModule) handleQueryGuestConfig(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	type userRequest struct {
 		Pool           string `json:"pool"`
 		InCell         bool   `json:"in_cell"`
@@ -1683,6 +2044,10 @@ func (module *APIModule) redirectToImageServer(w http.ResponseWriter, r *http.Re
 }
 
 func (module *APIModule) handleGetGuestConfig(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	id := params.ByName("id")
 	msg, _ := framework.CreateJsonMessage(framework.GetGuestRequest)
 	msg.SetString(framework.ParamKeyInstance, id)
@@ -1714,6 +2079,10 @@ func (module *APIModule) handleGetGuestConfig(w http.ResponseWriter, r *http.Req
 
 
 func (module *APIModule) handleCreateGuest(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	type ciConfig struct {
 		RootEnabled bool   `json:"root_enabled,omitempty"`
 		AdminName   string `json:"admin_name,omitempty"`
@@ -1848,6 +2217,10 @@ func (module *APIModule) handleCreateGuest(w http.ResponseWriter, r *http.Reques
 }
 
 func (module *APIModule) handleDeleteGuest(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	id := params.ByName("id")
 	type userRequest struct {
 		Force bool `json:"force,omitempty"`
@@ -1884,6 +2257,10 @@ func (module *APIModule) handleDeleteGuest(w http.ResponseWriter, r *http.Reques
 }
 
 func (module *APIModule) handleGetInstanceStatus(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	id := params.ByName("id")
 	msg, _ := framework.CreateJsonMessage(framework.GetInstanceStatusRequest)
 	msg.SetString(framework.ParamKeyInstance, id)
@@ -1909,6 +2286,10 @@ func (module *APIModule) handleGetInstanceStatus(w http.ResponseWriter, r *http.
 }
 
 func (module *APIModule) handleStartInstance(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	id := params.ByName("id")
 	type userRequest struct {
 		FromMedia bool `json:"from_media,omitempty"`
@@ -1949,6 +2330,10 @@ func (module *APIModule) handleStartInstance(w http.ResponseWriter, r *http.Requ
 }
 
 func (module *APIModule) handleStopInstance(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	id := params.ByName("id")
 	type userRequest struct {
 		Reboot bool `json:"reboot,omitempty"`
@@ -1991,7 +2376,7 @@ func (module *APIModule) handleStopInstance(w http.ResponseWriter, r *http.Reque
 }
 
 
-func (module *APIModule) SearchMediaImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) searchMediaImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
 	var filterOwner = r.URL.Query().Get("owner")
 	var filterGroup = r.URL.Query().Get("group")
 
@@ -2086,7 +2471,11 @@ func (module *APIModule) SearchMediaImage(w http.ResponseWriter, r *http.Request
 	ResponseOK(payload, w)
 }
 
-func (module *APIModule) QueryAllMediaImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) queryAllMediaImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	msg, _ := framework.CreateJsonMessage(framework.QueryMediaImageRequest)
 	respChan := make(chan ProxyResult, 1)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -2176,7 +2565,11 @@ func (module *APIModule) QueryAllMediaImage(w http.ResponseWriter, r *http.Reque
 }
 
 
-func (module *APIModule) GetMediaImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) getMediaImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var id = params.ByName("id")
 	msg, _ := framework.CreateJsonMessage(framework.GetMediaImageRequest)
 	msg.SetString(framework.ParamKeyImage, id)
@@ -2225,7 +2618,11 @@ func (module *APIModule) GetMediaImage(w http.ResponseWriter, r *http.Request, p
 	ResponseOK(data, w)
 }
 
-func (module *APIModule) CreateMediaImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) createMediaImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	type userRequest struct {
 		Name        string   `json:"name"`
 		Owner       string   `json:"owner"`
@@ -2276,7 +2673,11 @@ func (module *APIModule) CreateMediaImage(w http.ResponseWriter, r *http.Request
 }
 
 
-func (module *APIModule) ModifyMediaImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) modifyMediaImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var imageID = params.ByName("id")
 
 	type userRequest struct {
@@ -2318,7 +2719,11 @@ func (module *APIModule) ModifyMediaImage(w http.ResponseWriter, r *http.Request
 }
 
 
-func (module *APIModule) DeleteMediaImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) deleteMediaImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var id = params.ByName("id")
 	msg, _ := framework.CreateJsonMessage(framework.DeleteMediaImageRequest)
 	msg.SetString(framework.ParamKeyImage, id)
@@ -2338,7 +2743,11 @@ func (module *APIModule) DeleteMediaImage(w http.ResponseWriter, r *http.Request
 }
 
 
-func (module *APIModule) QueryDiskImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) queryDiskImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var filterOwner = r.URL.Query().Get("owner")
 	var filterGroup = r.URL.Query().Get("group")
 	var filterTags = r.URL.Query()["tags"]
@@ -2440,7 +2849,11 @@ func (module *APIModule) QueryDiskImage(w http.ResponseWriter, r *http.Request, 
 	ResponseOK(payload, w)
 }
 
-func (module *APIModule) GetDiskImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) getDiskImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var id = params.ByName("id")
 	msg, _ := framework.CreateJsonMessage(framework.GetDiskImageRequest)
 	msg.SetString(framework.ParamKeyImage, id)
@@ -2501,7 +2914,11 @@ func (module *APIModule) GetDiskImage(w http.ResponseWriter, r *http.Request, pa
 	ResponseOK(data, w)
 }
 
-func (module *APIModule) CreateDiskImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) createDiskImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	type userRequest struct {
 		Name        string   `json:"name"`
 		Guest       string   `json:"guest,omitempty"`
@@ -2557,7 +2974,11 @@ func (module *APIModule) CreateDiskImage(w http.ResponseWriter, r *http.Request,
 }
 
 
-func (module *APIModule) ModifyDiskImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) modifyDiskImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var imageID = params.ByName("id")
 
 	type userRequest struct {
@@ -2599,7 +3020,11 @@ func (module *APIModule) ModifyDiskImage(w http.ResponseWriter, r *http.Request,
 }
 
 
-func (module *APIModule) DeleteDiskImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) deleteDiskImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var id = params.ByName("id")
 	msg, _ := framework.CreateJsonMessage(framework.DeleteDiskImageRequest)
 	msg.SetString(framework.ParamKeyImage, id)
@@ -2619,6 +3044,10 @@ func (module *APIModule) DeleteDiskImage(w http.ResponseWriter, r *http.Request,
 }
 
 func (module *APIModule) handleModifyGuestName(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var id= params.ByName("id")
 	type userRequest struct {
 		Name string `json:"name"`
@@ -2651,6 +3080,10 @@ func (module *APIModule) handleModifyGuestName(w http.ResponseWriter, r *http.Re
 }
 
 func (module *APIModule) handleModifyGuestCores(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var id= params.ByName("id")
 	type userRequest struct {
 		Cores     uint `json:"cores"`
@@ -2685,6 +3118,10 @@ func (module *APIModule) handleModifyGuestCores(w http.ResponseWriter, r *http.R
 }
 
 func (module *APIModule) handleModifyGuestMemory(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var id= params.ByName("id")
 	type userRequest struct {
 		Memory    uint `json:"memory"`
@@ -2719,6 +3156,10 @@ func (module *APIModule) handleModifyGuestMemory(w http.ResponseWriter, r *http.
 }
 
 func (module *APIModule) handleModifyGuestPriority(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var id= params.ByName("id")
 	type userRequest struct {
 		Priority string `json:"priority"`
@@ -2764,6 +3205,10 @@ func (module *APIModule) handleModifyGuestPriority(w http.ResponseWriter, r *htt
 }
 
 func (module *APIModule) handleModifyDiskThreshold(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var id= params.ByName("id")
 	type userRequest struct {
 		ReadSpeed  uint64 `json:"read_speed,omitempty"`
@@ -2800,6 +3245,10 @@ func (module *APIModule) handleModifyDiskThreshold(w http.ResponseWriter, r *htt
 
 
 func (module *APIModule) handleModifyNetworkThreshold(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var id= params.ByName("id")
 	type userRequest struct {
 		ReceiveSpeed uint64 `json:"receive_speed,omitempty"`
@@ -2833,6 +3282,10 @@ func (module *APIModule) handleModifyNetworkThreshold(w http.ResponseWriter, r *
 }
 
 func (module *APIModule) handleResetGuestSystem(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var guestID = params.ByName("id")
 	type userRequest struct {
 		FromImage string `json:"from_image"`
@@ -2866,6 +3319,10 @@ func (module *APIModule) handleResetGuestSystem(w http.ResponseWriter, r *http.R
 
 
 func (module *APIModule) handleModifyGuestPassword(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var id= params.ByName("id")
 	type userRequest struct {
 		Password string `json:"password,omitempty"`
@@ -2907,6 +3364,10 @@ func (module *APIModule) handleModifyGuestPassword(w http.ResponseWriter, r *htt
 }
 
 func (module *APIModule) handleGetGuestPassword(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var id= params.ByName("id")
 	msg, _ := framework.CreateJsonMessage(framework.GetAuthRequest)
 	msg.SetString(framework.ParamKeyGuest, id)
@@ -2944,6 +3405,10 @@ func (module *APIModule) handleGetGuestPassword(w http.ResponseWriter, r *http.R
 }
 
 func (module *APIModule) handleResizeDisk(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var id = params.ByName("id")
 	var index = params.ByName("index")
 	diskOffset, err := strconv.Atoi(index)
@@ -2986,6 +3451,10 @@ func (module *APIModule) handleResizeDisk(w http.ResponseWriter, r *http.Request
 }
 
 func (module *APIModule) handleShrinkDisk(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var id = params.ByName("id")
 	var index = params.ByName("index")
 	diskOffset, err := strconv.Atoi(index)
@@ -3026,6 +3495,10 @@ func (module *APIModule) handleShrinkDisk(w http.ResponseWriter, r *http.Request
 }
 
 func (module *APIModule) handleInsertMedia(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var id = params.ByName("id")
 
 	type userRequest struct {
@@ -3062,6 +3535,10 @@ func (module *APIModule) handleInsertMedia(w http.ResponseWriter, r *http.Reques
 }
 
 func (module *APIModule) handleEjectMedia(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var id = params.ByName("id")
 
 	msg, _ := framework.CreateJsonMessage(framework.EjectMediaRequest)
@@ -3083,6 +3560,10 @@ func (module *APIModule) handleEjectMedia(w http.ResponseWriter, r *http.Request
 }
 
 func (module *APIModule) handleQueryInstanceSnapshots(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var instanceID = params.ByName("id")
 	msg, _ := framework.CreateJsonMessage(framework.QuerySnapshotRequest)
 	msg.SetString(framework.ParamKeyInstance, instanceID)
@@ -3145,6 +3626,10 @@ func (module *APIModule) handleQueryInstanceSnapshots(w http.ResponseWriter, r *
 }
 
 func (module *APIModule) handleCreateInstanceSnapshot(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var instanceID = params.ByName("id")
 
 	type UserRequest struct {
@@ -3181,6 +3666,10 @@ func (module *APIModule) handleCreateInstanceSnapshot(w http.ResponseWriter, r *
 }
 
 func (module *APIModule) handleDeleteInstanceSnapshot(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var instanceID = params.ByName("id")
 	var snapshotName = params.ByName("name")
 
@@ -3204,6 +3693,10 @@ func (module *APIModule) handleDeleteInstanceSnapshot(w http.ResponseWriter, r *
 }
 
 func (module *APIModule) handleRestoreInstanceSnapshot(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var instanceID = params.ByName("id")
 	type UserRequest struct {
 		Target string `json:"target"`
@@ -3237,6 +3730,10 @@ func (module *APIModule) handleRestoreInstanceSnapshot(w http.ResponseWriter, r 
 }
 
 func (module *APIModule) handleGetInstanceSnapshot(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var instanceID = params.ByName("id")
 	var snapshotName = params.ByName("name")
 
@@ -3278,6 +3775,10 @@ func (module *APIModule) handleGetInstanceSnapshot(w http.ResponseWriter, r *htt
 }
 
 func (module *APIModule) handleQueryMigrations(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	msg, _ := framework.CreateJsonMessage(framework.QueryMigrationRequest)
 	var respChan = make(chan ProxyResult, 1)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -3356,6 +3857,10 @@ func (module *APIModule) handleQueryMigrations(w http.ResponseWriter, r *http.Re
 }
 
 func (module *APIModule) handleGetMigration(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var migrationID = params.ByName("id")
 	msg, _ := framework.CreateJsonMessage(framework.GetMigrationRequest)
 	msg.SetString(framework.ParamKeyMigration, migrationID)
@@ -3384,7 +3889,10 @@ func (module *APIModule) handleGetMigration(w http.ResponseWriter, r *http.Reque
 }
 
 func (module *APIModule) handleCreateMigration(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	type UserRequest struct {
 		SourcePool string   `json:"source_pool"`
 		SourceCell string   `json:"source_cell"`
@@ -3433,6 +3941,10 @@ func (module *APIModule) handleCreateMigration(w http.ResponseWriter, r *http.Re
 }
 
 func (module *APIModule) handleQueryAddressPool(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	msg, _ := framework.CreateJsonMessage(framework.QueryAddressPoolRequest)
 	var respChan = make(chan ProxyResult, 1)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -3448,26 +3960,34 @@ func (module *APIModule) handleQueryAddressPool(w http.ResponseWriter, r *http.R
 	}
 
 	type Pool struct {
-		Name      string `json:"name"`
-		Gateway   string `json:"gateway"`
-		Addresses uint64 `json:"addresses"`
-		Allocated uint64 `json:"allocated"`
+		Name      string   `json:"name"`
+		Gateway   string   `json:"gateway"`
+		DNS       []string `json:"dns,omitempty"`
+		Addresses uint64   `json:"addresses"`
+		Allocated uint64   `json:"allocated"`
 	}
 
 	var parser = func(msg framework.Message) (payload []Pool, err error) {
 		payload = make([]Pool, 0)
-		var nameArray, gatewayArray []string
-		var addressArray, allocateArray []uint64
+		var nameArray, gatewayArray, dnsArray []string
+		var addressArray, allocateArray, dnsCountArray []uint64
 		if nameArray, err = msg.GetStringArray(framework.ParamKeyName); err != nil{
 			return
 		}
 		if gatewayArray, err = msg.GetStringArray(framework.ParamKeyGateway); err != nil{
 			return
 		}
+
+		if dnsArray, err = msg.GetStringArray(framework.ParamKeyServer); err != nil{
+			return
+		}
 		if addressArray, err = msg.GetUIntArray(framework.ParamKeyAddress); err != nil{
 			return
 		}
 		if allocateArray, err = msg.GetUIntArray(framework.ParamKeyAllocate); err != nil{
+			return
+		}
+		if dnsCountArray, err = msg.GetUIntArray(framework.ParamKeyCount); err != nil{
 			return
 		}
 		var count = len(nameArray)
@@ -3483,8 +4003,13 @@ func (module *APIModule) handleQueryAddressPool(w http.ResponseWriter, r *http.R
 			err = fmt.Errorf("unmatched allocate array size %d", len(allocateArray))
 			return
 		}
+		var start = 0
 		for i := 0; i < count;i++{
-			payload = append(payload, Pool{nameArray[i], gatewayArray[i], addressArray[i], allocateArray[i]})
+			var dnsCount = int(dnsCountArray[i])
+			var end = start + dnsCount
+			var dns = dnsArray[start : end]
+			payload = append(payload, Pool{nameArray[i], gatewayArray[i], dns, addressArray[i], allocateArray[i]})
+			start = end
 		}
 		return
 	}
@@ -3498,6 +4023,10 @@ func (module *APIModule) handleQueryAddressPool(w http.ResponseWriter, r *http.R
 }
 
 func (module *APIModule) handleGetAddressPool(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var poolName = params.ByName("pool")
 
 	msg, _ := framework.CreateJsonMessage(framework.GetAddressPoolRequest)
@@ -3585,6 +4114,10 @@ func (module *APIModule) handleGetAddressPool(w http.ResponseWriter, r *http.Req
 }
 
 func (module *APIModule) handleCreateAddressPool(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var poolName = params.ByName("pool")
 	type PoolConfig struct {
 		Gateway string `json:"gateway"`
@@ -3618,6 +4151,10 @@ func (module *APIModule) handleCreateAddressPool(w http.ResponseWriter, r *http.
 }
 
 func (module *APIModule) handleModifyAddressPool(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var poolName = params.ByName("pool")
 	type PoolConfig struct {
 		Gateway string `json:"gateway"`
@@ -3651,6 +4188,10 @@ func (module *APIModule) handleModifyAddressPool(w http.ResponseWriter, r *http.
 }
 
 func (module *APIModule) handleDeleteAddressPool(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var poolName = params.ByName("pool")
 	msg, _ := framework.CreateJsonMessage(framework.DeleteAddressPoolRequest)
 	msg.SetString(framework.ParamKeyAddress, poolName)
@@ -3670,6 +4211,10 @@ func (module *APIModule) handleDeleteAddressPool(w http.ResponseWriter, r *http.
 }
 
 func (module *APIModule) handleQueryAddressRange(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var poolName = params.ByName("pool")
 	var rangeType = params.ByName("type")
 	msg, _ := framework.CreateJsonMessage(framework.QueryAddressRangeRequest)
@@ -3729,6 +4274,10 @@ func (module *APIModule) handleQueryAddressRange(w http.ResponseWriter, r *http.
 }
 
 func (module *APIModule) handleGetAddressRange(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var poolName = params.ByName("pool")
 	var rangeType = params.ByName("type")
 	var startAddress = params.ByName("start")
@@ -3796,6 +4345,10 @@ func (module *APIModule) handleGetAddressRange(w http.ResponseWriter, r *http.Re
 }
 
 func (module *APIModule) handleAddAddressRange(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var poolName = params.ByName("pool")
 	var rangeType = params.ByName("type")
 	var startAddress = params.ByName("start")
@@ -3835,6 +4388,10 @@ func (module *APIModule) handleAddAddressRange(w http.ResponseWriter, r *http.Re
 }
 
 func (module *APIModule) handleRemoveAddressRange(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var poolName = params.ByName("pool")
 	var rangeType = params.ByName("type")
 	var startAddress = params.ByName("start")
@@ -3859,8 +4416,11 @@ func (module *APIModule) handleRemoveAddressRange(w http.ResponseWriter, r *http
 	ResponseOK("", w)
 }
 
-
 func (module *APIModule) handleGetBatchCreateGuest(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var batchID = params.ByName("id")
 	msg, _ := framework.CreateJsonMessage(framework.GetBatchCreateGuestRequest)
 	msg.SetString(framework.ParamKeyID, batchID)
@@ -3959,6 +4519,10 @@ func (module *APIModule) handleGetBatchCreateGuest(w http.ResponseWriter, r *htt
 }
 
 func (module *APIModule) handleStartBatchCreateGuest(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	type ciConfig struct {
 		RootEnabled bool   `json:"root_enabled,omitempty"`
 		AdminName   string `json:"admin_name,omitempty"`
@@ -4105,6 +4669,10 @@ func (module *APIModule) handleStartBatchCreateGuest(w http.ResponseWriter, r *h
 }
 
 func (module *APIModule) handleGetBatchDeleteGuest(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var batchID = params.ByName("id")
 	msg, _ := framework.CreateJsonMessage(framework.GetBatchDeleteGuestRequest)
 	msg.SetString(framework.ParamKeyID, batchID)
@@ -4195,6 +4763,10 @@ func (module *APIModule) handleGetBatchDeleteGuest(w http.ResponseWriter, r *htt
 }
 
 func (module *APIModule) handleStartBatchDeleteGuest(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	type UserRequest struct {
 		Guest []string `json:"guest"`
 	}
@@ -4239,6 +4811,10 @@ func (module *APIModule) handleStartBatchDeleteGuest(w http.ResponseWriter, r *h
 
 
 func (module *APIModule) handleGetBatchStopGuest(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var batchID = params.ByName("id")
 	msg, _ := framework.CreateJsonMessage(framework.GetBatchStopGuestRequest)
 	msg.SetString(framework.ParamKeyID, batchID)
@@ -4329,6 +4905,10 @@ func (module *APIModule) handleGetBatchStopGuest(w http.ResponseWriter, r *http.
 }
 
 func (module *APIModule) handleStartBatchStopGuest(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	type UserRequest struct {
 		Guest []string `json:"guest"`
 		Force bool     `json:"force,omitempty"`

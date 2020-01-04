@@ -69,7 +69,7 @@ func (executor *QueryDiskImageExecutor)Execute(id framework.SessionID, request f
 	resp.SetUIntArray(framework.ParamKeyCount, tagCount)
 	resp.SetUIntArray(framework.ParamKeyStatus, created)
 	resp.SetUIntArray(framework.ParamKeyProgress, progress)
-	log.Printf("[%08X] query disk image success, %d image(s) available", id, len(result.DiskList))
+	//log.Printf("[%08X] query disk image success, %d image(s) available", id, len(result.DiskList))
 	return executor.Sender.SendMessage(resp, request.GetSender())
 
 }

@@ -44,6 +44,10 @@ type ImageServiceConfig struct {
 	KeyFile string `json:"key_file"`
 }
 
+const (
+	APIRoot                 = "/api"
+	APIVersion              = 1
+)
 func CreateHttpModule(configPath, dataPath, host string, image *ImageManager) (module *HttpModule, err error) {
 	const (
 		ListenPortRangeBegin = 5801
@@ -285,18 +289,20 @@ func (module *HttpModule) GetKeyFilePath() string{
 	return module.keyFile
 }
 
-
+func apiPath(path string) string{
+	return fmt.Sprintf("%s/v%d%s", APIRoot, APIVersion, path)
+}
 
 func (module *HttpModule) RegisterHandler(router *httprouter.Router){
 
-	router.HEAD("/media_image_files/:id", module.CheckMediaImageFile)
-	router.GET("/media_image_files/:id", module.DownloadMediaImageFile)
-	router.POST("/media_image_files/:id", module.UploadMediaImageFile)
+	router.HEAD(apiPath("/media_images/:id/file/"), module.CheckMediaImageFile)
+	router.GET(apiPath("/media_images/:id/file/"), module.DownloadMediaImageFile)
+	router.POST(apiPath("/media_images/:id/file/"), module.UploadMediaImageFile)
 
-	router.HEAD("/disk_image_files/:id", module.CheckDiskImageFile)
-	router.GET("/disk_image_files/:id", module.ReadDiskImageFile)
-	router.PUT("/disk_image_files/:id", module.WriteDiskImageFile)
-	router.POST("/disk_image_files/:id", module.uploadDiskImageFile)//upload form
+	router.HEAD(apiPath("/disk_images/:id/file/"), module.CheckDiskImageFile)
+	router.GET(apiPath("/disk_images/:id/file/"), module.ReadDiskImageFile)
+	router.PUT(apiPath("/disk_images/:id/file/"), module.WriteDiskImageFile)
+	router.POST(apiPath("/disk_images/:id/file/"), module.uploadDiskImageFile)//upload form
 }
 
 func (module *HttpModule) UploadMediaImageFile(w http.ResponseWriter, r *http.Request, params httprouter.Params){

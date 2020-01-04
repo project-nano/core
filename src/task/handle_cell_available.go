@@ -2,7 +2,7 @@ package task
 
 import (
 	"github.com/project-nano/framework"
-	"modules"
+	"github.com/project-nano/core/modules"
 	"log"
 	"time"
 	"fmt"
@@ -166,7 +166,7 @@ func (executor *HandleCellAvailableExecutor)Execute(id framework.SessionID, requ
 		log.Printf("[%08X] no instance available in cell '%s'", id, cellName)
 	}else {
 
-		var names, ids, users, groups, secrets, addresses, systems, internal, external []string
+		var names, ids, users, groups, secrets, addresses, systems, internal, external, createTime, hardware []string
 		var cores, options, enables, progress, status, monitors, memories, disks, diskCounts, cpuPriorities, ioLimits []uint64
 		if names, err = cellResp.GetStringArray(framework.ParamKeyName); err != nil {
 			return err
@@ -193,6 +193,12 @@ func (executor *HandleCellAvailableExecutor)Execute(id framework.SessionID, requ
 			return err
 		}
 		if external, err = cellResp.GetStringArray(framework.ParamKeyExternal); err != nil{
+			return err
+		}
+		if createTime, err = cellResp.GetStringArray(framework.ParamKeyCreate); err != nil{
+			return err
+		}
+		if hardware, err = cellResp.GetStringArray(framework.ParamKeyHardware); err != nil{
 			return err
 		}
 
@@ -276,6 +282,8 @@ func (executor *HandleCellAvailableExecutor)Execute(id framework.SessionID, requ
 			config.InternalNetwork.InstanceAddress = addresses[i]
 			config.InternalNetwork.AssignedAddress = internal[i]
 			config.ExternalNetwork.AssignedAddress = external[i]
+			config.CreateTime = createTime[i]
+			config.HardwareAddress = hardware[i]
 			config.CPUPriority = modules.PriorityEnum(cpuPriorities[i])
 			config.ReadSpeed = ioLimits[ ValidLimitParametersCount * i + ReadSpeedOffset ]
 			config.WriteSpeed = ioLimits[ ValidLimitParametersCount * i + WriteSpeedOffset ]

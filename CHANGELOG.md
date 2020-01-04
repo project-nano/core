@@ -1,4 +1,28 @@
 # Change Log
+## [1.1.1] - 2020-01-01
+
+### Added 
+
+- Add DNS to API '/address_pools/'(query address pool list)
+- Add CreateTime/MAC address to instance/guest
+
+### Fixed
+
+- Search guest in an empty cell return a proper result
+- Properly return a pending error of instance when get status
+
+## [1.1.0] - 2019-11-05
+
+### Added 
+
+- API signature verify
+- Add go mod
+
+### Changed
+
+- Call core API via prefix '/api/v1/'
+- Change "/media_image_files/:id" to "/media_images/:id/file/"
+- Change "/disk_image_files/:id" to "/disk_images/:id/file/"
 
 ## [1.0.0] - 2019-07-02
 

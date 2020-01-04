@@ -4,7 +4,7 @@ import (
 	"time"
 	"log"
 	"github.com/project-nano/framework"
-	"modules"
+	"github.com/project-nano/core/modules"
 	"errors"
 	"fmt"
 )

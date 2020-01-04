@@ -4,7 +4,7 @@ import (
 	"github.com/project-nano/framework"
 	"log"
 	"fmt"
-	"modules"
+	"github.com/project-nano/core/modules"
 )
 
 type ModifyStoragePoolExecutor struct {

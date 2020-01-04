@@ -4,7 +4,7 @@ import (
 	"github.com/project-nano/framework"
 	"log"
 	"time"
-	"modules"
+	"github.com/project-nano/core/modules"
 	"net/http"
 	"fmt"
 	"strconv"
@@ -250,10 +250,10 @@ func (executor *CreateGuestExecutor)CancelResource(id string) error{
 func (executor *CreateGuestExecutor) getImageSize(id, host string, port int) (size uint64, err error){
 	const (
 		Protocol = "https"
-		Resource = "disk_image_files"
+		Resource = "disk_images"
 		LengthHeaderName = "Content-Length"
 	)
-	var fileURL = fmt.Sprintf("%s://%s:%d/%s/%s", Protocol, host, port, Resource, id)
+	var fileURL = fmt.Sprintf("%s://%s:%d/%s/%s/file/", Protocol, host, port, Resource, id)
 	resp, err := executor.Client.Head(fileURL)
 	if err != nil{
 		return

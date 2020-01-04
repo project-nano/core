@@ -437,11 +437,7 @@ func (manager *ImageManager) handleCreateMediaImage(config MediaConfig, respChan
 		respChan <- ImageResult{Error:err}
 		return
 	}
-	newID, err := uuid.NewV4()
-	if err != nil{
-		respChan <- ImageResult{Error:err}
-		return err
-	}
+	var newID = uuid.NewV4()
 	var image = MediaStatus{}
 	image.MediaConfig = config
 	image.ID = newID.String()
@@ -699,11 +695,7 @@ func (manager *ImageManager) handleCreateDiskImage(config DiskConfig, respChan c
 		respChan <- ImageResult{Error:err}
 		return
 	}
-	newID, err := uuid.NewV4()
-	if err != nil{
-		respChan <- ImageResult{Error:err}
-		return err
-	}
+	var newID = uuid.NewV4()
 
 	var image = DiskStatus{}
 	image.DiskConfig = config

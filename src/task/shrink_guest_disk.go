@@ -3,7 +3,7 @@ package task
 import (
 	"log"
 	"github.com/project-nano/framework"
-	"modules"
+	"github.com/project-nano/core/modules"
 	"fmt"
 	"time"
 )

@@ -1,22 +1,22 @@
 package modules
 
 import (
-	"time"
-	"log"
-	"fmt"
-	"path/filepath"
-	"os"
-	"io/ioutil"
+	"bytes"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
-	"github.com/satori/go.uuid"
-	"sort"
-	"net"
-	"bytes"
-	"math/rand"
-	"encoding/binary"
+	"fmt"
 	"github.com/project-nano/framework"
+	uuid "github.com/satori/go.uuid"
+	"io/ioutil"
+	"log"
+	"math/rand"
+	"net"
+	"os"
+	"path/filepath"
 	"regexp"
+	"sort"
+	"time"
 )
 
 //config file define
@@ -153,38 +153,39 @@ type ResourceManager struct {
 type resourceCommand struct {
 	DiskImageConfig
 	MigrationParameter
-	Type         commandType
-	Pool         string
-	Cell         string
-	Address      string
-	Range        string
-	Start        string
-	Instance     string
-	ConfigList   []InstanceStatus
-	Config       InstanceStatus
-	Condition    GuestQueryCondition
-	MonitorPort  uint
-	Name         string
-	Host         string
-	Port         int
-	Group        string
-	Tags         []string
-	Progress     uint
-	Size         uint64
-	Image        string
-	Secret       string
-	Storage      string
-	StorageType  string
-	Target       string
-	Migration    string
-	Error        error
-	Failover     bool
-	IDList       []string
-	PortList     []uint64
-	DiskImages   []DiskImageStatus
+	Type        commandType
+	Pool        string
+	Cell        string
+	Address     string
+	Range       string
+	Start       string
+	Instance    string
+	Hardware    string
+	ConfigList  []InstanceStatus
+	Config      InstanceStatus
+	Condition   GuestQueryCondition
+	MonitorPort uint
+	Name        string
+	Host        string
+	Port        int
+	Group       string
+	Tags        []string
+	Progress    uint
+	Size        uint64
+	Image       string
+	Secret      string
+	Storage     string
+	StorageType string
+	Target      string
+	Migration   string
+	Error       error
+	Failover    bool
+	IDList      []string
+	PortList    []uint64
+	DiskImages  []DiskImageStatus
 	AddressPoolConfig
 	AddressRangeConfig
-	Batch        string
+	Batch string
 	BatchCreateRequest
 	Priority     PriorityEnum
 	ReadSpeed    uint64
@@ -477,8 +478,8 @@ func (manager *ResourceManager) UpdateInstanceStatus(status InstanceStatus, resp
 	cmd := resourceCommand{Type: cmdUpdateInstanceStatus, Config: status, ErrorChan: respChan}
 	manager.commands <- cmd
 }
-func (manager *ResourceManager) ConfirmInstance(id string, monitor uint, secret string, respChan chan error) {
-	cmd := resourceCommand{Type: cmdConfirmInstance, Instance: id, MonitorPort: monitor, Secret:secret,  ErrorChan: respChan}
+func (manager *ResourceManager) ConfirmInstance(id string, monitor uint, secret, ethernetAddress string, respChan chan error) {
+	cmd := resourceCommand{Type: cmdConfirmInstance, Instance: id, MonitorPort: monitor, Secret:secret, Hardware: ethernetAddress, ErrorChan: respChan}
 	manager.commands <- cmd
 }
 
@@ -914,7 +915,7 @@ func (manager *ResourceManager) handleCommand(cmd resourceCommand) {
 	case cmdAllocateInstance:
 		err = manager.handleAllocateInstance(cmd.Pool, cmd.Config, cmd.ResultChan)
 	case cmdConfirmInstance:
-		err = manager.handleConfirmInstance(cmd.Instance, cmd.MonitorPort, cmd.Secret, cmd.ErrorChan)
+		err = manager.handleConfirmInstance(cmd.Instance, cmd.MonitorPort, cmd.Secret, cmd.Hardware, cmd.ErrorChan)
 	case cmdDeallocateInstance:
 		err = manager.handleDeallocateInstance(cmd.Instance, cmd.Error, cmd.ErrorChan)
 	case cmdUpdateInstanceStatus:
@@ -1785,9 +1786,6 @@ func (manager *ResourceManager) handleSearchGuestConfig(condition GuestQueryCond
 				err := fmt.Errorf("invalid cell '%s'", condition.Cell)
 				respChan <- ResourceResult{Error:err}
 				return err
-			} else if 0 == len(cell.Instances) {
-				respChan <- ResourceResult{}
-				return fmt.Errorf("no instance available in cell '%s'", condition.Cell)
 			} else {
 				for id, _ := range cell.Instances {
 					idList = append(idList, id)
@@ -1926,12 +1924,7 @@ func (manager *ResourceManager) handleAllocateInstance(poolName string, config I
 		respChan <- ResourceResult{Error: err}
 		return err
 	}
-	newID, err := uuid.NewV4()
-	if err != nil {
-		log.Printf("<resource_manager> generate new uuid fail: %s", err.Error())
-		respChan <- ResourceResult{Error: err}
-		return err
-	}
+	var newID = uuid.NewV4()
 	config.ID = newID.String()
 	cellName, err := manager.selectCell(poolName, config.InstanceResource, true)
 	if err != nil {
@@ -2028,7 +2021,7 @@ func (manager *ResourceManager) handleUpdateInstanceStatus(status InstanceStatus
 	return nil
 }
 
-func (manager *ResourceManager) handleConfirmInstance(id string, monitorPort uint, monitorSecret string, respChan chan error) error {
+func (manager *ResourceManager) handleConfirmInstance(id string, monitorPort uint, monitorSecret, ethernetAddress string, respChan chan error) error {
 	status, exists := manager.instances[id]
 	if !exists {
 		err := fmt.Errorf("invalid instance '%s'", id)
@@ -2052,6 +2045,7 @@ func (manager *ResourceManager) handleConfirmInstance(id string, monitorPort uin
 
 	status.InternalNetwork.MonitorPort = monitorPort
 	status.MonitorSecret = monitorSecret
+	status.HardwareAddress = ethernetAddress
 	status.Created = true
 	status.Progress = 0
 	status.CreateTime = time.Now().Format(TimeFormatLayout)
@@ -2113,20 +2107,22 @@ func (manager *ResourceManager) handleDeallocateInstance(id string, err error, r
 	return nil
 }
 
-func (manager *ResourceManager) handleGetInstanceStatus(id string, respChan chan ResourceResult) error {
-	if status, exists := manager.instances[id]; !exists {
-		var err error
-		if err, exists = manager.pendingError[id]; exists{
-			//fetch pending error
-			delete(manager.pendingError, id)
-		}else{
-			err = fmt.Errorf("invalid instance '%s'", id)
-		}
+func (manager *ResourceManager) handleGetInstanceStatus(id string, respChan chan ResourceResult) (err error) {
+	var exists bool
+	var status InstanceStatus
+	if err, exists = manager.pendingError[id]; exists{
+		//fetch pending error
+		delete(manager.pendingError, id)
 		respChan <- ResourceResult{Error: err}
-		return err
-	} else {
+		log.Printf("<resource_manager> pending error of instance '%s' fetched", id)
+		return nil
+	}else if status, exists = manager.instances[id]; exists{
 		respChan <- ResourceResult{InstanceStatus: status}
 		return nil
+	}else{
+		err = fmt.Errorf("invalid instance '%s'", id)
+		respChan <- ResourceResult{Error: err}
+		return err
 	}
 }
 
@@ -2486,11 +2482,7 @@ func (manager *ResourceManager) handleCreateMigration(params MigrationParameter,
 		respChan <- ResourceResult{Error:err}
 		return err
 	}
-	newID, err := uuid.NewV4()
-	if err != nil{
-		respChan <- ResourceResult{Error:err}
-		return err
-	}
+	var newID = uuid.NewV4()
 	var M = MigrationStatus{}
 	M.ID = newID.String()
 	M.SourcePool = params.SourcePool
@@ -3130,12 +3122,7 @@ func (manager *ResourceManager) handleStartBatchCreateGuest(request BatchCreateR
 		respChan <- ResourceResult{Error: err}
 		return err
 	}
-	newID, err := uuid.NewV4()
-	if err != nil{
-		respChan <- ResourceResult{Error: err}
-		return err
-	}
-
+	var newID = uuid.NewV4()
 	var task BatchCreateGuestTask
 	task.Finished = false
 	task.StartTime = time.Now()
@@ -3236,12 +3223,7 @@ func (manager *ResourceManager) handleStartBatchDeleteGuest(id []string, respCha
 		respChan <- ResourceResult{Error:err}
 		return err
 	}
-	newID, err := uuid.NewV4()
-	if err != nil{
-		respChan <- ResourceResult{Error: err}
-		return err
-	}
-
+	var newID = uuid.NewV4()
 	var task BatchDeleteGuestTask
 	task.Finished = false
 	task.StartTime = time.Now()
@@ -3341,12 +3323,7 @@ func (manager *ResourceManager) handleStartBatchStopGuest(id []string, respChan 
 		respChan <- ResourceResult{Error:err}
 		return err
 	}
-	newID, err := uuid.NewV4()
-	if err != nil{
-		respChan <- ResourceResult{Error: err}
-		return err
-	}
-
+	var newID = uuid.NewV4()
 	var task BatchStopGuestTask
 	task.Finished = false
 	task.StartTime = time.Now()

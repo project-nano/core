@@ -1,7 +1,7 @@
 package task
 
 import (
-	"modules"
+	"github.com/project-nano/core/modules"
 	"log"
 	"github.com/project-nano/framework"
 )

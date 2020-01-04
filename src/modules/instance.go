@@ -50,6 +50,7 @@ type InstanceStatus struct {
 	MonitorProtocol string
 	MonitorSecret   string
 	CreateTime      string
+	HardwareAddress string
 	CPUPriority     PriorityEnum
 	WriteSpeed      uint64
 	WriteIOPS       uint64
@@ -91,7 +92,7 @@ const (
 func MarshalInstanceStatusListToMessage(list []InstanceStatus, msg framework.Message) error {
 	var count = uint(len(list))
 	msg.SetUInt(framework.ParamKeyCount, count)
-	var names, ids, pools, cells, users, monitors, addresses, groups, secrets, systems, createTime, internal, external []string
+	var names, ids, pools, cells, users, monitors, addresses, groups, secrets, systems, createTime, internal, external, hardware []string
 	var cores, options, enables, progress, status, memories, disks, diskCounts, mediaAttached, cpuPriorities, ioLimits []uint64
 	for _, ins := range list {
 		names = append(names, ins.Name)
@@ -142,6 +143,7 @@ func MarshalInstanceStatusListToMessage(list []InstanceStatus, msg framework.Mes
 
 		systems = append(systems, ins.System)
 		createTime = append(createTime, ins.CreateTime)
+		hardware = append(hardware, ins.HardwareAddress)
 		memories = append(memories, uint64(ins.Memory))
 		var diskCount = len(ins.Disks)
 		diskCounts = append(diskCounts, uint64(diskCount))
@@ -167,6 +169,7 @@ func MarshalInstanceStatusListToMessage(list []InstanceStatus, msg framework.Mes
 	msg.SetStringArray(framework.ParamKeyCreate, createTime)
 	msg.SetStringArray(framework.ParamKeyInternal, internal)
 	msg.SetStringArray(framework.ParamKeyExternal, external)
+	msg.SetStringArray(framework.ParamKeyHardware, hardware)
 
 	msg.SetStringArray(framework.ParamKeyGroup, groups)
 	msg.SetUIntArray(framework.ParamKeyCore, cores)
@@ -219,6 +222,7 @@ func (config *InstanceStatus) Marshal(msg framework.Message) error {
 	msg.SetString(framework.ParamKeySecret, config.MonitorSecret)
 	msg.SetString(framework.ParamKeySystem, config.System)
 	msg.SetString(framework.ParamKeyCreate, config.CreateTime)
+	msg.SetString(framework.ParamKeyHardware, config.HardwareAddress)
 	var internalMonitor = fmt.Sprintf("%s:%d", config.InternalNetwork.MonitorAddress, config.InternalNetwork.MonitorPort)
 	var externalMonitor = fmt.Sprintf("%s:%d", config.ExternalNetwork.MonitorAddress, config.ExternalNetwork.MonitorPort)
 	msg.SetStringArray(framework.ParamKeyMonitor, []string{internalMonitor, externalMonitor})

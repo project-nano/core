@@ -4,7 +4,7 @@ import (
 	"github.com/project-nano/framework"
 	"log"
 	"time"
-	"modules"
+	"github.com/project-nano/core/modules"
 )
 
 type QuerySnapshotExecutor struct {

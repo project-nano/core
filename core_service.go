@@ -3,11 +3,11 @@ package main
 import (
 	"github.com/project-nano/framework"
 	"log"
-	"modules"
+	"github.com/project-nano/core/modules"
 )
 
 const (
-	CurrentVersion = "1.0.0"
+	CurrentVersion = "1.1.1"
 )
 
 type CoreService struct {

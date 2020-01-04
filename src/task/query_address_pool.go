@@ -2,7 +2,7 @@ package task
 
 import (
 	"github.com/project-nano/framework"
-	"modules"
+	"github.com/project-nano/core/modules"
 	"log"
 )
 
@@ -29,8 +29,8 @@ func (executor *QueryAddressPoolExecutor)Execute(id framework.SessionID, request
 			id, request.GetSender(), request.GetFromSession(), err.Error())
 		return executor.Sender.SendMessage(resp, request.GetSender())
 	}
-	var nameArray, gatewayArray []string
-	var addressArray, allocateArray []uint64
+	var nameArray, gatewayArray, dnsArray []string
+	var addressArray, allocateArray, dnsCountArray []uint64
 	for _, pool := range result.AddressPoolStatusList{
 		nameArray = append(nameArray, pool.Name)
 		gatewayArray = append(gatewayArray, pool.Gateway)
@@ -40,12 +40,16 @@ func (executor *QueryAddressPoolExecutor)Execute(id framework.SessionID, request
 			addressCount += addressRange.Capacity
 		}
 		addressArray = append(addressArray, uint64(addressCount))
+		dnsCountArray = append(dnsCountArray, uint64(len(pool.DNS)))
+		dnsArray = append(dnsArray, pool.DNS...)
 	}
 	resp.SetSuccess(true)
 	resp.SetStringArray(framework.ParamKeyName, nameArray)
 	resp.SetStringArray(framework.ParamKeyGateway, gatewayArray)
+	resp.SetStringArray(framework.ParamKeyServer, dnsArray)
 	resp.SetUIntArray(framework.ParamKeyAddress, addressArray)
 	resp.SetUIntArray(framework.ParamKeyAllocate, allocateArray)
+	resp.SetUIntArray(framework.ParamKeyCount, dnsCountArray)
 	log.Printf("[%08X] reply %d address pool(s) to %s.[%08X]",
 		id, len(result.AddressPoolStatusList), request.GetSender(), request.GetFromSession())
 	return executor.Sender.SendMessage(resp, request.GetSender())
