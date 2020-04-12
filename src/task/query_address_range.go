@@ -37,7 +37,7 @@ func (executor *QueryAddressRangeExecutor)Execute(id framework.SessionID, reques
 		return executor.Sender.SendMessage(resp, request.GetSender())
 	}
 	var startArray, endArray, maskArray []string
-	for _, status := range result.AddressRangeStatusList{
+	for _, status := range result.AddressRangeList {
 		startArray = append(startArray, status.Start)
 		endArray = append(endArray, status.End)
 		maskArray = append(maskArray, status.Netmask)
@@ -47,6 +47,6 @@ func (executor *QueryAddressRangeExecutor)Execute(id framework.SessionID, reques
 	resp.SetStringArray(framework.ParamKeyEnd, endArray)
 	resp.SetStringArray(framework.ParamKeyMask, maskArray)
 	log.Printf("[%08X] reply %d address range(s) to %s.[%08X]",
-		id, len(result.AddressRangeStatusList), request.GetSender(), request.GetFromSession())
+		id, len(result.AddressRangeList), request.GetSender(), request.GetFromSession())
 	return executor.Sender.SendMessage(resp, request.GetSender())
 }

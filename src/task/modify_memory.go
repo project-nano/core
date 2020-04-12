@@ -40,7 +40,7 @@ func (executor *ModifyGuestMemoryExecutor)Execute(id framework.SessionID, reques
 			resp.SetError(result.Error.Error())
 			return executor.Sender.SendMessage(resp, request.GetSender())
 		}
-		ins = result.InstanceStatus
+		ins = result.Instance
 		if ins.Memory == memory {
 			err = errors.New("no need to modify")
 			log.Printf("[%08X] %s", id, err.Error())

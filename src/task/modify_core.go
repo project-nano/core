@@ -39,7 +39,7 @@ func (executor *ModifyGuestCoreExecutor)Execute(id framework.SessionID, request 
 			resp.SetError(result.Error.Error())
 			return executor.Sender.SendMessage(resp, request.GetSender())
 		}
-		ins = result.InstanceStatus
+		ins = result.Instance
 		if ins.Cores == cores{
 			err = errors.New("no need to modify")
 			log.Printf("[%08X] %s", id, err.Error())

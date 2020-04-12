@@ -39,7 +39,7 @@ func (executor *QueryComputeCellStatusExecutor)Execute(id framework.SessionID, r
 	resp.SetSuccess(true)
 	var name, address []string
 	var enabled, alive, instance, usage, cores, memory, disk, speed []uint64
-	for _, s := range result.ComputeCellStatusList{
+	for _, s := range result.ComputeCellList {
 		name = append(name, s.Name)
 		address = append(address, s.Address)
 		if s.Enabled{

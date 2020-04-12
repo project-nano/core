@@ -74,8 +74,8 @@ func (executor *CreateMigrationExecutor) Execute(id framework.SessionID, request
 			log.Printf("[%08X] allocate migration task fail: %s", id, err.Error())
 			return executor.Sender.SendMessage(resp, request.GetSender())
 		}
-		migrationID = result.MigrationStatus.ID
-		instances = result.Instances
+		migrationID = result.Migration.ID
+		instances = result.Migration.Instances
 		resp.SetSuccess(true)
 		resp.SetString(framework.ParamKeyMigration, migrationID)
 		log.Printf("[%08X] migration '%s' allocated", id, migrationID)

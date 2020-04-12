@@ -36,7 +36,7 @@ func (executor *DeleteGuestExecutor)Execute(id framework.SessionID, request fram
 			resp.SetError(result.Error.Error())
 			return executor.Sender.SendMessage(resp, request.GetSender())
 		}
-		ins = result.InstanceStatus
+		ins = result.Instance
 		if ins.Running{
 			err = fmt.Errorf("instance '%s' is still running", instanceID)
 			log.Printf("[%08X] instance '%s' is still running", id, instanceID)

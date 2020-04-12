@@ -37,7 +37,7 @@ func (executor *GetGuestConfigExecutor)Execute(id framework.SessionID, request f
 			resp.SetError(errMsg)
 			return executor.Sender.SendMessage(resp, request.GetSender())
 		}
-		config = result.InstanceStatus
+		config = result.Instance
 	}
 	config.Marshal(resp)
 	resp.SetSuccess(true)

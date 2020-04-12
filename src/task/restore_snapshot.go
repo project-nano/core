@@ -46,7 +46,7 @@ func (executor *RestoreSnapshotExecutor)Execute(id framework.SessionID, request 
 			resp.SetError(result.Error.Error())
 			return executor.Sender.SendMessage(resp, request.GetSender())
 		}
-		ins = result.InstanceStatus
+		ins = result.Instance
 	}
 	{
 		//forward request

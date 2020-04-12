@@ -35,7 +35,7 @@ func (executor *QuerySnapshotExecutor)Execute(id framework.SessionID, request fr
 			resp.SetError(result.Error.Error())
 			return executor.Sender.SendMessage(resp, request.GetSender())
 		}
-		ins = result.InstanceStatus
+		ins = result.Instance
 	}
 	{
 		//forward request

@@ -49,7 +49,7 @@ func (executor *HandleCellAvailableExecutor)Execute(id framework.SessionID, requ
 			return nil
 		}
 		poolName = result.Pool
-		cellStatus = result.ComputeCellStatus
+		cellStatus = result.ComputeCell
 	}
 	if cellStatus.PurgeAppending{
 		//need purge
@@ -98,7 +98,7 @@ func (executor *HandleCellAvailableExecutor)Execute(id framework.SessionID, requ
 			log.Printf("[%08X] get compute pool fail: %s", id, result.Error.Error())
 			return nil
 		}
-		computePool = result.ComputePoolInfo
+		computePool = result.ComputePoolConfig
 	}
 	var cellResp framework.Message
 	{
@@ -115,7 +115,7 @@ func (executor *HandleCellAvailableExecutor)Execute(id framework.SessionID, requ
 				log.Printf("[%08X] get storage pool fail: %s", id, result.Error.Error())
 				return nil
 			}
-			var storagePool = result.StoragePoolInfo
+			var storagePool = result.StoragePool
 			notify.SetString(framework.ParamKeyType, storagePool.Type)
 			notify.SetString(framework.ParamKeyHost, storagePool.Host)
 			notify.SetString(framework.ParamKeyTarget, storagePool.Target)
@@ -128,7 +128,7 @@ func (executor *HandleCellAvailableExecutor)Execute(id framework.SessionID, requ
 				log.Printf("[%08X] get address pool fail: %s", id, result.Error.Error())
 				return nil
 			}
-			var addressPool = result.AddressPoolStatus
+			var addressPool = result.AddressPool
 			notify.SetString(framework.ParamKeyGateway, addressPool.Gateway)
 			notify.SetStringArray(framework.ParamKeyServer, addressPool.DNS)
 		}

@@ -42,7 +42,7 @@ func (executor *ShrinkGuestDiskExecutor)Execute(id framework.SessionID, request 
 			resp.SetError(result.Error.Error())
 			return executor.Sender.SendMessage(resp, request.GetSender())
 		}
-		ins = result.InstanceStatus
+		ins = result.Instance
 		if diskIndex >= len(ins.Disks){
 			err = fmt.Errorf("invalid disk index %d", diskIndex)
 			log.Printf("[%08X] %s", id, err.Error())

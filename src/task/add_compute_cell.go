@@ -52,7 +52,7 @@ func (executor *AddComputePoolExecutor)Execute(id framework.SessionID, request f
 			log.Printf("[%08X] warning: get compute pool fail: %s", id, err.Error())
 			return
 		}
-		computePool = result.ComputePoolInfo
+		computePool = result.ComputePoolConfig
 	}
 
 	{
@@ -70,7 +70,7 @@ func (executor *AddComputePoolExecutor)Execute(id framework.SessionID, request f
 				log.Printf("[%08X] get storage pool fail: %s", id, err.Error())
 				return
 			}
-			var storagePool = result.StoragePoolInfo
+			var storagePool = result.StoragePool
 			notify.SetString(framework.ParamKeyType, storagePool.Type)
 			notify.SetString(framework.ParamKeyHost, storagePool.Host)
 			notify.SetString(framework.ParamKeyTarget, storagePool.Target)
@@ -83,7 +83,7 @@ func (executor *AddComputePoolExecutor)Execute(id framework.SessionID, request f
 				log.Printf("[%08X] get address pool fail: %s", id, result.Error.Error())
 				return nil
 			}
-			var addressPool = result.AddressPoolStatus
+			var addressPool = result.AddressPool
 			notify.SetString(framework.ParamKeyGateway, addressPool.Gateway)
 			notify.SetStringArray(framework.ParamKeyServer, addressPool.DNS)
 		}

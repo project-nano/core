@@ -29,7 +29,7 @@ func (executor *HandleGuestStoppedExecutor)Execute(id framework.SessionID, event
 			log.Printf("[%08X] fetch guest fail: %s", id, errMsg)
 			return result.Error
 		}
-		status = result.InstanceStatus
+		status = result.Instance
 	}
 	status.Running = false
 	{

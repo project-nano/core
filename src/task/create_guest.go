@@ -192,7 +192,7 @@ func (executor *CreateGuestExecutor)Execute(id framework.SessionID, request fram
 			log.Printf("[%08X] allocate resource fail: %s", id, result.Error.Error())
 			return executor.ResponseFail(resp, result.Error.Error(), request.GetSender())
 		}
-		var instance = result.InstanceStatus
+		var instance = result.Instance
 		config.ID = instance.ID
 		config.Cell = instance.Cell
 		log.Printf("[%08X] new id '%s', cell '%s' allocated", id, config.ID, config.Cell)

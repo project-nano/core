@@ -31,7 +31,7 @@ func (executor *QueryAddressPoolExecutor)Execute(id framework.SessionID, request
 	}
 	var nameArray, gatewayArray, dnsArray []string
 	var addressArray, allocateArray, dnsCountArray []uint64
-	for _, pool := range result.AddressPoolStatusList{
+	for _, pool := range result.AddressPoolList {
 		nameArray = append(nameArray, pool.Name)
 		gatewayArray = append(gatewayArray, pool.Gateway)
 		var addressCount uint32 = 0
@@ -51,7 +51,7 @@ func (executor *QueryAddressPoolExecutor)Execute(id framework.SessionID, request
 	resp.SetUIntArray(framework.ParamKeyAllocate, allocateArray)
 	resp.SetUIntArray(framework.ParamKeyCount, dnsCountArray)
 	log.Printf("[%08X] reply %d address pool(s) to %s.[%08X]",
-		id, len(result.AddressPoolStatusList), request.GetSender(), request.GetFromSession())
+		id, len(result.AddressPoolList), request.GetSender(), request.GetFromSession())
 	return executor.Sender.SendMessage(resp, request.GetSender())
 }
 

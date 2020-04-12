@@ -44,7 +44,7 @@ func (executor *ResetGuestSystemExecutor)Execute(id framework.SessionID, request
 			log.Printf("[%08X] check instance status fail: %s", id, result.Error.Error())
 			return executor.ResponseFail(resp, result.Error.Error(), request.GetSender())
 		}
-		var instanceStatus = result.InstanceStatus
+		var instanceStatus = result.Instance
 		if instanceStatus.Running{
 			err = fmt.Errorf("guest '%s' still running", instanceStatus.Name)
 			log.Printf("[%08X] check instance status fail: %s", id, result.Error.Error())

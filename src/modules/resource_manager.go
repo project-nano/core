@@ -151,51 +151,53 @@ type ResourceManager struct {
 }
 
 type resourceCommand struct {
-	DiskImageConfig
-	MigrationParameter
-	Type        commandType
-	Pool        string
-	Cell        string
-	Address     string
-	Range       string
-	Start       string
-	Instance    string
-	Hardware    string
-	ConfigList  []InstanceStatus
-	Config      InstanceStatus
-	Condition   GuestQueryCondition
-	MonitorPort uint
-	Name        string
-	Host        string
-	Port        int
-	Group       string
-	Tags        []string
-	Progress    uint
-	Size        uint64
-	Image       string
-	Secret      string
-	Storage     string
-	StorageType string
-	Target      string
-	Migration   string
-	Error       error
-	Failover    bool
-	IDList      []string
-	PortList    []uint64
-	DiskImages  []DiskImageStatus
-	AddressPoolConfig
-	AddressRangeConfig
-	Batch string
-	BatchCreateRequest
-	Priority     PriorityEnum
-	ReadSpeed    uint64
-	WriteSpeed   uint64
-	ReadIOPS     uint64
-	WriteIOPS    uint64
-	ReceiveSpeed uint64
-	SendSpeed    uint64
-	ErrorChan    chan error
-	ResultChan   chan ResourceResult
+	Type           commandType
+	DiskImage      DiskImageConfig
+	Migration      MigrationParameter
+	Pool           string
+	Cell           string
+	Address        string
+	Range          string
+	Start          string
+	InstanceID     string
+	Hardware       string
+	InstanceList   []InstanceStatus
+	Instance       InstanceStatus
+	InstanceQuery  GuestQueryCondition
+	MonitorPort    uint
+	Name           string
+	Host           string
+	Port           int
+	Group          string
+	Tags           []string
+	Progress       uint
+	Size           uint64
+	Image          string
+	Secret         string
+	Storage        string
+	StorageType    string
+	Target         string
+	MigrationID    string
+	Error          error
+	Failover       bool
+	IDList         []string
+	PortList       []uint64
+	DiskImages     []DiskImageStatus
+	AddressPool    AddressPoolConfig
+	AddressRange   AddressRangeConfig
+	BatchID        string
+	BatchCreating  BatchCreateRequest
+	Priority       PriorityEnum
+	ReadSpeed      uint64
+	WriteSpeed     uint64
+	ReadIOPS       uint64
+	WriteIOPS      uint64
+	ReceiveSpeed   uint64
+	SendSpeed      uint64
+	TemplateID     string
+	TemplateConfig SystemTemplateConfig
+	ErrorChan      chan error
+	ResultChan     chan ResourceResult
 }
 
 type ResourceStatistic struct {
@@ -244,60 +246,148 @@ const (
 	cmdUpdateInstancePriority
 	cmdUpdateInstanceDiskThreshold
 	cmdUpdateInstanceNetworkThreshold
+	cmdUpdateInstanceMonitorSecret
 	cmdRenameInstance
 	cmdGetInstanceByName
 	cmdSearchGuests
 	cmdAddImageServer
 	cmdRemoveImageServer
 	cmdGetImageServer
-
 	cmdCreateStoragePool
 	cmdDeleteStoragePool
 	cmdModifyStoragePool
 	cmdQueryStoragePool
 	cmdGetStoragePool
-
 	cmdQueryAddressPool
 	cmdGetAddressPool
 	cmdCreateAddressPool
 	cmdModifyAddressPool
 	cmdDeleteAddressPool
-
 	cmdQueryAddressRange
 	cmdGetAddressRange
 	cmdAddAddressRange
 	cmdRemoveAddressRange
-
 	cmdQueryMigration
 	cmdGetMigration
 	cmdCreateMigration
 	cmdFinishMigration
 	cmdCancelMigration
 	cmdUpdateMigration
-
 	cmdBuildFailoverPlan
 	cmdMigrationInstance
 	cmdPurgeInstance
-
 	cmdBeginResetSystem
-	cmdFinishResetSystem
-	//Batch
-	
+	cmdFinishResetSystem	
 	cmdStartBatchCreateGuest
 	cmdSetBatchCreateGuestStart
 	cmdSetBatchCreateGuestFail
 	cmdGetBatchCreateGuest
-
 	cmdStartBatchDeleteGuest
 	cmdSetBatchDeleteGuestSuccess
 	cmdSetBatchDeleteGuestFail
 	cmdGetBatchDeleteGuest
-
 	cmdStartBatchStopGuest
 	cmdSetBatchStopGuestSuccess
 	cmdSetBatchStopGuestFail
 	cmdGetBatchStopGuest
+	cmdQuerySystemTemplates
+	cmdGetSystemTemplate
+	cmdCreateSystemTemplate
+	cmdModifySystemTemplate
+	cmdDeleteSystemTemplate
+	cmdInvalid
 )
+
+var commandNames = []string{
+	"QueryAllComputePoolInfo",
+	"GetComputePoolInfo",
+	"CreateComputePool",
+	"DeleteComputePool",
+	"ModifyComputePool",
+	"QueryZoneStatus",
+	"QueryComputePoolStatus",
+	"GetComputePoolStatus",
+	"QueryUnallocatedComputeCell",
+	"QueryComputeCells",
+	"QueryComputeCellStatus",
+	"GetComputeCellStatus",
+	"AddComputeCell",
+	"RemoveComputeCell",
+	"EnableComputeCell",
+	"DisableComputeCell",
+	"FinishPurgeCell",
+	"GetCellStatus",
+	"UpdateCellInfo",
+	"SetCellDead",
+	"BatchUpdateInstanceStatus",
+	"UpdateInstanceStatus",
+	"AllocateInstance",
+	"ConfirmInstance",
+	"DeallocateInstance",
+	"GetInstanceStatus",
+	"QueryInstanceStatusInPool",
+	"QueryInstanceStatusInCell",
+	"UpdateInstanceAddress",
+	"UpdateInstancePriority",
+	"UpdateInstanceDiskThreshold",
+	"UpdateInstanceNetworkThreshold",
+	"UpdateInstanceMonitorSecret",
+	"RenameInstance",
+	"GetInstanceByName",
+	"SearchGuests",
+	"AddImageServer",
+	"RemoveImageServer",
+	"GetImageServer",
+	"CreateStoragePool",
+	"DeleteStoragePool",
+	"ModifyStoragePool",
+	"QueryStoragePool",
+	"GetStoragePool",
+	"QueryAddressPool",
+	"GetAddressPool",
+	"CreateAddressPool",
+	"ModifyAddressPool",
+	"DeleteAddressPool",
+	"QueryAddressRange",
+	"GetAddressRange",
+	"AddAddressRange",
+	"RemoveAddressRange",
+	"QueryMigration",
+	"GetMigration",
+	"CreateMigration",
+	"FinishMigration",
+	"CancelMigration",
+	"UpdateMigration",
+	"BuildFailoverPlan",
+	"MigrationInstance",
+	"PurgeInstance",
+	"BeginResetSystem",
+	"FinishResetSystem",
+	"StartBatchCreateGuest",
+	"SetBatchCreateGuestStart",
+	"SetBatchCreateGuestFail",
+	"GetBatchCreateGuest",
+	"StartBatchDeleteGuest",
+	"SetBatchDeleteGuestSuccess",
+	"SetBatchDeleteGuestFail",
+	"GetBatchDeleteGuest",
+	"StartBatchStopGuest",
+	"SetBatchStopGuestSuccess",
+	"SetBatchStopGuestFail",
+	"GetBatchStopGuest",
+	"QuerySystemTemplates",
+	"GetSystemTemplate",
+	"CreateSystemTemplate",
+	"ModifySystemTemplate",
+	"DeleteSystemTemplate",
+}
+
+func (c commandType) toString() string {
+	if c >= cmdInvalid{
+		return  "invalid"
+	}
+	return commandNames[c]
+}
 
 const (
 	TimeFormatLayout = "2006-01-02 15:04:05"
@@ -307,12 +397,17 @@ const (
 )
 
 
-func CreateResourceManager(dataPath string) (*ResourceManager, error) {
+func CreateResourceManager(dataPath string) (manager *ResourceManager, err error) {
+	if cmdInvalid != len(commandNames){
+		err = fmt.Errorf("insufficient command names %d/%d", len(commandNames), cmdInvalid)
+		return
+	}
+
 	const (
 		DefaultQueueLength  = 1 << 10
 		DefaultDataFilename = "resource.data"
 	)
-	var manager = ResourceManager{}
+	manager = &ResourceManager{}
 	manager.runner = framework.CreateSimpleRunner(manager.mainRoutine)
 	manager.reportChan = make(chan CellStatusReport, DefaultQueueLength)
 	manager.commands = make(chan resourceCommand, DefaultQueueLength)
@@ -334,7 +429,7 @@ func CreateResourceManager(dataPath string) (*ResourceManager, error) {
 	if err := manager.loadConfig(); err != nil {
 		return nil, err
 	}
-	return &manager, nil
+	return manager, nil
 }
 
 func (manager *ResourceManager) Start() error {
@@ -461,35 +556,35 @@ func (manager *ResourceManager) SetCellDead(cellName string, respChan chan error
 }
 
 func (manager *ResourceManager) SearchGuestConfig(condition GuestQueryCondition, respChan chan ResourceResult) {
-	cmd := resourceCommand{Type: cmdSearchGuests, Condition: condition, ResultChan: respChan}
+	cmd := resourceCommand{Type: cmdSearchGuests, InstanceQuery: condition, ResultChan: respChan}
 	manager.commands <- cmd
 }
 
 func (manager *ResourceManager) BatchUpdateInstanceStatus(pool, cell string, instances []InstanceStatus, respChan chan error) {
-	cmd := resourceCommand{Type: cmdBatchUpdateInstanceStatus, Pool: pool, Cell: cell, ConfigList: instances, ErrorChan: respChan}
+	cmd := resourceCommand{Type: cmdBatchUpdateInstanceStatus, Pool: pool, Cell: cell, InstanceList: instances, ErrorChan: respChan}
 	manager.commands <- cmd
 }
 
 func (manager *ResourceManager) AllocateInstance(pool string, config InstanceStatus, respChan chan ResourceResult) {
-	cmd := resourceCommand{Type: cmdAllocateInstance, Pool: pool, Config: config, ResultChan: respChan}
+	cmd := resourceCommand{Type: cmdAllocateInstance, Pool: pool, Instance: config, ResultChan: respChan}
 	manager.commands <- cmd
 }
 func (manager *ResourceManager) UpdateInstanceStatus(status InstanceStatus, respChan chan error) {
-	cmd := resourceCommand{Type: cmdUpdateInstanceStatus, Config: status, ErrorChan: respChan}
+	cmd := resourceCommand{Type: cmdUpdateInstanceStatus, Instance: status, ErrorChan: respChan}
 	manager.commands <- cmd
 }
 func (manager *ResourceManager) ConfirmInstance(id string, monitor uint, secret, ethernetAddress string, respChan chan error) {
-	cmd := resourceCommand{Type: cmdConfirmInstance, Instance: id, MonitorPort: monitor, Secret:secret, Hardware: ethernetAddress, ErrorChan: respChan}
+	cmd := resourceCommand{Type: cmdConfirmInstance, InstanceID: id, MonitorPort: monitor, Secret:secret, Hardware: ethernetAddress, ErrorChan: respChan}
 	manager.commands <- cmd
 }
 
 func (manager *ResourceManager) DeallocateInstance(id string, err error, respChan chan error) {
-	cmd := resourceCommand{Type: cmdDeallocateInstance, Instance: id, Error: err, ErrorChan: respChan}
+	cmd := resourceCommand{Type: cmdDeallocateInstance, InstanceID: id, Error: err, ErrorChan: respChan}
 	manager.commands <- cmd
 }
 
 func (manager *ResourceManager) GetInstanceStatus(id string, respChan chan ResourceResult) {
-	cmd := resourceCommand{Type: cmdGetInstanceStatus, Instance: id, ResultChan: respChan}
+	cmd := resourceCommand{Type: cmdGetInstanceStatus, InstanceID: id, ResultChan: respChan}
 	manager.commands <- cmd
 }
 
@@ -503,23 +598,27 @@ func (manager *ResourceManager) QueryInstanceStatusInCell(poolName, cellName str
 }
 
 func (manager *ResourceManager) UpdateInstanceAddress(id, ip string, respChan chan error){
-	manager.commands <- resourceCommand{Type:cmdUpdateInstanceAddress, Instance:id, Address:ip, ErrorChan:respChan}
+	manager.commands <- resourceCommand{Type:cmdUpdateInstanceAddress, InstanceID:id, Address:ip, ErrorChan:respChan}
 }
 
 func (manager *ResourceManager) UpdateInstancePriority(id string, priority PriorityEnum, respChan chan error) {
-	manager.commands <- resourceCommand{Type: cmdUpdateInstancePriority, Instance: id, Priority: priority, ErrorChan:respChan}
+	manager.commands <- resourceCommand{Type: cmdUpdateInstancePriority, InstanceID: id, Priority: priority, ErrorChan:respChan}
+}
+
+func (manager *ResourceManager) UpdateInstanceMonitorSecret(id, secret string, respChan chan error){
+	manager.commands <- resourceCommand{Type: cmdUpdateInstanceMonitorSecret, InstanceID: id, Secret: secret, ErrorChan: respChan}
 }
 
 func (manager *ResourceManager) UpdateInstanceDiskThreshold(id string, readSpeed, readIOPS, writeSpeed, writeIOPS uint64, respChan chan error) {
-	manager.commands <- resourceCommand{Type: cmdUpdateInstanceDiskThreshold, Instance: id, ReadSpeed: readSpeed, ReadIOPS: readIOPS, WriteSpeed:writeSpeed, WriteIOPS: writeIOPS, ErrorChan: respChan}
+	manager.commands <- resourceCommand{Type: cmdUpdateInstanceDiskThreshold, InstanceID: id, ReadSpeed: readSpeed, ReadIOPS: readIOPS, WriteSpeed:writeSpeed, WriteIOPS: writeIOPS, ErrorChan: respChan}
 }
 
 func (manager *ResourceManager) UpdateInstanceNetworkThreshold(id string, receive, send uint64, respChan chan error) {
-	manager.commands <- resourceCommand{Type: cmdUpdateInstanceNetworkThreshold, Instance: id, ReceiveSpeed:receive, SendSpeed: send, ErrorChan: respChan}
+	manager.commands <- resourceCommand{Type: cmdUpdateInstanceNetworkThreshold, InstanceID: id, ReceiveSpeed:receive, SendSpeed: send, ErrorChan: respChan}
 }
 
 func (manager *ResourceManager) RenameInstance(id, name string, respChan chan error){
-	manager.commands <- resourceCommand{Type:cmdRenameInstance, Instance:id, Name:name, ErrorChan:respChan}
+	manager.commands <- resourceCommand{Type:cmdRenameInstance, InstanceID:id, Name:name, ErrorChan:respChan}
 }
 
 func (manager *ResourceManager) GetInstanceByName(poolName, instanceName string, respChan chan ResourceResult){
@@ -547,22 +646,22 @@ func (manager *ResourceManager) QueryMigration(respChan chan ResourceResult){
 }
 
 func (manager *ResourceManager) GetMigration(id string, respChan chan ResourceResult){
-	manager.commands <- resourceCommand{Type:cmdGetMigration, Migration:id, ResultChan:respChan}
+	manager.commands <- resourceCommand{Type:cmdGetMigration, MigrationID:id, ResultChan:respChan}
 }
 
 func (manager *ResourceManager) CreateMigration(params MigrationParameter, respChan chan ResourceResult){
-	manager.commands <- resourceCommand{Type:cmdCreateMigration, MigrationParameter: params,  ResultChan:respChan}
+	manager.commands <- resourceCommand{Type:cmdCreateMigration, Migration: params,  ResultChan:respChan}
 }
 
 func (manager *ResourceManager) FinishMigration(migration string, instances []string, ports []uint64, respChan chan error){
-	manager.commands <- resourceCommand{Type:cmdFinishMigration, Migration:migration, IDList:instances, PortList:ports, ErrorChan:respChan}
+	manager.commands <- resourceCommand{Type:cmdFinishMigration, MigrationID:migration, IDList:instances, PortList:ports, ErrorChan:respChan}
 }
 
 func (manager *ResourceManager) CancelMigration(migration string, err error, respChan chan error){
-	manager.commands <- resourceCommand{Type:cmdCancelMigration, Migration:migration, Error: err, ErrorChan:respChan}
+	manager.commands <- resourceCommand{Type:cmdCancelMigration, MigrationID:migration, Error: err, ErrorChan:respChan}
 }
 func (manager *ResourceManager) UpdateMigration(migration string, progress uint, respChan chan error){
-	manager.commands <- resourceCommand{Type:cmdUpdateMigration, Migration:migration, Progress:progress, ErrorChan:respChan}
+	manager.commands <- resourceCommand{Type:cmdUpdateMigration, MigrationID:migration, Progress:progress, ErrorChan:respChan}
 }
 
 func (manager *ResourceManager) BuildFailoverPlan(cellName string, respChan chan ResourceResult){
@@ -584,10 +683,10 @@ func (manager *ResourceManager) GetAddressPool(name string, respChan chan Resour
 	manager.commands <- resourceCommand{Type: cmdGetAddressPool, Address:name, ResultChan:respChan}
 }
 func (manager *ResourceManager) CreateAddressPool(config AddressPoolConfig, respChan chan error){
-	manager.commands <- resourceCommand{Type:cmdCreateAddressPool, AddressPoolConfig:config, ErrorChan:respChan}
+	manager.commands <- resourceCommand{Type:cmdCreateAddressPool, AddressPool:config, ErrorChan:respChan}
 }
 func (manager *ResourceManager) ModifyAddressPool(config AddressPoolConfig, respChan chan ResourceResult){
-	manager.commands <- resourceCommand{Type:cmdModifyAddressPool, AddressPoolConfig: config, ResultChan:respChan}
+	manager.commands <- resourceCommand{Type:cmdModifyAddressPool, AddressPool: config, ResultChan:respChan}
 }
 func (manager *ResourceManager) DeleteAddressPool(name string, respChan chan error){
 	manager.commands <- resourceCommand{Type:cmdDeleteAddressPool, Address:name, ErrorChan:respChan}
@@ -600,34 +699,34 @@ func (manager *ResourceManager) GetAddressRange(poolName, rangeType, startAddres
 	manager.commands <- resourceCommand{Type:cmdGetAddressRange, Address:poolName, Range:rangeType, Start:startAddress, ResultChan:respChan}
 }
 func (manager *ResourceManager) AddAddressRange(poolName, rangeType string, config AddressRangeConfig, respChan chan error){
-	manager.commands <- resourceCommand{Type:cmdAddAddressRange, Address:poolName, Range:rangeType, AddressRangeConfig: config, ErrorChan:respChan}
+	manager.commands <- resourceCommand{Type:cmdAddAddressRange, Address:poolName, Range:rangeType, AddressRange: config, ErrorChan:respChan}
 }
 func (manager *ResourceManager) RemoveAddressRange(poolName, rangeType, startAddress string, respChan chan error){
 	manager.commands <- resourceCommand{Type:cmdRemoveAddressRange, Address:poolName, Range:rangeType, Start:startAddress, ErrorChan:respChan}
 }
 
 func (manager *ResourceManager) BeginResetSystem(instanceID string, respChan chan error){
-	manager.commands <- resourceCommand{Type: cmdBeginResetSystem, Instance: instanceID, ErrorChan:respChan}
+	manager.commands <- resourceCommand{Type: cmdBeginResetSystem, InstanceID: instanceID, ErrorChan:respChan}
 }
 
 func (manager *ResourceManager) FinishResetSystem(instanceID string, err error,  respChan chan error){
-	manager.commands <- resourceCommand{Type: cmdFinishResetSystem, Instance: instanceID, Error:err, ErrorChan:respChan}
+	manager.commands <- resourceCommand{Type: cmdFinishResetSystem, InstanceID: instanceID, Error:err, ErrorChan:respChan}
 }
 
 //batch
 func (manager *ResourceManager) StartBatchCreateGuest(request BatchCreateRequest, respChan chan ResourceResult){
-	manager.commands <- resourceCommand{Type: cmdStartBatchCreateGuest, BatchCreateRequest: request, ResultChan:respChan}
+	manager.commands <- resourceCommand{Type: cmdStartBatchCreateGuest, BatchCreating: request, ResultChan:respChan}
 }
 func (manager *ResourceManager) SetBatchCreateGuestStart(batchID, guestName, guestID string, respChan chan error){
-	manager.commands <- resourceCommand{Type: cmdSetBatchCreateGuestStart, Batch: batchID, Name: guestName, Instance: guestID, ErrorChan:respChan}
+	manager.commands <- resourceCommand{Type: cmdSetBatchCreateGuestStart, BatchID: batchID, Name: guestName, InstanceID: guestID, ErrorChan:respChan}
 }
 
 func (manager *ResourceManager) SetBatchCreateGuestFail(batchID, guestName string, err error, respChan chan error){
-	manager.commands <- resourceCommand{Type: cmdSetBatchCreateGuestFail, Batch: batchID, Name: guestName, Error:err, ErrorChan:respChan}
+	manager.commands <- resourceCommand{Type: cmdSetBatchCreateGuestFail, BatchID: batchID, Name: guestName, Error:err, ErrorChan:respChan}
 }
 
 func (manager *ResourceManager) GetBatchCreateGuestStatus(batchID string, respChan chan ResourceResult){
-	manager.commands <- resourceCommand{Type: cmdGetBatchCreateGuest, Batch: batchID, ResultChan:respChan}
+	manager.commands <- resourceCommand{Type: cmdGetBatchCreateGuest, BatchID: batchID, ResultChan:respChan}
 }
 
 func (manager *ResourceManager) StartBatchDeleteGuest(id []string, respChan chan ResourceResult){
@@ -635,15 +734,15 @@ func (manager *ResourceManager) StartBatchDeleteGuest(id []string, respChan chan
 }
 
 func (manager *ResourceManager) SetBatchDeleteGuestSuccess(batchID, guestID string, respChan chan error){
-	manager.commands <- resourceCommand{Type: cmdSetBatchDeleteGuestSuccess, Batch:batchID, Instance:guestID, ErrorChan:respChan}
+	manager.commands <- resourceCommand{Type: cmdSetBatchDeleteGuestSuccess, BatchID:batchID, InstanceID:guestID, ErrorChan:respChan}
 }
 
 func (manager *ResourceManager) SetBatchDeleteGuestFail(batchID, guestID string, err error, respChan chan error){
-	manager.commands <- resourceCommand{Type: cmdSetBatchDeleteGuestFail, Batch:batchID, Instance: guestID, Error:err, ErrorChan:respChan}
+	manager.commands <- resourceCommand{Type: cmdSetBatchDeleteGuestFail, BatchID:batchID, InstanceID: guestID, Error:err, ErrorChan:respChan}
 }
 
 func (manager *ResourceManager) GetBatchDeleteGuestStatus(batchID string, respChan chan ResourceResult){
-	manager.commands <- resourceCommand{Type: cmdGetBatchDeleteGuest, Batch:batchID, ResultChan:respChan}
+	manager.commands <- resourceCommand{Type: cmdGetBatchDeleteGuest, BatchID:batchID, ResultChan:respChan}
 }
 
 func (manager *ResourceManager) StartBatchStopGuest(id []string, respChan chan ResourceResult){
@@ -651,15 +750,35 @@ func (manager *ResourceManager) StartBatchStopGuest(id []string, respChan chan R
 }
 
 func (manager *ResourceManager) SetBatchStopGuestSuccess(batchID, guestID string, respChan chan error){
-	manager.commands <- resourceCommand{Type: cmdSetBatchStopGuestSuccess, Batch:batchID, Instance:guestID, ErrorChan:respChan}
+	manager.commands <- resourceCommand{Type: cmdSetBatchStopGuestSuccess, BatchID:batchID, InstanceID:guestID, ErrorChan:respChan}
 }
 
 func (manager *ResourceManager) SetBatchStopGuestFail(batchID, guestID string, err error, respChan chan error){
-	manager.commands <- resourceCommand{Type: cmdSetBatchStopGuestFail, Batch:batchID, Instance: guestID, Error:err, ErrorChan:respChan}
+	manager.commands <- resourceCommand{Type: cmdSetBatchStopGuestFail, BatchID:batchID, InstanceID: guestID, Error:err, ErrorChan:respChan}
 }
 
 func (manager *ResourceManager) GetBatchStopGuestStatus(batchID string, respChan chan ResourceResult){
-	manager.commands <- resourceCommand{Type: cmdGetBatchStopGuest, Batch:batchID, ResultChan:respChan}
+	manager.commands <- resourceCommand{Type: cmdGetBatchStopGuest, BatchID:batchID, ResultChan:respChan}
+}
+
+func (manager *ResourceManager) QuerySystemTemplates(respChan chan ResourceResult){
+	manager.commands <- resourceCommand{Type: cmdQuerySystemTemplates, ResultChan: respChan}
+}
+
+func (manager *ResourceManager) GetSystemTemplate(id string, respChan chan ResourceResult){
+	manager.commands <- resourceCommand{Type: cmdGetSystemTemplate, TemplateID: id, ResultChan: respChan}
+}
+
+func (manager *ResourceManager) CreateSystemTemplate(config SystemTemplateConfig, respChan chan ResourceResult){
+	manager.commands <- resourceCommand{Type: cmdCreateSystemTemplate, TemplateConfig: config, ResultChan: respChan}
+}
+
+func (manager *ResourceManager) ModifySystemTemplate(id string, config SystemTemplateConfig, respChan chan error){
+	manager.commands <- resourceCommand{Type: cmdModifySystemTemplate, TemplateID: id, TemplateConfig: config, ErrorChan: respChan}
+}
+
+func (manager *ResourceManager) DeleteSystemTemplate(id string, respChan chan error){
+	manager.commands <- resourceCommand{Type: cmdDeleteSystemTemplate, TemplateID: id, ErrorChan: respChan}
 }
 
 func (manager *ResourceManager) mainRoutine(c framework.RoutineController) {
@@ -911,35 +1030,37 @@ func (manager *ResourceManager) handleCommand(cmd resourceCommand) {
 	case cmdGetCellStatus:
 		err = manager.handleGetCellStatus(cmd.Cell, cmd.ResultChan)
 	case cmdBatchUpdateInstanceStatus:
-		err = manager.handleBatchUpdateInstanceStatus(cmd.Pool, cmd.Cell, cmd.ConfigList, cmd.ErrorChan)
+		err = manager.handleBatchUpdateInstanceStatus(cmd.Pool, cmd.Cell, cmd.InstanceList, cmd.ErrorChan)
 	case cmdAllocateInstance:
-		err = manager.handleAllocateInstance(cmd.Pool, cmd.Config, cmd.ResultChan)
+		err = manager.handleAllocateInstance(cmd.Pool, cmd.Instance, cmd.ResultChan)
 	case cmdConfirmInstance:
-		err = manager.handleConfirmInstance(cmd.Instance, cmd.MonitorPort, cmd.Secret, cmd.Hardware, cmd.ErrorChan)
+		err = manager.handleConfirmInstance(cmd.InstanceID, cmd.MonitorPort, cmd.Secret, cmd.Hardware, cmd.ErrorChan)
 	case cmdDeallocateInstance:
-		err = manager.handleDeallocateInstance(cmd.Instance, cmd.Error, cmd.ErrorChan)
+		err = manager.handleDeallocateInstance(cmd.InstanceID, cmd.Error, cmd.ErrorChan)
 	case cmdUpdateInstanceStatus:
-		err = manager.handleUpdateInstanceStatus(cmd.Config, cmd.ErrorChan)
+		err = manager.handleUpdateInstanceStatus(cmd.Instance, cmd.ErrorChan)
 	case cmdGetInstanceStatus:
-		err = manager.handleGetInstanceStatus(cmd.Instance, cmd.ResultChan)
+		err = manager.handleGetInstanceStatus(cmd.InstanceID, cmd.ResultChan)
 	case cmdQueryInstanceStatusInPool:
 		err = manager.handleQueryInstanceStatusInPool(cmd.Pool, cmd.ResultChan)
 	case cmdQueryInstanceStatusInCell:
 		err = manager.handleQueryInstanceStatusInCell(cmd.Pool, cmd.Cell, cmd.ResultChan)
 	case cmdUpdateInstanceAddress:
-		err = manager.handleUpdateInstanceAddress(cmd.Instance, cmd.Address, cmd.ErrorChan)
+		err = manager.handleUpdateInstanceAddress(cmd.InstanceID, cmd.Address, cmd.ErrorChan)
 	case cmdRenameInstance:
-		err = manager.handleRenameInstance(cmd.Instance, cmd.Name, cmd.ErrorChan)
+		err = manager.handleRenameInstance(cmd.InstanceID, cmd.Name, cmd.ErrorChan)
 	case cmdUpdateInstancePriority:
-		err = manager.handleUpdateInstancePriority(cmd.Instance, cmd.Priority, cmd.ErrorChan)
+		err = manager.handleUpdateInstancePriority(cmd.InstanceID, cmd.Priority, cmd.ErrorChan)
+	case cmdUpdateInstanceMonitorSecret:
+		err = manager.handleUpdateInstanceMonitorSecret(cmd.InstanceID, cmd.Secret, cmd.ErrorChan)
 	case cmdUpdateInstanceNetworkThreshold:
-		err = manager.handleUpdateInstanceNetworkThreshold(cmd.Instance, cmd.ReceiveSpeed, cmd.SendSpeed, cmd.ErrorChan)
+		err = manager.handleUpdateInstanceNetworkThreshold(cmd.InstanceID, cmd.ReceiveSpeed, cmd.SendSpeed, cmd.ErrorChan)
 	case cmdUpdateInstanceDiskThreshold:
-		err = manager.handleUpdateInstanceDiskThreshold(cmd.Instance, cmd.ReadSpeed, cmd.ReadIOPS, cmd.WriteSpeed, cmd.WriteIOPS, cmd.ErrorChan)
+		err = manager.handleUpdateInstanceDiskThreshold(cmd.InstanceID, cmd.ReadSpeed, cmd.ReadIOPS, cmd.WriteSpeed, cmd.WriteIOPS, cmd.ErrorChan)
 	case cmdGetInstanceByName:
 		err = manager.handleGetInstanceByName(cmd.Pool, cmd.Name, cmd.ResultChan)
 	case cmdSearchGuests:
-		err = manager.handleSearchGuestConfig(cmd.Condition, cmd.ResultChan)
+		err = manager.handleSearchGuestConfig(cmd.InstanceQuery, cmd.ResultChan)
 	case cmdAddImageServer:
 		err = manager.handleAddImageServer(cmd.Name, cmd.Host, cmd.Port)
 	case cmdGetImageServer:
@@ -949,13 +1070,13 @@ func (manager *ResourceManager) handleCommand(cmd resourceCommand) {
 	case cmdQueryMigration:
 		err = manager.handleQueryMigration(cmd.ResultChan)
 	case cmdGetMigration:
-		err = manager.handleGetMigration(cmd.Migration, cmd.ResultChan)
+		err = manager.handleGetMigration(cmd.MigrationID, cmd.ResultChan)
 	case cmdCreateMigration:
-		err = manager.handleCreateMigration(cmd.MigrationParameter, cmd.ResultChan)
+		err = manager.handleCreateMigration(cmd.Migration, cmd.ResultChan)
 	case cmdFinishMigration:
-		err = manager.handleFinishMigration(cmd.Migration, cmd.IDList, cmd.PortList, cmd.ErrorChan)
+		err = manager.handleFinishMigration(cmd.MigrationID, cmd.IDList, cmd.PortList, cmd.ErrorChan)
 	case cmdCancelMigration:
-		err = manager.handleCancelMigration(cmd.Migration, cmd.Error, cmd.ErrorChan)
+		err = manager.handleCancelMigration(cmd.MigrationID, cmd.Error, cmd.ErrorChan)
 	case cmdBuildFailoverPlan:
 		err = manager.handleBuildFailoverPlan(cmd.Cell, cmd.ResultChan)
 	case cmdMigrationInstance:
@@ -967,9 +1088,9 @@ func (manager *ResourceManager) handleCommand(cmd resourceCommand) {
 	case cmdGetAddressPool:
 		err = manager.handleGetAddressPool(cmd.Address, cmd.ResultChan)
 	case cmdCreateAddressPool:
-		err = manager.handleCreateAddressPool(cmd.AddressPoolConfig, cmd.ErrorChan)
+		err = manager.handleCreateAddressPool(cmd.AddressPool, cmd.ErrorChan)
 	case cmdModifyAddressPool:
-		err = manager.handleModifyAddressPool(cmd.AddressPoolConfig, cmd.ResultChan)
+		err = manager.handleModifyAddressPool(cmd.AddressPool, cmd.ResultChan)
 	case cmdDeleteAddressPool:
 		err = manager.handleDeleteAddressPool(cmd.Address, cmd.ErrorChan)
 	case cmdQueryAddressRange:
@@ -977,43 +1098,53 @@ func (manager *ResourceManager) handleCommand(cmd resourceCommand) {
 	case cmdGetAddressRange:
 		err = manager.handleGetAddressRange(cmd.Address, cmd.Range, cmd.Start, cmd.ResultChan)
 	case cmdAddAddressRange:
-		err = manager.handleAddAddressRange(cmd.Address, cmd.Range, cmd.AddressRangeConfig, cmd.ErrorChan)
+		err = manager.handleAddAddressRange(cmd.Address, cmd.Range, cmd.AddressRange, cmd.ErrorChan)
 	case cmdRemoveAddressRange:
 		err = manager.handleRemoveAddressRange(cmd.Address, cmd.Range, cmd.Start, cmd.ErrorChan)
 	case cmdBeginResetSystem:
-		err = manager.handleBeginResetSystem(cmd.Instance, cmd.ErrorChan)
+		err = manager.handleBeginResetSystem(cmd.InstanceID, cmd.ErrorChan)
 	case cmdFinishResetSystem:
-		err = manager.handleFinishResetSystem(cmd.Instance, cmd.Error, cmd.ErrorChan)
+		err = manager.handleFinishResetSystem(cmd.InstanceID, cmd.Error, cmd.ErrorChan)
 	case cmdStartBatchCreateGuest:
-		err = manager.handleStartBatchCreateGuest(cmd.BatchCreateRequest, cmd.ResultChan)
+		err = manager.handleStartBatchCreateGuest(cmd.BatchCreating, cmd.ResultChan)
 	case cmdSetBatchCreateGuestStart:
-		err = manager.handleSetBatchCreateGuestStart(cmd.Batch, cmd.Name, cmd.Instance, cmd.ErrorChan)
+		err = manager.handleSetBatchCreateGuestStart(cmd.BatchID, cmd.Name, cmd.InstanceID, cmd.ErrorChan)
 	case cmdSetBatchCreateGuestFail:
-		err = manager.handleSetBatchCreateGuestFail(cmd.Batch, cmd.Name, cmd.Error, cmd.ErrorChan)
+		err = manager.handleSetBatchCreateGuestFail(cmd.BatchID, cmd.Name, cmd.Error, cmd.ErrorChan)
 	case cmdGetBatchCreateGuest:
-		err = manager.handleGetBatchCreateGuestStatus(cmd.Batch, cmd.ResultChan)
+		err = manager.handleGetBatchCreateGuestStatus(cmd.BatchID, cmd.ResultChan)
 	case cmdStartBatchDeleteGuest:
 		err = manager.handleStartBatchDeleteGuest(cmd.IDList, cmd.ResultChan)
 	case cmdSetBatchDeleteGuestSuccess:
-		err = manager.handleSetBatchDeleteGuestSuccess(cmd.Batch, cmd.Instance, cmd.ErrorChan)
+		err = manager.handleSetBatchDeleteGuestSuccess(cmd.BatchID, cmd.InstanceID, cmd.ErrorChan)
 	case cmdSetBatchDeleteGuestFail:
-		err = manager.handleSetBatchDeleteGuestFail(cmd.Batch, cmd.Instance, cmd.Error, cmd.ErrorChan)
+		err = manager.handleSetBatchDeleteGuestFail(cmd.BatchID, cmd.InstanceID, cmd.Error, cmd.ErrorChan)
 	case cmdGetBatchDeleteGuest:
-		err = manager.handleGetBatchDeleteGuestStatus(cmd.Batch, cmd.ResultChan)
+		err = manager.handleGetBatchDeleteGuestStatus(cmd.BatchID, cmd.ResultChan)
 	case cmdStartBatchStopGuest:
 		err = manager.handleStartBatchStopGuest(cmd.IDList, cmd.ResultChan)
 	case cmdSetBatchStopGuestSuccess:
-		err = manager.handleSetBatchStopGuestSuccess(cmd.Batch, cmd.Instance, cmd.ErrorChan)
+		err = manager.handleSetBatchStopGuestSuccess(cmd.BatchID, cmd.InstanceID, cmd.ErrorChan)
 	case cmdSetBatchStopGuestFail:
-		err = manager.handleSetBatchStopGuestFail(cmd.Batch, cmd.Instance, cmd.Error, cmd.ErrorChan)
+		err = manager.handleSetBatchStopGuestFail(cmd.BatchID, cmd.InstanceID, cmd.Error, cmd.ErrorChan)
 	case cmdGetBatchStopGuest:
-		err = manager.handleGetBatchStopGuestStatus(cmd.Batch, cmd.ResultChan)
+		err = manager.handleGetBatchStopGuestStatus(cmd.BatchID, cmd.ResultChan)
+	case cmdQuerySystemTemplates:
+		err = manager.handleQuerySystemTemplates(cmd.ResultChan)
+	case cmdGetSystemTemplate:
+		err = manager.handleGetSystemTemplate(cmd.TemplateID, cmd.ResultChan)
+	case cmdCreateSystemTemplate:
+		err = manager.handleCreateSystemTemplate(cmd.TemplateConfig, cmd.ResultChan)
+	case cmdModifySystemTemplate:
+		err = manager.handleModifySystemTemplate(cmd.TemplateID, cmd.TemplateConfig, cmd.ErrorChan)
+	case cmdDeleteSystemTemplate:
+		err = manager.handleDeleteSystemTemplate(cmd.TemplateID, cmd.ErrorChan)
 	default:
 		log.Printf("<resource_manager> unsupported command type %d", cmd.Type)
 		break
 	}
 	if err != nil {
-		log.Printf("<resource_manager> handle command %d fail: %s", cmd.Type, err.Error())
+		log.Printf("<resource_manager> handle command %d fail: %s", cmd.Type.toString(), err.Error())
 	}
 }
 
@@ -1115,7 +1246,7 @@ func (manager *ResourceManager) handleGetComputePool(poolName string, resp chan 
 		resp <- ResourceResult{Error:err}
 		return err
 	}
-	resp <- ResourceResult{ComputePoolInfo:pool.ComputePoolInfo}
+	resp <- ResourceResult{ComputePoolConfig: pool.ComputePoolInfo}
 	return nil
 }
 
@@ -1380,7 +1511,7 @@ func (manager *ResourceManager) handleGetStoragePool(name string, respChan chan 
 		respChan <- ResourceResult{Error:err}
 		return err
 	}
-	respChan <- ResourceResult{StoragePoolInfo: pool}
+	respChan <- ResourceResult{StoragePool: pool}
 	return nil
 }
 
@@ -1403,7 +1534,7 @@ func (manager *ResourceManager) handleQueryStoragePool(respChan chan ResourceRes
 		}
 		result = append(result, storage)
 	}
-	respChan <- ResourceResult{StoragePoolInfoList:result}
+	respChan <- ResourceResult{StoragePoolList: result}
 	return nil
 }
 
@@ -1619,7 +1750,7 @@ func (manager *ResourceManager) handleQueryZoneStatus(resp chan ResourceResult) 
 		InstanceStatistic: manager.zone.InstanceStatistic, ResourceUsage: manager.zone.ResourceUsage,
 		StartTime: manager.startTime}
 
-	resp <- ResourceResult{ZoneStatus:s}
+	resp <- ResourceResult{Zone: s}
 	return nil
 }
 
@@ -1637,7 +1768,7 @@ func (manager *ResourceManager) handleQueryComputePoolStatus(resp chan ResourceR
 			CellStatistic:pool.CellStatistic, InstanceStatistic: pool.InstanceStatistic, ResourceUsage: pool.ResourceUsage}
 		pools = append(pools, s)
 	}
-	resp <- ResourceResult{ComputePoolStatusList:pools}
+	resp <- ResourceResult{ComputePoolList: pools}
 	return nil
 }
 
@@ -1652,7 +1783,7 @@ func (manager *ResourceManager) handleGetComputePoolStatus(name string, resp cha
 		Name:pool.Name, Enabled:pool.Enabled,
 		CellStatistic:pool.CellStatistic, InstanceStatistic: pool.InstanceStatistic, ResourceUsage: pool.ResourceUsage}
 
-	resp <- ResourceResult{ComputePoolStatus:s}
+	resp <- ResourceResult{ComputePool: s}
 	return nil
 }
 
@@ -1682,7 +1813,7 @@ func (manager *ResourceManager) handleQueryComputeCellStatus(poolName string, re
 			InstanceStatistic: cell.InstanceStatistic, ResourceUsage: cell.ResourceUsage}
 		result = append(result, s)
 	}
-	resp <- ResourceResult{ComputeCellStatusList:result}
+	resp <- ResourceResult{ComputeCellList: result}
 	return nil
 }
 
@@ -1699,7 +1830,7 @@ func (manager *ResourceManager) handleGetComputeCellStatus(poolName, cellName st
 		return err
 	}
 	var s = ComputeCellStatus{ComputeCellInfo:cell.ComputeCellInfo, InstanceStatistic: cell.InstanceStatistic, ResourceUsage: cell.ResourceUsage}
-	resp <- ResourceResult{ComputeCellStatus:s}
+	resp <- ResourceResult{ComputeCell: s}
 	return nil
 }
 
@@ -1739,7 +1870,7 @@ func (manager *ResourceManager) handleGetCellStatus(cellName string, respChan ch
 		return err
 	}
 	var status = ComputeCellStatus{cell.ComputeCellInfo, cell.InstanceStatistic, cell.ResourceUsage}
-	respChan <- ResourceResult{Pool: cell.Pool, ComputeCellStatus: status}
+	respChan <- ResourceResult{Pool: cell.Pool, ComputeCell: status}
 	return nil
 }
 
@@ -1858,7 +1989,7 @@ func (manager *ResourceManager) handleSearchGuestConfig(condition GuestQueryCond
 		}
 		result = append(result, ins)
 	}
-	respChan <- ResourceResult{InstanceStatusList:result}
+	respChan <- ResourceResult{InstanceList: result}
 	return nil
 }
 
@@ -1962,7 +2093,7 @@ func (manager *ResourceManager) handleAllocateInstance(poolName string, config I
 	manager.instances[config.ID] = config
 	manager.cells[cellName] = cell
 	manager.pools[poolName] = pool
-	respChan <- ResourceResult{InstanceStatus: config}
+	respChan <- ResourceResult{Instance: config}
 	log.Printf("<resource_manager> allocate cell '%s' for instance '%s'(%s)", cellName, config.Name, config.ID)
 	return nil
 }
@@ -2117,7 +2248,7 @@ func (manager *ResourceManager) handleGetInstanceStatus(id string, respChan chan
 		log.Printf("<resource_manager> pending error of instance '%s' fetched", id)
 		return nil
 	}else if status, exists = manager.instances[id]; exists{
-		respChan <- ResourceResult{InstanceStatus: status}
+		respChan <- ResourceResult{Instance: status}
 		return nil
 	}else{
 		err = fmt.Errorf("invalid instance '%s'", id)
@@ -2155,7 +2286,7 @@ func (manager *ResourceManager) handleQueryInstanceStatusInPool(poolName string,
 		respChan <- ResourceResult{Error:err}
 		return err
 	}
-	respChan <- ResourceResult{InstanceStatusList:result}
+	respChan <- ResourceResult{InstanceList: result}
 	return nil
 }
 
@@ -2191,7 +2322,7 @@ func (manager *ResourceManager) handleQueryInstanceStatusInCell(poolName, cellNa
 		return err
 	}
 
-	respChan <- ResourceResult{InstanceStatusList:result}
+	respChan <- ResourceResult{InstanceList: result}
 	return nil
 }
 
@@ -2342,7 +2473,7 @@ func (manager *ResourceManager) handleGetInstanceByName(poolName, instanceName s
 		respChan <- ResourceResult{Error:err}
 		return err
 	}
-	respChan <- ResourceResult{InstanceStatus: instance}
+	respChan <- ResourceResult{Instance: instance}
 	return nil
 }
 
@@ -2386,7 +2517,7 @@ func (manager *ResourceManager) handleQueryMigration(respChan chan ResourceResul
 			releaseList = append(releaseList, m.ID)
 		}
 	}
-	respChan <- ResourceResult{MigrationStatusList:result}
+	respChan <- ResourceResult{MigrationList: result}
 	if 0 != len(releaseList){
 		for _, id := range releaseList{
 			delete(manager.migrations, id)
@@ -2403,7 +2534,7 @@ func (manager *ResourceManager) handleGetMigration(id string, respChan chan Reso
 		respChan <- ResourceResult{Error:err}
 		return err
 	}
-	respChan <- ResourceResult{MigrationStatus: migration}
+	respChan <- ResourceResult{Migration: migration}
 	if (migration.Error != nil) || migration.Finished{
 		delete(manager.migrations, id)
 	}
@@ -2544,7 +2675,7 @@ func (manager *ResourceManager) handleCreateMigration(params MigrationParameter,
 	log.Printf("<resource_manager> %d instance(s) will migrate from '%s.%s' to '%s.%s', migration '%s' created",
 		len(M.Instances), M.SourcePool, M.SourceCell, M.TargetPool, M.TargetCell, M.ID)
 	manager.migrations[M.ID] = M
-	respChan <- ResourceResult{MigrationStatus: M}
+	respChan <- ResourceResult{Migration: M}
 	return nil
 }
 
@@ -2736,7 +2867,7 @@ func (manager *ResourceManager) handleQueryAddressPool(respChan chan ResourceRes
 		}
 		result = append(result, status)
 	}
-	respChan <- ResourceResult{AddressPoolStatusList:result}
+	respChan <- ResourceResult{AddressPoolList: result}
 	log.Printf("<resource_manager> %d address pool(s) available", len(result))
 	return nil
 }
@@ -2765,7 +2896,7 @@ func (manager *ResourceManager) handleGetAddressPool(poolName string, respChan c
 		}
 		status.Ranges = append(status.Ranges, rangeConfig)
 	}
-	respChan <- ResourceResult{AddressPoolStatus: status}
+	respChan <- ResourceResult{AddressPool: status}
 	return nil
 }
 
@@ -2892,7 +3023,7 @@ func (manager *ResourceManager) handleQueryAddressRange(poolName, rangeType stri
 		return err
 	}
 	var result ResourceResult
-	result.AddressRangeStatusList = make([]AddressRangeStatus, 0)
+	result.AddressRangeList = make([]AddressRangeStatus, 0)
 	for _, addressRange := range pool.ranges{
 		var status AddressRangeStatus
 		status.Start = addressRange.startAddress.String()
@@ -2903,10 +3034,10 @@ func (manager *ResourceManager) handleQueryAddressRange(poolName, rangeType stri
 		for address, instance := range addressRange.allocated{
 			status.Allocated = append(status.Allocated, AllocatedAddress{address, instance})
 		}
-		result.AddressRangeStatusList = append(result.AddressRangeStatusList, status)
+		result.AddressRangeList = append(result.AddressRangeList, status)
 	}
 	respChan <- result
-	log.Printf("<resource_manager> %d range(s) in address pool '%s'", len(result.AddressRangeStatusList), poolName)
+	log.Printf("<resource_manager> %d range(s) in address pool '%s'", len(result.AddressRangeList), poolName)
 	return nil
 }
 
@@ -2937,7 +3068,7 @@ func (manager *ResourceManager) handleGetAddressRange(poolName, rangeType, start
 	for address, instance := range addressRange.allocated{
 		status.Allocated = append(status.Allocated, AllocatedAddress{address, instance})
 	}
-	respChan <- ResourceResult{AddressRangeStatus: status}
+	respChan <- ResourceResult{AddressRange: status}
 	return nil
 }
 
@@ -3415,6 +3546,29 @@ func (manager *ResourceManager) handleGetBatchStopGuestStatus(batchID string, re
 	}
 	respChan <- ResourceResult{BatchStop: task.Guests}
 	return nil
+}
+
+func (manager *ResourceManager) handleUpdateInstanceMonitorSecret(id, secret string, respChan chan error) (err error){
+	panic("not implement")
+}
+func (manager *ResourceManager) handleQuerySystemTemplates(respChan chan ResourceResult) (err error){
+	panic("not implement")
+}
+
+func (manager *ResourceManager) handleGetSystemTemplate(id string, respChan chan ResourceResult) (err error){
+	panic("not implement")
+}
+
+func (manager *ResourceManager) handleCreateSystemTemplate(config SystemTemplateConfig, respChan chan ResourceResult) (err error){
+	panic("not implement")
+}
+
+func (manager *ResourceManager) handleModifySystemTemplate(id string, config SystemTemplateConfig, respChan chan error)(err error){
+	panic("not implement")
+}
+
+func (manager *ResourceManager) handleDeleteSystemTemplate(id string, respChan chan error) (err error){
+	panic("not implement")
 }
 
 func (manager *ResourceManager) transferInstances(sourceName, targetName string, instances []string, monitorPorts []uint64) (err error) {

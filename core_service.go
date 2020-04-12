@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	CurrentVersion = "1.1.1"
+	CurrentVersion = "1.2.0"
 )
 
 type CoreService struct {
@@ -74,6 +74,8 @@ func (core *CoreService)OnMessageReceived(msg framework.Message){
 	case framework.GetComputePoolCellStatusRequest:
 	case framework.EnableComputePoolCellRequest:
 	case framework.DisableComputePoolCellRequest:
+	case framework.QueryCellStorageRequest:
+	case framework.ModifyCellStorageRequest:
 	case framework.MigrateInstanceRequest:
 	case framework.InstanceMigratedEvent:
 	case framework.InstancePurgedEvent:
@@ -90,6 +92,7 @@ func (core *CoreService)OnMessageReceived(msg framework.Message){
 	case framework.GetInstanceStatusRequest:
 	case framework.StartInstanceRequest:
 	case framework.StopInstanceRequest:
+	case framework.ResetSecretRequest:
 	case framework.GuestCreatedEvent:
 	case framework.GuestDeletedEvent:
 	case framework.GuestStartedEvent:
@@ -143,7 +146,11 @@ func (core *CoreService)OnMessageReceived(msg framework.Message){
 	case framework.QueryMigrationRequest:
 	case framework.GetMigrationRequest:
 	case framework.CreateMigrationRequest:
-
+	case framework.QueryTemplateRequest:
+	case framework.GetTemplateRequest:
+	case framework.CreateTemplateRequest:
+	case framework.ModifyTemplateRequest:
+	case framework.DeleteTemplateRequest:
 	case framework.ComputeCellDisconnectedEvent:
 
 	default:

@@ -45,11 +45,11 @@ func (executor *HandleGuestUpdatedExecutor)Execute(id framework.SessionID, event
 			log.Printf("[%08X] fetch guest fail: %s", id, errMsg)
 			return result.Error
 		}
-		if result.InstanceStatus.Created{
+		if result.Instance.Created{
 			log.Printf("[%08X] warning: guest already created", id)
 			return nil
 		}
-		status = result.InstanceStatus
+		status = result.Instance
 	}
 	status.Progress = progress
 	{

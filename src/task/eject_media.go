@@ -36,7 +36,7 @@ func (executor *EjectMediaExecutor)Execute(id framework.SessionID, request frame
 			resp.SetError(result.Error.Error())
 			return executor.Sender.SendMessage(resp, request.GetSender())
 		}
-		ins = result.InstanceStatus
+		ins = result.Instance
 		if !ins.Running{
 			err = fmt.Errorf("instance '%s' is stopped", instanceID)
 			log.Printf("[%08X] instance '%s' is stopped", id, instanceID)

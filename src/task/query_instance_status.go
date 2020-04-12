@@ -45,7 +45,7 @@ func (executor *QueryInstanceStatusExecutor)Execute(id framework.SessionID, requ
 		return executor.Sender.SendMessage(resp, request.GetSender())
 	}
 
-	var instances = result.InstanceStatusList
+	var instances = result.InstanceList
 	modules.MarshalInstanceStatusListToMessage(instances, resp)
 	resp.SetSuccess(true)
 	//log.Printf("[%08X] %d instance(s) available", id, len(instances))

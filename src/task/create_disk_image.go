@@ -82,7 +82,7 @@ func (executor *CreateDiskImageExecutor) Execute(id framework.SessionID, request
 			resp.SetError(err.Error())
 			return executor.Sender.SendMessage(resp, request.GetSender())
 		}
-		var status = result.InstanceStatus
+		var status = result.Instance
 		if !status.Created {
 			err = fmt.Errorf("guest '%s' not created", guestID)
 			log.Printf("[%08X] check guest status fail: %s", id, err.Error())

@@ -39,14 +39,14 @@ func (executor *GetInstanceStatusExecutor)Execute(id framework.SessionID, reques
 			resp.SetError(result.Error.Error())
 			return executor.Sender.SendMessage(resp, request.GetSender())
 		}
-		ins = result.InstanceStatus
+		ins = result.Instance
 	}
 	var fromSession = request.GetFromSession()
 	{
 		//redirect request
 		request.SetFromSession(id)
 		if err = executor.Sender.SendMessage(request, ins.Cell); err != nil{
-			log.Printf("[%08X] redirect query request to cell '%s' fail: %s", id, ins.Cell, err.Error())
+			log.Printf("[%08X] redirect get instance to cell '%s' fail: %s", id, ins.Cell, err.Error())
 			resp.SetError(err.Error())
 			return executor.Sender.SendMessage(resp, request.GetSender())
 		}

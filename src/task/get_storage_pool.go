@@ -33,7 +33,7 @@ func (executor *GetStoragePoolExecutor)Execute(id framework.SessionID, request f
 		log.Printf("[%08X] get storage pool fail: %s", id, err.Error())
 		return executor.Sender.SendMessage(resp, request.GetSender())
 	}
-	var poolInfo = result.StoragePoolInfo
+	var poolInfo = result.StoragePool
 	resp.SetString(framework.ParamKeyName, poolInfo.Name)
 	resp.SetString(framework.ParamKeyType, poolInfo.Type)
 	resp.SetString(framework.ParamKeyHost, poolInfo.Host)

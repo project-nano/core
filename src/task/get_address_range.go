@@ -40,7 +40,7 @@ func (executor *GetAddressRangeExecutor)Execute(id framework.SessionID, request 
 			id, request.GetSender(), request.GetFromSession(), err.Error())
 		return executor.Sender.SendMessage(resp, request.GetSender())
 	}
-	var status = result.AddressRangeStatus
+	var status = result.AddressRange
 
 	var addressArray, instanceArray []string
 	for _, allocated := range status.Allocated{

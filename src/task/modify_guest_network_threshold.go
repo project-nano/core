@@ -56,7 +56,7 @@ func (executor *ModifyGuestNetworkThresholdExecutor)Execute(id framework.Session
 			resp.SetError(result.Error.Error())
 			return executor.Sender.SendMessage(resp, request.GetSender())
 		}
-		ins = result.InstanceStatus
+		ins = result.Instance
 	}
 	{
 		//forward request

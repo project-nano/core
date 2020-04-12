@@ -60,7 +60,7 @@ func (executor *ModifyGuestDiskThresholdExecutor)Execute(id framework.SessionID,
 			resp.SetError(result.Error.Error())
 			return executor.Sender.SendMessage(resp, request.GetSender())
 		}
-		ins = result.InstanceStatus
+		ins = result.Instance
 		if ins.Running{
 			resp.SetError(fmt.Sprintf("instance %s ('%s') is still running", ins.Name, guestID))
 			log.Printf("[%08X] instance %s ('%s') is still running", id, ins.Name, guestID)

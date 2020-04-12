@@ -19,7 +19,7 @@ func (executor *QueryStoragePoolExecutor)Execute(id framework.SessionID, request
 	executor.ResourceModule.QueryStoragePool(respChan)
 	result := <- respChan
 	var nameArray, typeArray, hostArray, targetArray []string
-	for _, info := range result.StoragePoolInfoList{
+	for _, info := range result.StoragePoolList {
 		nameArray = append(nameArray, info.Name)
 		typeArray = append(typeArray, info.Type)
 		hostArray = append(hostArray, info.Host)

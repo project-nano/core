@@ -36,7 +36,7 @@ func (executor *GetGuestPasswordExecutor)Execute(id framework.SessionID, request
 			resp.SetError(result.Error.Error())
 			return executor.Sender.SendMessage(resp, request.GetSender())
 		}
-		ins = result.InstanceStatus
+		ins = result.Instance
 	}
 	{
 		//request delete

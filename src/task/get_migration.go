@@ -32,7 +32,7 @@ func (executor *GetMigrationExecutor)Execute(id framework.SessionID, request fra
 		resp.SetError(err.Error())
 		return nil
 	}
-	var migration = result.MigrationStatus
+	var migration = result.Migration
 	resp.SetSuccess(true)
 	resp.SetString(framework.ParamKeyMigration, migrationID)
 	resp.SetBoolean(framework.ParamKeyStatus, migration.Finished)

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/project-nano/framework"
 	"github.com/project-nano/core/task"
 	"github.com/project-nano/core/modules"
@@ -12,16 +13,16 @@ type CoreTransactionManager struct {
 	*framework.TransactionEngine
 }
 
-func CreateTransactionManager(sender framework.MessageSender, resourceModule modules.ResourceModule) (*CoreTransactionManager, error) {
-	engine, err := framework.CreateTransactionEngine()
-	if err != nil{
+func CreateTransactionManager(sender framework.MessageSender, resourceModule modules.ResourceModule) (manager *CoreTransactionManager, err error) {
+	var engine *framework.TransactionEngine
+	if engine, err = framework.CreateTransactionEngine();err != nil{
 		return nil, err
 	}
 	client := &http.Client{
 		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
 	}
 
-	var manager = CoreTransactionManager{engine}
+	manager = &CoreTransactionManager{engine}
 	if err = manager.RegisterExecutor(framework.QueryComputePoolRequest,
 		&task.QueryComputePoolExecutor{sender, resourceModule}); err != nil{
 		return nil, err
@@ -401,6 +402,29 @@ func CreateTransactionManager(sender framework.MessageSender, resourceModule mod
 		&task.SyncImageServerExecutor{sender, resourceModule, client}); err != nil{
 		return nil, err
 	}
-
-	return &manager, nil
+	if err = manager.RegisterExecutor(framework.ResetSecretRequest,
+		&task.ResetMonitorSecretExecutor{
+			Sender:         sender,
+			ResourceModule: resourceModule,
+		}); err != nil{
+		err = fmt.Errorf("register reset monitor secret fail: %s", err.Error())
+		return
+	}
+	if err = manager.RegisterExecutor(framework.QueryCellStorageRequest,
+		&task.QueryStoragePathsExecutor{
+			Sender:         sender,
+			ResourceModule: resourceModule,
+		}); err != nil{
+		err = fmt.Errorf("register query storage paths fail: %s", err.Error())
+		return
+	}
+	if err = manager.RegisterExecutor(framework.ModifyCellStorageRequest,
+		&task.ChangeStoragePathsExecutor{
+			Sender:         sender,
+			ResourceModule: resourceModule,
+		}); err != nil{
+		err = fmt.Errorf("register change storage path fail: %s", err.Error())
+		return
+	}
+	return manager, nil
 }

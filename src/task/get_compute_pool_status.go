@@ -34,7 +34,7 @@ func (executor *GetComputePoolStatusExecutor)Execute(id framework.SessionID, req
 		log.Printf("[%08X] get compute pool status fail: %s", id, err.Error())
 		return executor.Sender.SendMessage(resp, request.GetSender())
 	}
-	var s = result.ComputePoolStatus
+	var s = result.ComputePool
 
 	resp.SetSuccess(true)
 	//assemble

@@ -42,7 +42,7 @@ func (executor *ModifyGuestNameExecutor)Execute(id framework.SessionID, request 
 			resp.SetError(result.Error.Error())
 			return executor.Sender.SendMessage(resp, request.GetSender())
 		}
-		ins = result.InstanceStatus
+		ins = result.Instance
 		if ins.Running{
 			err = fmt.Errorf("guest '%s' is still running", ins.Name)
 			log.Printf("[%08X] %s", id, err.Error())

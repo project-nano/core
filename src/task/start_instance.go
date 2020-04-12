@@ -43,7 +43,7 @@ func (executor *StartInstanceExecutor)Execute(id framework.SessionID, request fr
 			resp.SetError(errMsg)
 			return executor.Sender.SendMessage(resp, request.GetSender())
 		}
-		ins = result.InstanceStatus
+		ins = result.Instance
 		if ins.Running{
 			errMsg := fmt.Sprintf("instance '%s' already started", instanceID)
 			log.Printf("[%08X] start instance fail: %s", id, errMsg)

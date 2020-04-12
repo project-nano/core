@@ -33,7 +33,7 @@ func (executor *GetAddressPoolExecutor)Execute(id framework.SessionID, request f
 			id, request.GetSender(), request.GetFromSession(), err.Error())
 		return executor.Sender.SendMessage(resp, request.GetSender())
 	}
-	var status = result.AddressPoolStatus
+	var status = result.AddressPool
 	var startArray, endArray, maskArray []string
 	var capacityArray []uint64
 	for _, addressRange := range status.Ranges{

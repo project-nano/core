@@ -1,9 +1,9 @@
 package modules
 
 import (
-	"time"
 	"fmt"
 	"github.com/project-nano/framework"
+	"time"
 )
 
 const (
@@ -107,40 +107,39 @@ type ComputeCellStatus struct {
 }
 
 type ResourceResult struct {
-	Error                  error
-	Pool                   string
-	Cell                   string
-	Instance               string
-	Name                   string
-	Host                   string
-	Port                   int
-	Image                  string
-	Migration              string
-	Batch                  string
-	DiskImageList          []DiskImageStatus
-	ComputeCellInfoList    []ComputeCellInfo
-	ComputePoolInfoList    []ComputePoolInfo
-	ComputePoolInfo
-	InstanceStatus
-	DiskImageStatus
-	ZoneStatus
-	ComputePoolStatus
-	ComputePoolStatusList  []ComputePoolStatus
-	ComputeCellStatus
-	ComputeCellStatusList  []ComputeCellStatus
-	InstanceStatusList     []InstanceStatus
-	StoragePoolInfo
-	StoragePoolInfoList    []StoragePoolInfo
-	MigrationStatus
-	MigrationStatusList    []MigrationStatus
-	FailoverPlan           map[string][]string
-	AddressPoolStatus
-	AddressPoolStatusList  []AddressPoolStatus
-	AddressRangeStatus
-	AddressRangeStatusList []AddressRangeStatus
-	BatchCreate            []CreateGuestStatus
-	BatchDelete            []DeleteGuestStatus
-	BatchStop              []StopGuestStatus
+	Error               error
+	Pool                string
+	Cell                string
+	Name                string
+	Host                string
+	Port                int
+	Batch               string
+	DiskImageList       []DiskImageStatus
+	ComputeCellInfoList []ComputeCellInfo
+	ComputePoolInfoList []ComputePoolInfo
+	ComputePoolConfig   ComputePoolInfo
+	Instance            InstanceStatus
+	DiskImage           DiskImageStatus
+	Zone                ZoneStatus
+	ComputePool         ComputePoolStatus
+	ComputePoolList     []ComputePoolStatus
+	ComputeCell         ComputeCellStatus
+	ComputeCellList     []ComputeCellStatus
+	InstanceList        []InstanceStatus
+	StoragePool         StoragePoolInfo
+	StoragePoolList     []StoragePoolInfo
+	Migration           MigrationStatus
+	MigrationList       []MigrationStatus
+	FailoverPlan        map[string][]string
+	AddressPool         AddressPoolStatus
+	AddressPoolList     []AddressPoolStatus
+	AddressRange        AddressRangeStatus
+	AddressRangeList    []AddressRangeStatus
+	BatchCreate         []CreateGuestStatus
+	BatchDelete         []DeleteGuestStatus
+	BatchStop           []StopGuestStatus
+	Template            SystemTemplate
+	TemplateList        []SystemTemplate
 }
 
 type DiskImageConfig struct {
@@ -326,6 +325,7 @@ type ResourceModule interface {
 	UpdateInstancePriority(id string, priority PriorityEnum, respChan chan error)
 	UpdateInstanceDiskThreshold(id string, readSpeed, readIOPS, writeSpeed, writeIOPS uint64, respChan chan error)
 	UpdateInstanceNetworkThreshold(id string, receive, send uint64, respChan chan error)
+	UpdateInstanceMonitorSecret(id, secret string, respChan chan error)
 
 	//image server
 	AddImageServer(name, host string, port int)
@@ -364,6 +364,12 @@ type ResourceModule interface {
 	SetBatchStopGuestSuccess(batchID, guestID string, respChan chan error)
 	SetBatchStopGuestFail(batchID, guestID string, err error, respChan chan error)
 	GetBatchStopGuestStatus(batchID string, respChan chan ResourceResult)
+
+	QuerySystemTemplates(respChan chan ResourceResult)
+	GetSystemTemplate(id string, respChan chan ResourceResult)
+	CreateSystemTemplate(config SystemTemplateConfig, respChan chan ResourceResult)
+	ModifySystemTemplate(id string, config SystemTemplateConfig, respChan chan error)
+	DeleteSystemTemplate(id string, respChan chan error)
 }
 
 func (report *CellStatusReport) FromMessage(msg framework.Message) (err error) {

@@ -45,7 +45,7 @@ func (executor *ModifyGuestPasswordExecutor)Execute(id framework.SessionID, requ
 			resp.SetError(result.Error.Error())
 			return executor.Sender.SendMessage(resp, request.GetSender())
 		}
-		ins = result.InstanceStatus
+		ins = result.Instance
 		//instance must running
 		if !ins.Running{
 			err = fmt.Errorf("guest '%s' is not running", guestID)

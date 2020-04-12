@@ -43,7 +43,7 @@ func (executor *GetComputeCellExecutor)Execute(id framework.SessionID, request f
 		log.Printf("[%08X] get compute cell fail: %s", id, err.Error())
 		return executor.Sender.SendMessage(resp, request.GetSender())
 	}
-	var s = result.ComputeCellStatus
+	var s = result.ComputeCell
 
 
 	//assemble

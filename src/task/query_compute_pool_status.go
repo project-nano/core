@@ -33,7 +33,7 @@ func (executor *QueryComputePoolStatusExecutor)Execute(id framework.SessionID, r
 	resp.SetSuccess(true)
 	var name []string
 	var enabled, cells, instance, usage, cores, memory, disk, speed []uint64
-	for _, s := range result.ComputePoolStatusList{
+	for _, s := range result.ComputePoolList {
 		name = append(name, s.Name)
 		if s.Enabled{
 			enabled = append(enabled, 1)

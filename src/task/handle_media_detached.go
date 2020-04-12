@@ -31,11 +31,11 @@ func (executor *HandleMediaDetachedExecutor)Execute(id framework.SessionID, even
 			log.Printf("[%08X] fetch guest fail: %s", id, errMsg)
 			return result.Error
 		}
-		if !result.InstanceStatus.MediaAttached{
+		if !result.Instance.MediaAttached{
 			log.Printf("[%08X] warning: media already detached", id)
 			return nil
 		}
-		status = result.InstanceStatus
+		status = result.Instance
 	}
 	status.MediaAttached = false
 	status.MediaSource = ""

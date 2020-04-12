@@ -33,7 +33,7 @@ func (executor *GetComputePoolExecutor)Execute(id framework.SessionID, request f
 		log.Printf("[%08X] get compute pool fail: %s", id, err.Error())
 		return executor.Sender.SendMessage(resp, request.GetSender())
 	}
-	var poolInfo = result.ComputePoolInfo
+	var poolInfo = result.ComputePoolConfig
 	resp.SetString(framework.ParamKeyName, poolInfo.Name)
 	resp.SetBoolean(framework.ParamKeyEnable, poolInfo.Enabled)
 	resp.SetUInt(framework.ParamKeyCell, uint(poolInfo.CellCount))

@@ -83,7 +83,7 @@ func (executor *QueryGuestConfigExecutor)Execute(id framework.SessionID, request
 			resp.SetError(err.Error())
 			return executor.Sender.SendMessage(resp, request.GetSender())
 		}
-		var guests = result.InstanceStatusList
+		var guests = result.InstanceList
 		if err = modules.MarshalInstanceStatusListToMessage(guests, resp); err != nil{
 			log.Printf("[%08X] build response message fail: %s", id, err.Error())
 			resp.SetError(err.Error())

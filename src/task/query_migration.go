@@ -28,7 +28,7 @@ func (executor *QueryMigrationExecutor)Execute(id framework.SessionID, request f
 	}
 	var idList, errMessage []string
 	var finish, progress []uint64
-	for _, m := range result.MigrationStatusList{
+	for _, m := range result.MigrationList {
 		idList = append(idList, m.ID)
 		if m.Finished{
 			finish = append(finish, 1)

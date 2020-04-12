@@ -31,7 +31,7 @@ func (executor *QueryZoneStatusExecutor)Execute(id framework.SessionID, request 
 	}
 	resp.SetSuccess(true)
 	//assemble
-	var s = result.ZoneStatus
+	var s = result.Zone
 	resp.SetString(framework.ParamKeyName, s.Name)
 	resp.SetUIntArray(framework.ParamKeyPool, []uint64{s.DisabledPools, s.EnabledPools})
 	resp.SetUIntArray(framework.ParamKeyCell, []uint64{s.OfflineCells, s.OnlineCells})
