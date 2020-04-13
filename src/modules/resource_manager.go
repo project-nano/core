@@ -48,11 +48,12 @@ type addressPoolDefine struct {
 	Ranges []AddressRangeStatus `json:"ranges,omitempty"`
 }
 
-type zoneDefine struct {
-	Zone         string              `json:"zone"`
-	Pools        []poolDefine        `json:"pools"`
-	StoragePools []storageDefine     `json:"storage_pools,omitempty"`
-	AddressPools []addressPoolDefine `json:"address_pools,omitempty"`
+type ResourceData struct {
+	Zone            string              `json:"zone"`
+	Pools           []poolDefine        `json:"pools"`
+	StoragePools    []storageDefine     `json:"storage_pools,omitempty"`
+	AddressPools    []addressPoolDefine `json:"address_pools,omitempty"`
+	SystemTemplates []SystemTemplate    `json:"system_templates,omitempty"`
 }
 
 //memory status define
@@ -143,6 +144,8 @@ type ResourceManager struct {
 	batchCreateTasks map[string]BatchCreateGuestTask
 	batchDeleteTasks map[string]BatchDeleteGuestTask
 	batchStopTasks   map[string]BatchStopGuestTask
+	templates        map[string]SystemTemplate
+	allTemplateID    []string
 	generator        *rand.Rand
 	zone             ManagedZone
 	startTime        time.Time
@@ -420,6 +423,7 @@ func CreateResourceManager(dataPath string) (manager *ResourceManager, err error
 	manager.pendingError = map[string]error{}
 	manager.storagePools = map[string]StoragePoolInfo{}
 	manager.addressPools = map[string]ManagedAddressPool{}
+	manager.templates = map[string]SystemTemplate{}
 	manager.migrations = map[string]MigrationStatus{}
 	manager.batchCreateTasks = map[string]BatchCreateGuestTask{}
 	manager.batchDeleteTasks = map[string]BatchDeleteGuestTask{}
@@ -3831,7 +3835,7 @@ func (manager *ResourceManager) evaluateConfigureCapacity(cell ManagedComputeCel
 }
 
 func (manager *ResourceManager) saveConfig() error {
-	var config zoneDefine
+	var config ResourceData
 	var totalPools, totalCells = 0, 0
 	config.Zone = manager.zone.Name
 	for poolName, poolStatus := range manager.pools {
@@ -3879,6 +3883,9 @@ func (manager *ResourceManager) saveConfig() error {
 		}
 		config.AddressPools = append(config.AddressPools, define)
 	}
+	for _, template := range manager.templates{
+		config.SystemTemplates = append(config.SystemTemplates, template)
+	}
 	data, err := json.MarshalIndent(config, "", " ")
 	if err != nil {
 		return err
@@ -3892,30 +3899,101 @@ func (manager *ResourceManager) saveConfig() error {
 	return nil
 }
 
-func (manager *ResourceManager) loadConfig() error {
-	if _, err := os.Stat(manager.dataFile); os.IsNotExist(err) {
-		const (
-			DefaultPoolName = "default"
-			DefaultZoneName = "default"
-		)
+func (manager *ResourceManager) generateDefaultTemplates() (templates []SystemTemplate, err error){
+	templates = append(templates, CreateSystemTemplate(SystemTemplateConfig{
+		Name:            "CentOS 7",
+		OperatingSystem: SystemNameLinux,
+		Disk:            DiskBusSCSI,
+		Network:         NetworkModelVIRTIO,
+		Display:         DisplayDriverVGA,
+		Control:         RemoteControlVNC,
+		USB:             USBModelXHCI,
+		Tablet:          TabletBusUSB,
+	}))
+	templates = append(templates, CreateSystemTemplate(SystemTemplateConfig{
+		Name:            "CentOS 6",
+		OperatingSystem: SystemNameLinux,
+		Disk:            DiskBusSATA,
+		Network:         NetworkModelVIRTIO,
+		Display:         DisplayDriverVGA,
+		Control:         RemoteControlVNC,
+		USB:             USBModelXHCI,
+		Tablet:          TabletBusUSB,
+	}))
+	templates = append(templates, CreateSystemTemplate(SystemTemplateConfig{
+		Name:            "Windows Server 2012",
+		OperatingSystem: SystemNameWindows,
+		Disk:            DiskBusSATA,
+		Network:         NetworkModelE1000,
+		Display:         DisplayDriverVGA,
+		Control:         RemoteControlVNC,
+		USB:             USBModelXHCI,
+		Tablet:          TabletBusUSB,
+	}))
+	templates = append(templates, CreateSystemTemplate(SystemTemplateConfig{
+		Name:            "General",
+		OperatingSystem: SystemNameLinux,
+		Disk:            DiskBusSATA,
+		Network:         NetworkModelRTL8139,
+		Display:         DisplayDriverVGA,
+		Control:         RemoteControlVNC,
+		USB:             USBModelNone,
+		Tablet:          TabletBusUSB,
+	}))
+	templates = append(templates, CreateSystemTemplate(SystemTemplateConfig{
+		Name:            "Legacy",
+		OperatingSystem: SystemNameLinux,
+		Disk:            DiskBusIDE,
+		Network:         NetworkModelRTL8139,
+		Display:         DisplayDriverCirrus,
+		Control:         RemoteControlVNC,
+		USB:             USBModelNone,
+		Tablet:          TabletBusNone,
+	}))
+	log.Printf("<resource_manager> %d default system template(s) generated", len(templates))
+	return 
+}
 
-		manager.zone = ManagedZone{}
-		manager.zone.Name = DefaultZoneName
-		manager.cells = map[string]ManagedComputeCell{}
-		var defaultPool = ManagedComputePool{}
-		defaultPool.Name = DefaultPoolName
-		defaultPool.Enabled = true
-		defaultPool.Cells = map[string]bool{}
-		defaultPool.InstanceNames = map[string]string{}
-		manager.pools = map[string]ManagedComputePool{DefaultPoolName: defaultPool}
-		log.Println("<resource_manager> no config available, create default compute pool")
+func (manager *ResourceManager) generateDefaultConfig() (err error){
+	const (
+		DefaultPoolName = "default"
+		DefaultZoneName = "default"
+	)
+	manager.zone = ManagedZone{}
+	manager.zone.Name = DefaultZoneName
+	manager.cells = map[string]ManagedComputeCell{}
+	var defaultPool = ManagedComputePool{}
+	defaultPool.Name = DefaultPoolName
+	defaultPool.Enabled = true
+	defaultPool.Cells = map[string]bool{}
+	defaultPool.InstanceNames = map[string]string{}
+	manager.pools = map[string]ManagedComputePool{DefaultPoolName: defaultPool}
+	var templates []SystemTemplate
+	if templates, err = manager.generateDefaultTemplates(); err != nil{
+		err = fmt.Errorf("genereate templates fail: %s", err.Error())
+		return
+	}
+	for _, template := range templates{
+		manager.templates[template.ID] = template
+		manager.allTemplateID = append(manager.allTemplateID, template.ID)
+	}
+	log.Println("<resource_manager> default configure generated")
+	return nil
+}
+
+func (manager *ResourceManager) loadConfig() (err error) {
+	if _, err = os.Stat(manager.dataFile); os.IsNotExist(err) {
+		if err = manager.generateDefaultConfig(); err != nil{
+			err = fmt.Errorf("generate default config fail: %s", err.Error())
+			return
+		}
 		return manager.saveConfig()
 	}
 	data, err := ioutil.ReadFile(manager.dataFile)
 	if err != nil {
 		return err
 	}
-	var config zoneDefine
+	var config ResourceData
 	if err = json.Unmarshal(data, &config); err != nil {
 		return err
 	}
@@ -3979,10 +4057,24 @@ func (manager *ResourceManager) loadConfig() error {
 		var pool = StoragePoolInfo{define.Name, define.Type, define.Host, define.Target}
 		manager.storagePools[pool.Name] = pool
 	}
+	var templates []SystemTemplate
+	if 0 != len(config.SystemTemplates){
+		templates = config.SystemTemplates
+	}else{
+		if templates, err = manager.generateDefaultTemplates(); err != nil{
+			err = fmt.Errorf("generate templates fail: %s", err.Error())
+			return
+		}
+	}
+	for _, template := range templates{
+		manager.templates[template.ID] = template
+		manager.allTemplateID = append(manager.allTemplateID, template.ID)
+	}
+
 	manager.zone.Name = config.Zone
-	log.Printf("<resource_manager> %d pools, %d storage, %d address pool(s), %d cells, %d instances loaded from config",
+	log.Printf("<resource_manager> load resource success, %d compute/ %d storage/ %d address pools, %d templates, %d cell. %d instance available",
 		len(manager.pools), len(manager.storagePools), len(manager.addressPools),
-		len(manager.cells), totalInstances)
+		len(manager.allTemplateID), len(manager.cells), totalInstances)
 
 	return nil
 }

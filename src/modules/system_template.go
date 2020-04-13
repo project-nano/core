@@ -1,5 +1,7 @@
 package modules
 
+import "github.com/rs/xid"
+
 type TemplateOperatingSystem int
 
 const (
@@ -189,3 +191,11 @@ const (
 	TabletBusVIRTIO     = "virtio"
 	TabletBusUSB        = "usb"
 )
+
+func CreateSystemTemplate(config SystemTemplateConfig) SystemTemplate {
+	var t = SystemTemplate{
+		ID:                   xid.New().String(),
+		SystemTemplateConfig: config,
+	}
+	return t
+}
