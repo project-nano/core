@@ -426,5 +426,46 @@ func CreateTransactionManager(sender framework.MessageSender, resourceModule mod
 		err = fmt.Errorf("register change storage path fail: %s", err.Error())
 		return
 	}
+	//system templates
+	if err = manager.RegisterExecutor(framework.QueryTemplateRequest,
+		&task.QuerySystemTemplatesExecutor{
+			Sender:         sender,
+			ResourceModule: resourceModule,
+		}); err != nil{
+		err = fmt.Errorf("register query system templates fail: %s", err.Error())
+		return
+	}
+	if err = manager.RegisterExecutor(framework.GetTemplateRequest,
+		&task.GetSystemTemplateExecutor{
+			Sender:         sender,
+			ResourceModule: resourceModule,
+		}); err != nil{
+		err = fmt.Errorf("register get system template fail: %s", err.Error())
+		return
+	}
+	if err = manager.RegisterExecutor(framework.CreateTemplateRequest,
+		&task.CreateSystemTemplateExecutor{
+			Sender:         sender,
+			ResourceModule: resourceModule,
+		}); err != nil{
+		err = fmt.Errorf("register create system template fail: %s", err.Error())
+		return
+	}
+	if err = manager.RegisterExecutor(framework.ModifyTemplateRequest,
+		&task.ModifySystemTemplateExecutor{
+			Sender:         sender,
+			ResourceModule: resourceModule,
+		}); err != nil{
+		err = fmt.Errorf("register modify system template fail: %s", err.Error())
+		return
+	}
+	if err = manager.RegisterExecutor(framework.DeleteTemplateRequest,
+		&task.DeleteSystemTemplateExecutor{
+			Sender:         sender,
+			ResourceModule: resourceModule,
+		}); err != nil{
+		err = fmt.Errorf("register delete system template fail: %s", err.Error())
+		return
+	}
 	return manager, nil
 }

@@ -390,6 +390,8 @@ func (module *APIModule) RegisterAPIHandler(router *httprouter.Router) {
 	router.GET(apiPath("/compute_pool_status/:pool"), module.getComputePoolStatus)
 	router.GET(apiPath("/compute_cell_status/:pool"), module.queryComputeCellStatus)
 	router.GET(apiPath("/compute_cell_status/:pool/:cell"), module.getComputeCellStatus)
+	//router.GET(apiPath("/compute_cell_status/:pool/:cell/storages/"), module.queryCellStorages)
+	//router.PUT(apiPath("/compute_cell_status/:pool/:cell/storages/"), module.changeCellStorage)
 
 	router.GET(apiPath("/instance_status/:pool"), module.handleQueryInstanceStatusInPool)
 	router.GET(apiPath("/instance_status/:pool/:cell"), module.handleQueryInstanceStatusInCell)
@@ -409,6 +411,7 @@ func (module *APIModule) RegisterAPIHandler(router *httprouter.Router) {
 	router.GET(apiPath("/guests/:id/auth"), module.handleGetGuestPassword)
 	router.PUT(apiPath("/guests/:id/disks/resize/:index"), module.handleResizeDisk)
 	router.PUT(apiPath("/guests/:id/disks/shrink/:index"), module.handleShrinkDisk)
+	//router.PUT(apiPath("/guests/:id/monitor/secret"), module.resetMonitorSecret)
 
 	router.GET(apiPath("/instances/:id"), module.handleGetInstanceStatus)
 	router.POST(apiPath("/instances/:id"), module.handleStartInstance)
@@ -474,6 +477,12 @@ func (module *APIModule) RegisterAPIHandler(router *httprouter.Router) {
 	router.GET(apiPath("/batch/stop_guest/:id"), module.handleGetBatchStopGuest)
 	router.POST(apiPath("/batch/stop_guest/"), module.handleStartBatchStopGuest)
 
+	//system templates
+	router.GET(apiPath("/templates/"), module.querySystemTemplates)
+	router.GET(apiPath("/templates/:id"), module.getSystemTemplate)
+	router.POST(apiPath("/templates/"), module.createSystemTemplate)
+	router.PUT(apiPath("/templates/:id"), module.modifySystemTemplate)
+	router.DELETE(apiPath("/templates/:id"), module.deleteSystemTemplate)
 }
 
 func (module *APIModule) queryZoneStatistic(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
@@ -2467,6 +2476,7 @@ func (module *APIModule) searchMediaImage(w http.ResponseWriter, r *http.Request
 	if err != nil{
 		log.Printf("<api> parse query media image result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
 	}
 	ResponseOK(payload, w)
 }
@@ -2845,6 +2855,7 @@ func (module *APIModule) queryDiskImage(w http.ResponseWriter, r *http.Request, 
 	if err != nil{
 		log.Printf("<api> parse query disk image result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
 	}
 	ResponseOK(payload, w)
 }
@@ -4966,6 +4977,283 @@ func (module *APIModule) handleStartBatchStopGuest(w http.ResponseWriter, r *htt
 	ResponseOK(result, w)
 }
 
+func (module *APIModule) querySystemTemplates(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	var err = module.verifyRequestSignature(r)
+	if  err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+
+	msg, _ := framework.CreateJsonMessage(framework.QueryTemplateRequest)
+	respChan := make(chan ProxyResult, 1)
+	if err = module.proxy.SendRequest(msg, respChan); err != nil {
+		log.Printf("<api> send query system templates request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	resp, errMsg, success := IsResponseSuccess(respChan)
+	if !success {
+		log.Printf("<api> query system templates fail: %s", errMsg)
+		ResponseFail(ResponseDefaultError, errMsg, w)
+		return
+	}
+
+	type responseItem struct {
+		ID         string `json:"id"`
+		Name       string `json:"name"`
+		OS         string `json:"os"`
+		CreateTime string `json:"create_time,omitempty"`
+		ModifyTime string `json:"modify_time,omitempty"`
+	}
+
+	var parser = func(msg framework.Message) (items []responseItem, err error){
+		//unmarshal
+		var name, id, operatingSystem, createTime, modifyTime []string
+		if name, err = msg.GetStringArray(framework.ParamKeyName); err != nil{
+			err = fmt.Errorf("get name fail: %s", err.Error())
+			return
+		}
+		if id, err = msg.GetStringArray(framework.ParamKeyID); err != nil{
+			err = fmt.Errorf("get id fail: %s", err.Error())
+			return
+		}
+		if operatingSystem, err = msg.GetStringArray(framework.ParamKeySystem); err != nil{
+			err = fmt.Errorf("get operating system fail: %s", err.Error())
+			return
+		}
+		if createTime, err = msg.GetStringArray(framework.ParamKeyCreate); err != nil{
+			err = fmt.Errorf("get created time fail: %s", err.Error())
+			return
+		}
+		if modifyTime, err = msg.GetStringArray(framework.ParamKeyModify); err != nil{
+			err = fmt.Errorf("get modified time fail: %s", err.Error())
+			return
+		}
+		var itemCount = len(name)
+		items = make([]responseItem, 0)
+		for i := 0 ; i < itemCount;i++{
+			items = append(items, responseItem{
+				ID:         id[i],
+				Name:       name[i],
+				OS:         operatingSystem[i],
+				CreateTime: createTime[i],
+				ModifyTime: modifyTime[i],
+			})
+		}
+		return items, nil
+	}
+	var items []responseItem
+	if items, err = parser(resp); err != nil{
+		log.Printf("<api> parse query system templates result fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	ResponseOK(items, w)
+}
+
+func (module *APIModule) getSystemTemplate(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	var err = module.verifyRequestSignature(r)
+	if err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	var id = params.ByName("id")
+	msg, _ := framework.CreateJsonMessage(framework.GetTemplateRequest)
+	msg.SetString(framework.ParamKeyTemplate, id)
+	var respChan = make(chan ProxyResult, 1)
+	if err := module.proxy.SendRequest(msg, respChan); err != nil {
+		log.Printf("<api> send get system template request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	resp, errMsg, success := IsResponseSuccess(respChan)
+	if !success {
+		log.Printf("<api> get system template fail: %s", errMsg)
+		ResponseFail(ResponseDefaultError, errMsg, w)
+		return
+	}
+
+	var parser = func(msg framework.Message) (t SystemTemplate, err error){
+		if t.ID, err = msg.GetString(framework.ParamKeyID); err != nil{
+			err = fmt.Errorf("get template id fail: %s", err.Error())
+			return
+		}
+
+		if t.Name, err = msg.GetString(framework.ParamKeyName); err != nil{
+			err = fmt.Errorf("get template name fail: %s", err.Error())
+			return
+		}
+		if t.Admin, err = msg.GetString(framework.ParamKeyAdmin); err != nil{
+			err = fmt.Errorf("get template admin fail: %s", err.Error())
+			return
+		}
+		if t.OperatingSystem, err = msg.GetString(framework.ParamKeySystem); err != nil{
+			err = fmt.Errorf("get template os fail: %s", err.Error())
+			return
+		}
+		if t.Disk, err = msg.GetString(framework.ParamKeyDisk); err != nil{
+			err = fmt.Errorf("get template disk fail: %s", err.Error())
+			return
+		}
+		if t.Network, err = msg.GetString(framework.ParamKeyNetwork); err != nil{
+			err = fmt.Errorf("get template network fail: %s", err.Error())
+			return
+		}
+
+		if t.Display, err = msg.GetString(framework.ParamKeyDisplay); err != nil{
+			err = fmt.Errorf("get template control fail: %s", err.Error())
+			return
+		}
+		if t.Control, err = msg.GetString(framework.ParamKeyMonitor); err != nil{
+			err = fmt.Errorf("get template id fail: %s", err.Error())
+			return
+		}
+		if t.USB, err = msg.GetString(framework.ParamKeyDevice); err != nil{
+			err = fmt.Errorf("get template usb fail: %s", err.Error())
+			return
+		}
+		if t.Tablet, err = msg.GetString(framework.ParamKeyInterface); err != nil{
+			err = fmt.Errorf("get template tablet fail: %s", err.Error())
+			return
+		}
+		if t.CreatedTime, err = msg.GetString(framework.ParamKeyCreate); err != nil{
+			err = fmt.Errorf("get created time fail: %s", err.Error())
+			return
+		}
+		if t.ModifiedTime, err = msg.GetString(framework.ParamKeyModify); err != nil{
+			err = fmt.Errorf("get modified time fail: %s", err.Error())
+			return
+		}
+		return
+	}
+
+	var template SystemTemplate
+	if template, err = parser(resp); err != nil{
+		log.Printf("<api> parse get system templates result fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	ResponseOK(template, w)
+}
+
+func (module *APIModule) createSystemTemplate(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	var err = module.verifyRequestSignature(r)
+	if err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	var decoder = json.NewDecoder(r.Body)
+	var request SystemTemplateConfig
+	if err = decoder.Decode(&request);err != nil{
+		log.Printf("<api> parse create system template request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+
+	msg, _ := framework.CreateJsonMessage(framework.CreateTemplateRequest)
+	msg.SetString(framework.ParamKeyName, request.Name)
+	msg.SetString(framework.ParamKeyAdmin, request.Admin)
+	msg.SetString(framework.ParamKeySystem, request.OperatingSystem)
+	msg.SetString(framework.ParamKeyDisk, request.Disk)
+	msg.SetString(framework.ParamKeyNetwork, request.Network)
+	msg.SetString(framework.ParamKeyDisplay, request.Display)
+	msg.SetString(framework.ParamKeyMonitor, request.Control)
+	msg.SetString(framework.ParamKeyDevice, request.USB)
+	msg.SetString(framework.ParamKeyInterface, request.Tablet)
+
+	var respChan = make(chan ProxyResult, 1)
+	if err = module.proxy.SendRequest(msg, respChan); err != nil {
+		log.Printf("<api> send create system template request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	resp, errMsg, success := IsResponseSuccess(respChan)
+	if !success {
+		log.Printf("<api> create system template fail: %s", errMsg)
+		ResponseFail(ResponseDefaultError, errMsg, w)
+		return
+	}
+	var templateID string
+	if templateID, err = resp.GetString(framework.ParamKeyID);err != nil{
+		log.Printf("<api> get id from create result fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+
+	type userResponse struct {
+		ID string `json:"id"`
+	}
+	var data = userResponse{ID: templateID}
+	ResponseOK(data, w)
+}
+
+
+func (module *APIModule) modifySystemTemplate(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	var err = module.verifyRequestSignature(r)
+	if err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	var templateID = params.ByName("id")
+	var decoder = json.NewDecoder(r.Body)
+	var request SystemTemplateConfig
+	if err = decoder.Decode(&request);err != nil{
+		log.Printf("<api> parse modify system template request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+
+	msg, _ := framework.CreateJsonMessage(framework.ModifyTemplateRequest)
+	msg.SetString(framework.ParamKeyTemplate, templateID)
+	msg.SetString(framework.ParamKeyName, request.Name)
+	msg.SetString(framework.ParamKeyAdmin, request.Admin)
+	msg.SetString(framework.ParamKeySystem, request.OperatingSystem)
+	msg.SetString(framework.ParamKeyDisk, request.Disk)
+	msg.SetString(framework.ParamKeyNetwork, request.Network)
+	msg.SetString(framework.ParamKeyDisplay, request.Display)
+	msg.SetString(framework.ParamKeyMonitor, request.Control)
+	msg.SetString(framework.ParamKeyDevice, request.USB)
+	msg.SetString(framework.ParamKeyInterface, request.Tablet)
+
+	var respChan = make(chan ProxyResult, 1)
+	if err := module.proxy.SendRequest(msg, respChan); err != nil {
+		log.Printf("<api> send modify system template request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	_, errMsg, success := IsResponseSuccess(respChan)
+	if !success {
+		log.Printf("<api> modify system template fail: %s", errMsg)
+		ResponseFail(ResponseDefaultError, errMsg, w)
+		return
+	}
+	ResponseOK("", w)
+}
+
+
+func (module *APIModule) deleteSystemTemplate(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	var err = module.verifyRequestSignature(r)
+	if err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	var id = params.ByName("id")
+	msg, _ := framework.CreateJsonMessage(framework.DeleteTemplateRequest)
+	msg.SetString(framework.ParamKeyTemplate, id)
+	var respChan = make(chan ProxyResult, 1)
+	if err := module.proxy.SendRequest(msg, respChan); err != nil {
+		log.Printf("<api> send delete system template request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	_, errMsg, success := IsResponseSuccess(respChan)
+	if !success {
+		log.Printf("<api> delete system template fail: %s", errMsg)
+		ResponseFail(ResponseDefaultError, errMsg, w)
+		return
+	}
+	ResponseOK("", w)
+}
 
 func IsResponseSuccess(respChan chan ProxyResult) (resp framework.Message, errMessage string, success bool) {
 	result, ok := <-respChan

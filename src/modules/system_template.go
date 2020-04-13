@@ -1,6 +1,10 @@
 package modules
 
-import "github.com/rs/xid"
+import (
+	"fmt"
+	"github.com/rs/xid"
+	"time"
+)
 
 type TemplateOperatingSystem int
 
@@ -155,6 +159,7 @@ func (value TemplateTabletModel) ToString() string{
 
 type SystemTemplateConfig struct {
 	Name            string `json:"name"`
+	Admin           string `json:"admin"`
 	OperatingSystem string `json:"operating_system"`
 	Disk            string `json:"disk"`
 	Network         string `json:"network"`
@@ -165,8 +170,10 @@ type SystemTemplateConfig struct {
 }
 
 type SystemTemplate struct {
-	ID string `json:"id"`
+	ID           string `json:"id"`
 	SystemTemplateConfig
+	CreatedTime  string `json:"created_time"`
+	ModifiedTime string `json:"modified_time"`
 }
 
 const (
@@ -193,9 +200,87 @@ const (
 )
 
 func CreateSystemTemplate(config SystemTemplateConfig) SystemTemplate {
+	var now = time.Now().Format(TimeFormatLayout)
 	var t = SystemTemplate{
 		ID:                   xid.New().String(),
 		SystemTemplateConfig: config,
+		CreatedTime:          now,
+		ModifiedTime:         now,
 	}
 	return t
+}
+
+func (config SystemTemplateConfig) toOptions() (options []uint64, err error){
+	switch config.Disk {
+	case DiskBusSCSI:
+		options = append(options, TemplateDiskDriverSCSI)
+	case DiskBusSATA:
+		options = append(options, TemplateDiskDriverSATA)
+	case DiskBusIDE:
+		options = append(options, TemplateDiskDriverIDE)
+	default:
+		err = fmt.Errorf("invalid disk option '%s'", config.Disk)
+		return
+	}
+	//network
+	switch config.Network {
+	case NetworkModelVIRTIO:
+		options = append(options, TemplateNetworkModelVirtIO)
+	case NetworkModelE1000:
+		options = append(options, TemplateNetworkModelE1000)
+	case NetworkModelRTL8139:
+		options = append(options, TemplateNetworkModelRTL18139)
+	default:
+		err = fmt.Errorf("invalid network option '%s'", config.Network)
+		return
+	}
+	//display
+	switch config.Display {
+	case DisplayDriverVGA:
+		options = append(options, TemplateDisplayDriverVGA)
+	case DisplayDriverCirrus:
+		options = append(options, TemplateDisplayDriverCirrus)
+	case DisplayDriverQXL:
+		options = append(options, TemplateDisplayDriverQXL)
+	case DisplayDriverVirtIO:
+		options = append(options, TemplateDisplayDriverVirtIO)
+	case DisplayDriverNone:
+		options = append(options, TemplateDisplayDriverNone)
+	default:
+		err = fmt.Errorf("invalid display option '%s'", config.Display)
+		return
+	}
+	//remote control
+	switch config.Control {
+	case RemoteControlVNC:
+		options = append(options, TemplateRemoteControlVNC)
+	case RemoteControlSPICE:
+		options = append(options, TemplateRemoteControlSPICE)
+	default:
+		err = fmt.Errorf("invalid remote control option '%s'", config.Control)
+		return
+	}
+	//use device
+	switch config.USB {
+	case USBModelNone:
+		options = append(options, TemplateUSBModelNone)
+	case USBModelXHCI:
+		options = append(options, TemplateUSBModelXHCI)
+	default:
+		err = fmt.Errorf("invalid usb option '%s'", config.USB)
+		return
+	}
+	//tablet
+	switch config.Tablet {
+	case TabletBusNone:
+		options = append(options, TemplateTabletModelNone)
+	case TabletBusUSB:
+		options = append(options, TemplateTabletModelUSB)
+	case TabletBusVIRTIO:
+		options = append(options, TemplateTabletModelVirtIO)
+	default:
+		err = fmt.Errorf("invalid tablet option '%s'", config.Tablet)
+		return
+	}
+	return
 }

@@ -3552,27 +3552,124 @@ func (manager *ResourceManager) handleGetBatchStopGuestStatus(batchID string, re
 	return nil
 }
 
-func (manager *ResourceManager) handleUpdateInstanceMonitorSecret(id, secret string, respChan chan error) (err error){
-	panic("not implement")
+func (manager *ResourceManager) handleUpdateInstanceMonitorSecret(instanceID, secret string, respChan chan error) (err error){
+	defer func() {
+		respChan <- err
+	}()
+	var instance InstanceStatus
+	var exists bool
+	if instance, exists = manager.instances[instanceID]; !exists{
+		err = fmt.Errorf("invalid instance '%s'", instanceID)
+		return
+	}
+	instance.MonitorSecret = secret
+	manager.instances[instanceID] = instance
+	log.Printf("<resource_manager> monitor secret of instance '%s' updated", instance.Name)
+	return
 }
 func (manager *ResourceManager) handleQuerySystemTemplates(respChan chan ResourceResult) (err error){
-	panic("not implement")
+	defer func() {
+		if err != nil{
+			respChan <- ResourceResult{Error: err}
+		}
+	}()
+	var result = make([]SystemTemplate, 0)
+	for _, id := range manager.allTemplateID{
+		template, exists := manager.templates[id]
+		if !exists{
+			err = fmt.Errorf("invalid template '%s'", id)
+			return
+		}
+		result = append(result, template)
+	}
+	respChan <- ResourceResult{TemplateList: result}
+	return nil
 }
 
 func (manager *ResourceManager) handleGetSystemTemplate(id string, respChan chan ResourceResult) (err error){
-	panic("not implement")
+	defer func() {
+		if err != nil{
+			respChan <- ResourceResult{Error: err}
+		}
+	}()
+	template, exists := manager.templates[id]
+	if !exists{
+		err = fmt.Errorf("invalid template '%s'", id)
+		return
+	}
+	respChan <- ResourceResult{Template: template}
+	return nil
 }
 
 func (manager *ResourceManager) handleCreateSystemTemplate(config SystemTemplateConfig, respChan chan ResourceResult) (err error){
-	panic("not implement")
+	defer func() {
+		if err != nil{
+			respChan <- ResourceResult{Error: err}
+		}
+	}()
+	for _, t := range manager.templates{
+		if t.Name == config.Name{
+			err = fmt.Errorf("system template '%s' already exists", t.Name)
+			return
+		}
+	}
+	if _, err = config.toOptions(); err != nil{
+		err = fmt.Errorf("invalid template config: %s", err.Error())
+		return
+	}
+	var template = CreateSystemTemplate(config)
+	manager.templates[template.ID] = template
+	manager.allTemplateID = append(manager.allTemplateID, template.ID)
+	if err = manager.saveConfig(); err != nil{
+		err = fmt.Errorf("add new template fail: %s", err.Error())
+		return
+	}
+	respChan <- ResourceResult{Template: template}
+	log.Printf("<resource_manager> new template '%s'(%s) created", template.Name, template.ID)
+	return nil
 }
 
-func (manager *ResourceManager) handleModifySystemTemplate(id string, config SystemTemplateConfig, respChan chan error)(err error){
-	panic("not implement")
+func (manager *ResourceManager) handleModifySystemTemplate(id string, config SystemTemplateConfig, respChan chan error) (err error){
+	defer func() {
+		respChan <- err
+	}()
+	if _, err = config.toOptions(); err != nil{
+		err = fmt.Errorf("invalid template config: %s", err.Error())
+		return
+	}
+	template, exists := manager.templates[id]
+	if !exists{
+		err = fmt.Errorf("invalid template '%s'", id)
+		return
+	}
+	template.SystemTemplateConfig = config
+	template.ModifiedTime = time.Now().Format(TimeFormatLayout)
+	manager.templates[id] = template
+	log.Printf("<resource_manager> template '%s' modified", template.Name)
+	err = manager.saveConfig()
+	return
 }
 
 func (manager *ResourceManager) handleDeleteSystemTemplate(id string, respChan chan error) (err error){
-	panic("not implement")
+	defer func() {
+		respChan <- err
+	}()
+	template, exists := manager.templates[id]
+	if !exists{
+		err = fmt.Errorf("invalid template '%s'", id)
+		return
+	}
+	delete(manager.templates, id)
+	var newArray []string
+	for _, templateID := range manager.allTemplateID{
+		if id != templateID{
+			newArray = append(newArray, templateID)
+		}
+	}
+	manager.allTemplateID = newArray
+	log.Printf("<resource_manager> template '%s' deleted", template.Name)
+	err = manager.saveConfig()
+	return
 }
 
 func (manager *ResourceManager) transferInstances(sourceName, targetName string, instances []string, monitorPorts []uint64) (err error) {
