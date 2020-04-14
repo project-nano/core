@@ -390,8 +390,8 @@ func (module *APIModule) RegisterAPIHandler(router *httprouter.Router) {
 	router.GET(apiPath("/compute_pool_status/:pool"), module.getComputePoolStatus)
 	router.GET(apiPath("/compute_cell_status/:pool"), module.queryComputeCellStatus)
 	router.GET(apiPath("/compute_cell_status/:pool/:cell"), module.getComputeCellStatus)
-	//router.GET(apiPath("/compute_cell_status/:pool/:cell/storages/"), module.queryCellStorages)
-	//router.PUT(apiPath("/compute_cell_status/:pool/:cell/storages/"), module.changeCellStorage)
+	router.GET(apiPath("/compute_cell_status/:pool/:cell/storages/"), module.queryCellStorages)
+	router.PUT(apiPath("/compute_cell_status/:pool/:cell/storages/"), module.changeCellStorage)
 
 	router.GET(apiPath("/instance_status/:pool"), module.handleQueryInstanceStatusInPool)
 	router.GET(apiPath("/instance_status/:pool/:cell"), module.handleQueryInstanceStatusInCell)
@@ -411,7 +411,7 @@ func (module *APIModule) RegisterAPIHandler(router *httprouter.Router) {
 	router.GET(apiPath("/guests/:id/auth"), module.handleGetGuestPassword)
 	router.PUT(apiPath("/guests/:id/disks/resize/:index"), module.handleResizeDisk)
 	router.PUT(apiPath("/guests/:id/disks/shrink/:index"), module.handleShrinkDisk)
-	//router.PUT(apiPath("/guests/:id/monitor/secret"), module.resetMonitorSecret)
+	router.PUT(apiPath("/guests/:id/monitor/secret"), module.resetMonitorSecret)
 
 	router.GET(apiPath("/instances/:id"), module.handleGetInstanceStatus)
 	router.POST(apiPath("/instances/:id"), module.handleStartInstance)
@@ -2107,13 +2107,12 @@ func (module *APIModule) handleCreateGuest(w http.ResponseWriter, r *http.Reques
 		Cores           uint             `json:"cores"`
 		Memory          uint             `json:"memory"`
 		Disks           []uint64         `json:"disks"`
+		Template        string           `json:"template"`
 		AutoStart       bool             `json:"auto_start,omitempty"`
-		System          string           `json:"system,omitempty"`
 		NetworkAddress  string           `json:"network_address,omitempty"`
 		EthernetAddress string           `json:"ethernet_address,omitempty"`
 		FromImage       string           `json:"from_image,omitempty"`
 		Port            []uint64         `json:"port,omitempty"`
-		SystemVersion   string           `json:"system_version,omitempty"`
 		Modules         []string         `json:"modules,omitempty"`
 		CloudInit       *ciConfig        `json:"cloud_init,omitempty"`
 		QoS             *restInstanceQoS `json:"qos,omitempty"`
@@ -2136,12 +2135,11 @@ func (module *APIModule) handleCreateGuest(w http.ResponseWriter, r *http.Reques
 	msg.SetUInt(framework.ParamKeyMemory, request.Memory)
 	msg.SetUIntArray(framework.ParamKeyDisk, request.Disks)
 	msg.SetBoolean(framework.ParamKeyOption, request.AutoStart)
-	msg.SetString(framework.ParamKeySystem, request.System)
+	msg.SetString(framework.ParamKeyTemplate, request.Template)
 	//optional disk image
 	if "" != request.FromImage{
 		msg.SetString(framework.ParamKeyImage, request.FromImage)
 	}
-	msg.SetString(framework.ParamKeyVersion, request.SystemVersion)
 	msg.SetStringArray(framework.ParamKeyModule, request.Modules)
 	const (
 		RootLoginDisabled = iota
@@ -4551,13 +4549,12 @@ func (module *APIModule) handleStartBatchCreateGuest(w http.ResponseWriter, r *h
 		Cores           uint             `json:"cores"`
 		Memory          uint             `json:"memory"`
 		Disks           []uint64         `json:"disks"`
+		Template        string           `json:"template"`
 		AutoStart       bool             `json:"auto_start,omitempty"`
-		System          string           `json:"system,omitempty"`
 		NetworkAddress  string           `json:"network_address,omitempty"`
 		EthernetAddress string           `json:"ethernet_address,omitempty"`
 		FromImage       string           `json:"from_image,omitempty"`
 		Port            []uint64         `json:"port,omitempty"`
-		SystemVersion   string           `json:"system_version,omitempty"`
 		Modules         []string         `json:"modules,omitempty"`
 		CloudInit       *ciConfig        `json:"cloud_init,omitempty"`
 		QoS             *restInstanceQoS `json:"qos,omitempty"`
@@ -4599,12 +4596,11 @@ func (module *APIModule) handleStartBatchCreateGuest(w http.ResponseWriter, r *h
 	msg.SetUInt(framework.ParamKeyMemory, request.Memory)
 	msg.SetUIntArray(framework.ParamKeyDisk, request.Disks)
 	msg.SetBoolean(framework.ParamKeyOption, request.AutoStart)
-	msg.SetString(framework.ParamKeySystem, request.System)
+	msg.SetString(framework.ParamKeyTemplate, request.Template)
 	//optional disk image
 	if "" != request.FromImage{
 		msg.SetString(framework.ParamKeyImage, request.FromImage)
 	}
-	msg.SetString(framework.ParamKeyVersion, request.SystemVersion)
 	msg.SetStringArray(framework.ParamKeyModule, request.Modules)
 	const (
 		RootLoginDisabled = iota
@@ -5249,6 +5245,144 @@ func (module *APIModule) deleteSystemTemplate(w http.ResponseWriter, r *http.Req
 	_, errMsg, success := IsResponseSuccess(respChan)
 	if !success {
 		log.Printf("<api> delete system template fail: %s", errMsg)
+		ResponseFail(ResponseDefaultError, errMsg, w)
+		return
+	}
+	ResponseOK("", w)
+}
+
+func (module *APIModule) resetMonitorSecret(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	var err = module.verifyRequestSignature(r)
+	if err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	var guestID = params.ByName("id")
+
+	msg, _ := framework.CreateJsonMessage(framework.ResetSecretRequest)
+	msg.SetString(framework.ParamKeyGuest, guestID)
+
+	var respChan = make(chan ProxyResult, 1)
+	if err := module.proxy.SendRequest(msg, respChan); err != nil {
+		log.Printf("<api> send reset monitor secret request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	_, errMsg, success := IsResponseSuccess(respChan)
+	if !success {
+		log.Printf("<api> reset monitor secret fail: %s", errMsg)
+		ResponseFail(ResponseDefaultError, errMsg, w)
+		return
+	}
+	ResponseOK("", w)
+}
+
+func (module *APIModule) queryCellStorages(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	var err = module.verifyRequestSignature(r)
+	if  err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	var cellName = params.ByName("cell")
+	msg, _ := framework.CreateJsonMessage(framework.QueryCellStorageRequest)
+	msg.SetString(framework.ParamKeyCell, cellName)
+	respChan := make(chan ProxyResult, 1)
+	if err = module.proxy.SendRequest(msg, respChan); err != nil {
+		log.Printf("<api> send query cell storages request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	resp, errMsg, success := IsResponseSuccess(respChan)
+	if !success {
+		log.Printf("<api> query cell storages fail: %s", errMsg)
+		ResponseFail(ResponseDefaultError, errMsg, w)
+		return
+	}
+
+	type Payload struct {
+		Mode   string   `json:"mode"`
+		System []string `json:"system"`
+		Data   []string `json:"data"`
+	}
+
+	var parser = func(msg framework.Message) (payload Payload, err error){
+		const (
+			StoragePoolModeLocal = iota
+			StoragePoolModeNFS
+			StoragePoolModeInvalid
+		)
+		//unmarshal
+		var mode uint
+		if mode, err = msg.GetUInt(framework.ParamKeyMode); err != nil{
+			err = fmt.Errorf("get storage mode fail: %s", err.Error())
+			return
+		}
+		switch mode {
+		case StoragePoolModeLocal:
+			payload.Mode = "local"
+		case StoragePoolModeNFS:
+			payload.Mode = "nfs"
+		default:
+			err = fmt.Errorf("invalid storage mode %d", mode)
+			return
+
+		}
+		if payload.System, err = msg.GetStringArray(framework.ParamKeySystem); err != nil{
+			err = fmt.Errorf("get system paths fail: %s", err.Error())
+			return
+		}
+		if payload.Data, err = msg.GetStringArray(framework.ParamKeyData); err != nil{
+			err = fmt.Errorf("get data paths fail: %s", err.Error())
+			return
+		}
+		return
+	}
+	var payload Payload
+	if payload, err = parser(resp); err != nil{
+		log.Printf("<api> parse query cell storages result fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	ResponseOK(payload, w)
+}
+
+
+func (module *APIModule) changeCellStorage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	var err = module.verifyRequestSignature(r)
+	if  err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	var cellName = params.ByName("cell")
+	type Payload struct {
+		Default string `json:"default"`
+	}
+	var decoder = json.NewDecoder(r.Body)
+	var request Payload
+	if err = decoder.Decode(&request);err != nil{
+		log.Printf("<api> parse change cell storage request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	if "" == request.Default{
+		err = errors.New("target path required")
+		log.Printf("<api> verify change cell storage request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+
+	msg, _ := framework.CreateJsonMessage(framework.ModifyCellStorageRequest)
+	msg.SetString(framework.ParamKeyCell, cellName)
+	msg.SetString(framework.ParamKeyPath, request.Default)
+	respChan := make(chan ProxyResult, 1)
+	if err = module.proxy.SendRequest(msg, respChan); err != nil {
+		log.Printf("<api> send change cell storage request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	_, errMsg, success := IsResponseSuccess(respChan)
+	if !success {
+		log.Printf("<api> change cell storage fail: %s", errMsg)
 		ResponseFail(ResponseDefaultError, errMsg, w)
 		return
 	}

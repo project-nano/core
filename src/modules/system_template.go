@@ -210,7 +210,7 @@ func CreateSystemTemplate(config SystemTemplateConfig) SystemTemplate {
 	return t
 }
 
-func (config SystemTemplateConfig) toOptions() (options []uint64, err error){
+func (config SystemTemplateConfig) ToOptions() (options []uint64, err error){
 	switch config.Disk {
 	case DiskBusSCSI:
 		options = append(options, TemplateDiskDriverSCSI)

@@ -1,6 +1,7 @@
 package task
 
 import (
+	"fmt"
 	"log"
 	"time"
 	"github.com/project-nano/framework"
@@ -29,6 +30,28 @@ func (executor *StartBatchCreateGuestExecutor)Execute(id framework.SessionID, re
 	}
 	if guestCount, err = request.GetUInt(framework.ParamKeyCount);err != nil{
 		return err
+	}
+	var templateID, adminName string
+	var templateOptions []uint64
+	if templateID, err = request.GetString(framework.ParamKeyTemplate); err != nil{
+		err = fmt.Errorf("get template id fail: %s", err.Error())
+		return
+	}else{
+		var respChan = make(chan modules.ResourceResult, 1)
+		executor.ResourceModule.GetSystemTemplate(templateID, respChan)
+		var result = <- respChan
+		if result.Error != nil{
+			err = fmt.Errorf("get template fail: %s", result.Error)
+			return
+		}
+		var t = result.Template
+		if adminName, err = request.GetString(framework.ParamKeyAdmin); err != nil{
+			adminName = t.Admin
+		}
+		if templateOptions, err = t.ToOptions(); err != nil{
+			err = fmt.Errorf("invalid template: %s", err.Error())
+			return
+		}
 	}
 
 	log.Printf("[%08X] recv batch create %d guests from %s.[%08X]", id, guestCount, request.GetSender(), request.GetFromSession())
@@ -64,7 +87,9 @@ func (executor *StartBatchCreateGuestExecutor)Execute(id framework.SessionID, re
 		var forward = framework.CloneJsonMessage(request)
 		var transID = framework.TransactionID(index)
 		forward.SetID(framework.CreateGuestRequest)
+		forward.SetString(framework.ParamKeyAdmin, adminName)
 		forward.SetString(framework.ParamKeyName, guestName)
+		forward.SetUIntArray(framework.ParamKeyTemplate, templateOptions)
 		forward.SetToSession(0)
 		forward.SetFromSession(id)
 		forward.SetTransactionID(transID)

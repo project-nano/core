@@ -3613,7 +3613,7 @@ func (manager *ResourceManager) handleCreateSystemTemplate(config SystemTemplate
 			return
 		}
 	}
-	if _, err = config.toOptions(); err != nil{
+	if _, err = config.ToOptions(); err != nil{
 		err = fmt.Errorf("invalid template config: %s", err.Error())
 		return
 	}
@@ -3633,7 +3633,7 @@ func (manager *ResourceManager) handleModifySystemTemplate(id string, config Sys
 	defer func() {
 		respChan <- err
 	}()
-	if _, err = config.toOptions(); err != nil{
+	if _, err = config.ToOptions(); err != nil{
 		err = fmt.Errorf("invalid template config: %s", err.Error())
 		return
 	}

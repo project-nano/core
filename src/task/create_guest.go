@@ -52,9 +52,31 @@ func (executor *CreateGuestExecutor)Execute(id framework.SessionID, request fram
 	if config.AutoStart, err = request.GetBoolean(framework.ParamKeyOption); err != nil{
 		return err
 	}
-	if config.System, err = request.GetString(framework.ParamKeySystem); err != nil{
-		return err
+	var templateID string
+	if templateID, err = request.GetString(framework.ParamKeyTemplate); err != nil{
+		err = fmt.Errorf("get template id fail: %s", err.Error())
+		return
+	}else{
+		var respChan = make(chan modules.ResourceResult, 1)
+		executor.ResourceModule.GetSystemTemplate(templateID, respChan)
+		var result = <- respChan
+		if result.Error != nil{
+			err = fmt.Errorf("get template fail: %s", result.Error)
+			return
+		}
+		var t = result.Template
+		config.System = t.OperatingSystem
+		if _, err = request.GetString(framework.ParamKeyAdmin); err != nil{
+			request.SetString(framework.ParamKeyAdmin, t.Admin)
+		}
+		var options []uint64
+		if options, err = t.ToOptions(); err != nil{
+			err = fmt.Errorf("invalid template: %s", err.Error())
+			return
+		}
+		request.SetUIntArray(framework.ParamKeyTemplate, options)
 	}
+
 	//QoS
 	{
 		priorityValue, _ := request.GetUInt(framework.ParamKeyPriority)
