@@ -1148,7 +1148,7 @@ func (manager *ResourceManager) handleCommand(cmd resourceCommand) {
 		break
 	}
 	if err != nil {
-		log.Printf("<resource_manager> handle command %d fail: %s", cmd.Type.toString(), err.Error())
+		log.Printf("<resource_manager> handle command %s fail: %s", cmd.Type.toString(), err.Error())
 	}
 }
 
@@ -3999,6 +3999,7 @@ func (manager *ResourceManager) saveConfig() error {
 func (manager *ResourceManager) generateDefaultTemplates() (templates []SystemTemplate, err error){
 	templates = append(templates, CreateSystemTemplate(SystemTemplateConfig{
 		Name:            "CentOS 7",
+		Admin:           "root",
 		OperatingSystem: SystemNameLinux,
 		Disk:            DiskBusSCSI,
 		Network:         NetworkModelVIRTIO,
@@ -4009,6 +4010,7 @@ func (manager *ResourceManager) generateDefaultTemplates() (templates []SystemTe
 	}))
 	templates = append(templates, CreateSystemTemplate(SystemTemplateConfig{
 		Name:            "CentOS 6",
+		Admin:           "root",
 		OperatingSystem: SystemNameLinux,
 		Disk:            DiskBusSATA,
 		Network:         NetworkModelVIRTIO,
@@ -4019,6 +4021,7 @@ func (manager *ResourceManager) generateDefaultTemplates() (templates []SystemTe
 	}))
 	templates = append(templates, CreateSystemTemplate(SystemTemplateConfig{
 		Name:            "Windows Server 2012",
+		Admin:           "Administrator",
 		OperatingSystem: SystemNameWindows,
 		Disk:            DiskBusSATA,
 		Network:         NetworkModelE1000,
@@ -4029,6 +4032,7 @@ func (manager *ResourceManager) generateDefaultTemplates() (templates []SystemTe
 	}))
 	templates = append(templates, CreateSystemTemplate(SystemTemplateConfig{
 		Name:            "General",
+		Admin:           "root",
 		OperatingSystem: SystemNameLinux,
 		Disk:            DiskBusSATA,
 		Network:         NetworkModelRTL8139,
@@ -4039,6 +4043,7 @@ func (manager *ResourceManager) generateDefaultTemplates() (templates []SystemTe
 	}))
 	templates = append(templates, CreateSystemTemplate(SystemTemplateConfig{
 		Name:            "Legacy",
+		Admin:           "root",
 		OperatingSystem: SystemNameLinux,
 		Disk:            DiskBusIDE,
 		Network:         NetworkModelRTL8139,
@@ -4079,12 +4084,22 @@ func (manager *ResourceManager) generateDefaultConfig() (err error){
 }
 
 func (manager *ResourceManager) loadConfig() (err error) {
+	var configChanged = false
+	defer func() {
+		if configChanged{
+			if err = manager.saveConfig(); err != nil{
+				log.Printf("<resource_manager> save config fail after load: %s", err.Error())
+				return
+			}
+		}
+	}()
 	if _, err = os.Stat(manager.dataFile); os.IsNotExist(err) {
 		if err = manager.generateDefaultConfig(); err != nil{
 			err = fmt.Errorf("generate default config fail: %s", err.Error())
 			return
 		}
-		return manager.saveConfig()
+		configChanged = true
+		return
 	}
 	data, err := ioutil.ReadFile(manager.dataFile)
 	if err != nil {
@@ -4162,6 +4177,7 @@ func (manager *ResourceManager) loadConfig() (err error) {
 			err = fmt.Errorf("generate templates fail: %s", err.Error())
 			return
 		}
+		configChanged = true
 	}
 	for _, template := range templates{
 		manager.templates[template.ID] = template

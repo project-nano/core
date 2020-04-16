@@ -2088,7 +2088,8 @@ func (module *APIModule) handleGetGuestConfig(w http.ResponseWriter, r *http.Req
 
 
 func (module *APIModule) handleCreateGuest(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	var err error
+	if err = module.verifyRequestSignature(r); err != nil{
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -2125,6 +2126,45 @@ func (module *APIModule) handleCreateGuest(w http.ResponseWriter, r *http.Reques
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
+
+	var validator = func(config userRequest) (err error){
+		if "" == config.Name{
+			err = fmt.Errorf("name required")
+			return
+		}
+		if "" == config.Owner{
+			err = fmt.Errorf("owner required")
+			return
+		}
+		if "" == config.Group{
+			err = fmt.Errorf("group required")
+			return
+		}
+		if "" == config.Pool{
+			err = fmt.Errorf("target pool required")
+			return
+		}
+		if "" == config.Template{
+			err = fmt.Errorf("system template required")
+			return
+		}
+		if 0 == config.Cores{
+			err = fmt.Errorf("cores required")
+			return
+		}
+		if 0 == config.Memory{
+			err = fmt.Errorf("memory required")
+			return
+		}
+		return nil
+	}
+
+	if err = validator(request); err != nil{
+		log.Printf("<api> validate create guest request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+
 	msg, _ := framework.CreateJsonMessage(framework.CreateGuestRequest)
 	msg.SetString(framework.ParamKeyName, request.Name)
 	msg.SetString(framework.ParamKeyUser, request.Owner)
@@ -4528,7 +4568,8 @@ func (module *APIModule) handleGetBatchCreateGuest(w http.ResponseWriter, r *htt
 }
 
 func (module *APIModule) handleStartBatchCreateGuest(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	var err error
+	if err = module.verifyRequestSignature(r); err != nil{
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -4567,6 +4608,45 @@ func (module *APIModule) handleStartBatchCreateGuest(w http.ResponseWriter, r *h
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
+
+	var validator = func(config userRequest) (err error){
+		if "" == config.NamePrefix{
+			err = fmt.Errorf("prefix required")
+			return
+		}
+		if "" == config.Owner{
+			err = fmt.Errorf("owner required")
+			return
+		}
+		if "" == config.Group{
+			err = fmt.Errorf("group required")
+			return
+		}
+		if "" == config.Pool{
+			err = fmt.Errorf("target pool required")
+			return
+		}
+		if "" == config.Template{
+			err = fmt.Errorf("system template required")
+			return
+		}
+		if 0 == config.Cores{
+			err = fmt.Errorf("cores required")
+			return
+		}
+		if 0 == config.Memory{
+			err = fmt.Errorf("memory required")
+			return
+		}
+		return nil
+	}
+
+	if err = validator(request); err != nil{
+		log.Printf("<api> validate batch create guest request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+
 	msg, _ := framework.CreateJsonMessage(framework.StartBatchCreateGuestRequest)
 	const (
 		NameRuleOrder   = "order"
@@ -5146,6 +5226,44 @@ func (module *APIModule) createSystemTemplate(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	var validator = func(config SystemTemplateConfig) (err error){
+		if "" == config.Name{
+			err = fmt.Errorf("name required")
+			return
+		}
+		if "" == config.Admin{
+			err = fmt.Errorf("admin required")
+			return
+		}
+		if "" == config.OperatingSystem{
+			err = fmt.Errorf("operating system required")
+			return
+		}
+		if "" == config.Disk{
+			err = fmt.Errorf("disk driver required")
+			return
+		}
+		if "" == config.Network{
+			err = fmt.Errorf("network driver required")
+			return
+		}
+		if "" == config.Display{
+			err = fmt.Errorf("display model required")
+			return
+		}
+		if "" == config.Control{
+			err = fmt.Errorf("control protocol required")
+			return
+		}
+		return nil
+	}
+
+	if err = validator(request); err != nil{
+		log.Printf("<api> validate create system template request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+
 	msg, _ := framework.CreateJsonMessage(framework.CreateTemplateRequest)
 	msg.SetString(framework.ParamKeyName, request.Name)
 	msg.SetString(framework.ParamKeyAdmin, request.Admin)
@@ -5195,6 +5313,44 @@ func (module *APIModule) modifySystemTemplate(w http.ResponseWriter, r *http.Req
 	var request SystemTemplateConfig
 	if err = decoder.Decode(&request);err != nil{
 		log.Printf("<api> parse modify system template request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+
+	var validator = func(config SystemTemplateConfig) (err error){
+		if "" == config.Name{
+			err = fmt.Errorf("name required")
+			return
+		}
+		if "" == config.Admin{
+			err = fmt.Errorf("admin required")
+			return
+		}
+		if "" == config.OperatingSystem{
+			err = fmt.Errorf("operating system required")
+			return
+		}
+		if "" == config.Disk{
+			err = fmt.Errorf("disk driver required")
+			return
+		}
+		if "" == config.Network{
+			err = fmt.Errorf("network driver required")
+			return
+		}
+		if "" == config.Display{
+			err = fmt.Errorf("display model required")
+			return
+		}
+		if "" == config.Control{
+			err = fmt.Errorf("control protocol required")
+			return
+		}
+		return nil
+	}
+
+	if err = validator(request); err != nil{
+		log.Printf("<api> validate modify system template request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
