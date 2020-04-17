@@ -66,7 +66,9 @@ func (executor *CreateGuestExecutor)Execute(id framework.SessionID, request fram
 		}
 		var t = result.Template
 		config.System = t.OperatingSystem
-		if _, err = request.GetString(framework.ParamKeyAdmin); err != nil{
+		var currentAdmin string
+		currentAdmin, _ = request.GetString(framework.ParamKeyAdmin)
+		if "" == currentAdmin{
 			request.SetString(framework.ParamKeyAdmin, t.Admin)
 		}
 		var options []uint64

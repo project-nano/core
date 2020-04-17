@@ -8,6 +8,7 @@
 - Manage system templates
 - Create guest using template
 - Reset monitor secret
+- Signature on stream request for image server
 
 ## [1.1.1] - 2020-01-01
 

@@ -163,7 +163,15 @@ func apiPath(path string) string{
 	return fmt.Sprintf("%s/v%d%s", APIRoot, APIVersion, path)
 }
 
-func (module *APIModule) verifyRequestSignature(r *http.Request) (err error){
+func (module *APIModule) verifyRequestSignature(r *http.Request) error{
+	return module.verifySignature(r, true)
+}
+
+func (module *APIModule) verifyStreamSignature(r *http.Request) error{
+	return module.verifySignature(r, false)
+}
+
+func (module *APIModule) verifySignature(r *http.Request, processPayload bool) (err error){
 	const (
 		SignatureMethodHMAC256 = "Nano-HMAC-SHA256"
 		ShortDateFormat        = "20060102"
@@ -298,26 +306,29 @@ func (module *APIModule) verifyRequestSignature(r *http.Request) (err error){
 		canonicalHeaders = headersBuilder.String()
 		//hash with sha256
 		var hash = sha256.New()
-		if http.MethodGet == r.Method || http.MethodHead == r.Method || http.MethodOptions == r.Method{
-			hash.Write([]byte(""))
-		}else {
-			//clone request payload
-			var payload []byte
-			if payload, err = ioutil.ReadAll(r.Body); err != nil{
-				return
-			}
-			hash.Write(payload)
-			r.Body = ioutil.NopCloser(bytes.NewBuffer(payload))
-		}
-		var hashedPayload = strings.ToLower(hex.EncodeToString(hash.Sum(nil)))
-		var canonicalRequestContent = strings.Join([]string{
+		var requestContent = []string{
 			canonicalURI,
 			canonicalQueryString,
 			canonicalHeaders,
 			signedHeaders,
-			hashedPayload,
-		}, "\n")
-		hash.Reset()
+		}
+		if processPayload {
+			if http.MethodGet == r.Method || http.MethodHead == r.Method || http.MethodOptions == r.Method{
+				hash.Write([]byte(""))
+			}else {
+				//clone request payload
+				var payload []byte
+				if payload, err = ioutil.ReadAll(r.Body); err != nil{
+					return
+				}
+				hash.Write(payload)
+				r.Body = ioutil.NopCloser(bytes.NewBuffer(payload))
+			}
+			var hashedPayload = strings.ToLower(hex.EncodeToString(hash.Sum(nil)))
+			requestContent = append(requestContent, hashedPayload)
+			hash.Reset()
+		}
+		var canonicalRequestContent = strings.Join(requestContent, "\n")
 		hash.Write([]byte(canonicalRequestContent))
 		canonicalRequest = hex.EncodeToString(hash.Sum(nil))
 	}
@@ -352,7 +363,6 @@ func (module *APIModule) verifyRequestSignature(r *http.Request) (err error){
 			return
 		}
 	}
-
 	return nil
 }
 
@@ -2014,6 +2024,12 @@ func (module *APIModule) handleQueryGuestConfig(w http.ResponseWriter, r *http.R
 }
 
 func (module *APIModule) redirectToImageServer(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	var err = module.verifyStreamSignature(r)
+	if err != nil{
+		log.Printf("<api> verify stream fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, "unauthorized stream", w)
+		return
+	}
 	var respChan = make(chan ResourceResult, 1)
 	module.resource.GetImageServer(respChan)
 	var result = <- respChan
@@ -5075,11 +5091,11 @@ func (module *APIModule) querySystemTemplates(w http.ResponseWriter, r *http.Req
 	}
 
 	type responseItem struct {
-		ID         string `json:"id"`
-		Name       string `json:"name"`
-		OS         string `json:"os"`
-		CreateTime string `json:"create_time,omitempty"`
-		ModifyTime string `json:"modify_time,omitempty"`
+		ID              string `json:"id"`
+		Name            string `json:"name"`
+		OperatingSystem string `json:"operating_system"`
+		CreateTime      string `json:"create_time,omitempty"`
+		ModifyTime      string `json:"modify_time,omitempty"`
 	}
 
 	var parser = func(msg framework.Message) (items []responseItem, err error){
@@ -5109,11 +5125,11 @@ func (module *APIModule) querySystemTemplates(w http.ResponseWriter, r *http.Req
 		items = make([]responseItem, 0)
 		for i := 0 ; i < itemCount;i++{
 			items = append(items, responseItem{
-				ID:         id[i],
-				Name:       name[i],
-				OS:         operatingSystem[i],
-				CreateTime: createTime[i],
-				ModifyTime: modifyTime[i],
+				ID:              id[i],
+				Name:            name[i],
+				OperatingSystem: operatingSystem[i],
+				CreateTime:      createTime[i],
+				ModifyTime:      modifyTime[i],
 			})
 		}
 		return items, nil

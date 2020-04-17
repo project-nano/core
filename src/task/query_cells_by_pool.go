@@ -18,7 +18,7 @@ func (executor *QueryCellsByPoolExecutor)Execute(id framework.SessionID, request
 	if err != nil{
 		return err
 	}
-	log.Printf("[%08X] query cells by pool from %s.[%08X]", id, request.GetSender(), request.GetFromSession())
+	//log.Printf("[%08X] query cells by pool from %s.[%08X]", id, request.GetSender(), request.GetFromSession())
 	var respChan = make(chan modules.ResourceResult)
 	executor.ResourceModule.QueryCellsInPool(poolName, respChan)
 	result := <- respChan
@@ -33,7 +33,7 @@ func (executor *QueryCellsByPoolExecutor)Execute(id framework.SessionID, request
 		return executor.Sender.SendMessage(resp, request.GetSender())
 	}
 
-	log.Printf("[%08X] %d cells available in pool '%s'", id, len(result.ComputeCellInfoList), poolName)
+	//log.Printf("[%08X] %d cells available in pool '%s'", id, len(result.ComputeCellInfoList), poolName)
 	resp.SetSuccess(true)
 	modules.CellsToMessage(resp, result.ComputeCellInfoList)
 

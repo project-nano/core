@@ -1,9 +1,8 @@
 package task
 
 import (
-	"github.com/project-nano/framework"
-	"log"
 	"github.com/project-nano/core/modules"
+	"github.com/project-nano/framework"
 )
 
 type QueryComputePoolExecutor struct {
@@ -14,7 +13,7 @@ type QueryComputePoolExecutor struct {
 
 func (executor *QueryComputePoolExecutor)Execute(id framework.SessionID, request framework.Message,
 	incoming chan framework.Message, terminate chan bool) error{
-	log.Printf("[%08X] query compute pool from %s.[%08X]", id, request.GetSender(), request.GetFromSession())
+	//log.Printf("[%08X] query compute pool from %s.[%08X]", id, request.GetSender(), request.GetFromSession())
 	var respChan = make(chan modules.ResourceResult)
 	executor.ResourceModule.GetAllComputePool(respChan)
 	result := <- respChan

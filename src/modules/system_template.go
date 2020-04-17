@@ -211,6 +211,15 @@ func CreateSystemTemplate(config SystemTemplateConfig) SystemTemplate {
 }
 
 func (config SystemTemplateConfig) ToOptions() (options []uint64, err error){
+	switch config.OperatingSystem {
+	case SystemNameLinux:
+		options = append(options, TemplateOperatingSystemLinux)
+	case SystemNameWindows:
+		options = append(options, TemplateOperatingSystemWindows)
+	default:
+		err = fmt.Errorf("invalid system option '%s'", config.OperatingSystem)
+		return
+	}
 	switch config.Disk {
 	case DiskBusSCSI:
 		options = append(options, TemplateDiskDriverSCSI)

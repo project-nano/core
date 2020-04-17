@@ -3,7 +3,6 @@ package task
 import (
 	"github.com/project-nano/core/modules"
 	"github.com/project-nano/framework"
-	"log"
 )
 
 type QueryStoragePoolExecutor struct {
@@ -14,7 +13,7 @@ type QueryStoragePoolExecutor struct {
 
 func (executor *QueryStoragePoolExecutor)Execute(id framework.SessionID, request framework.Message,
 	incoming chan framework.Message, terminate chan bool) error{
-	log.Printf("[%08X] query storage pool from %s.[%08X]", id, request.GetSender(), request.GetFromSession())
+	//log.Printf("[%08X] query storage pool from %s.[%08X]", id, request.GetSender(), request.GetFromSession())
 	var respChan = make(chan modules.ResourceResult)
 	executor.ResourceModule.QueryStoragePool(respChan)
 	result := <- respChan
