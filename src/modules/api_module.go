@@ -5094,8 +5094,8 @@ func (module *APIModule) querySystemTemplates(w http.ResponseWriter, r *http.Req
 		ID              string `json:"id"`
 		Name            string `json:"name"`
 		OperatingSystem string `json:"operating_system"`
-		CreateTime      string `json:"create_time,omitempty"`
-		ModifyTime      string `json:"modify_time,omitempty"`
+		CreatedTime     string `json:"created_time,omitempty"`
+		ModifiedTime    string `json:"modified_time,omitempty"`
 	}
 
 	var parser = func(msg framework.Message) (items []responseItem, err error){
@@ -5128,8 +5128,8 @@ func (module *APIModule) querySystemTemplates(w http.ResponseWriter, r *http.Req
 				ID:              id[i],
 				Name:            name[i],
 				OperatingSystem: operatingSystem[i],
-				CreateTime:      createTime[i],
-				ModifyTime:      modifyTime[i],
+				CreatedTime:     createTime[i],
+				ModifiedTime:    modifyTime[i],
 			})
 		}
 		return items, nil
