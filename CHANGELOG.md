@@ -10,6 +10,10 @@
 - Reset monitor secret
 - Signature on stream request for image server
 
+### Changed
+
+- Sync instance statistic on Cell when inconsistent
+
 ## [1.1.1] - 2020-01-01
 
 ### Added 

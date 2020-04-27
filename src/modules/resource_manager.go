@@ -1171,7 +1171,7 @@ func (manager *ResourceManager) onUpdateSystemStatus() {
 		LostThreshold = 10 * time.Second
 	)
 	//begin := time.Now()
-
+	var err error
 	lostTime := time.Now().Add(-LostThreshold)
 
 	manager.zone.PoolStatistic.Reset()
@@ -1200,6 +1200,13 @@ func (manager *ResourceManager) onUpdateSystemStatus() {
 				continue
 			}
 			pool.ResourceUsage.Accumulate(cell.ResourceUsage)
+			if !cell.isInstanceConsistent(){
+				if err = manager.syncInstanceStatistic(cell.Name); err != nil{
+					log.Printf("<resource_manager> warning: sync instance statistic on cell '%s' fail: %s", cell.Name, err.Error())
+					continue
+				}
+				log.Printf("<resource_manager> warning: instance statistic on cell '%s' resynced due to Inconsistent", cell.Name)
+			}
 			pool.InstanceStatistic.Accumulate(cell.InstanceStatistic)
 			pool.OnlineCells++
 		}
@@ -4192,6 +4199,41 @@ func (manager *ResourceManager) loadConfig() (err error) {
 	return nil
 }
 
+func (manager *ResourceManager) syncInstanceStatistic(cellName string) (err error){
+	var exists bool
+	var cell ManagedComputeCell
+	if cell, exists = manager.cells[cellName]; !exists{
+		err = fmt.Errorf("invalid cell '%s'", cellName)
+		return
+	}
+	cell.InstanceStatistic.Reset()
+	for instanceID, _ := range cell.Instances{
+		var instance InstanceStatus
+		if instance, exists = manager.instances[instanceID]; !exists{
+			err = fmt.Errorf("invalid instance '%s' in cell '%s'", instanceID, cellName)
+			return
+		}
+		if instance.Migrating{
+			cell.MigratingInstances ++
+		}else if instance.Lost{
+			cell.LostInstances ++
+		}else if instance.Running{
+			cell.RunningInstances ++
+		}else{
+			cell.StoppedInstances ++
+		}
+	}
+	manager.cells[cellName] = cell
+	return nil
+}
+
+func (cell *ManagedComputeCell) isInstanceConsistent() bool{
+	var total = int(cell.InstanceStatistic.StoppedInstances + cell.InstanceStatistic.StoppedInstances +
+		cell.InstanceStatistic.LostInstances + cell.InstanceStatistic.MigratingInstances)
+	log.Printf("debug: total %d / %d", total, len(cell.Instances))
+	return total == len(cell.Instances)
+}
+
 func (s *ResourceUsage) Accumulate(add ResourceUsage) {
 	var totalCores = s.Cores + add.Cores
 	if 0 == totalCores{
@@ -4259,6 +4301,8 @@ func (p *PoolStatistic) Reset() {
 	p.EnabledPools = 0
 	p.DisabledPools = 0
 }
+
+
 
 func IPv4ToNumber(ip net.IP) (number uint32){
 	number = binary.BigEndian.Uint32(ip[12:])
