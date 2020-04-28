@@ -4228,9 +4228,12 @@ func (manager *ResourceManager) syncInstanceStatistic(cellName string) (err erro
 }
 
 func (cell *ManagedComputeCell) isInstanceConsistent() bool{
-	var total = int(cell.InstanceStatistic.StoppedInstances + cell.InstanceStatistic.StoppedInstances +
+	var total = int(cell.InstanceStatistic.StoppedInstances + cell.InstanceStatistic.RunningInstances +
 		cell.InstanceStatistic.LostInstances + cell.InstanceStatistic.MigratingInstances)
-	log.Printf("debug: total %d / %d", total, len(cell.Instances))
+	//if total != len(cell.Instances){
+	//	log.Printf("debug: cell %s => total %d ,  %d, %d, %d, %d",
+	//		total, cell.StoppedInstances, cell.RunningInstances, cell.LostInstances, cell.MigratingInstances)
+	//}
 	return total == len(cell.Instances)
 }
 
