@@ -1,5 +1,11 @@
 # Change Log
 
+## [1.3.0] - 2020-10-02
+
+### Changed
+
+- Optimize the strategy and error output of computing pool allocation
+
 ## [1.2.0] - 2020-04-12
 
 ### Added

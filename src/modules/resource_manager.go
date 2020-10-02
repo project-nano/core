@@ -10,6 +10,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"io/ioutil"
 	"log"
+	"math"
 	"math/rand"
 	"net"
 	"os"
@@ -215,6 +216,12 @@ type ResourceStatistic struct {
 }
 
 type commandType int
+
+const (
+	evaluateCoreFactor   = 2
+	evaluateMemoryFactor = 1.5
+	evaluateDiskFactor   = 0.5
+)
 
 const (
 	cmdQueryAllComputePoolInfo     = iota
@@ -3820,6 +3827,12 @@ func (manager *ResourceManager) selectCell(poolName string, required InstanceRes
 		return "", fmt.Errorf("invalid pool '%s'", poolName)
 	}
 	var selectedCapacity float32 = 0.0
+	var requiredMemory = uint64(required.Memory)
+	var requiredDisk uint64 = 0
+	for _, volSize := range required.Disks {
+		requiredDisk += volSize
+	}
+	var coreMeetsRequirement, memoryMeetsRequirement, diskMeetsRequirement = false, false, false
 	for cellName, _ := range pool.Cells {
 		cell, exists := manager.cells[cellName]
 		if !exists{
@@ -3834,25 +3847,28 @@ func (manager *ResourceManager) selectCell(poolName string, required InstanceRes
 			log.Printf("<resource_manager> debug: ignore disabled cell '%s' when select resource node", cellName)
 			continue
 		}
-		var requiredDisk uint64 = 0
-		for _, volSize := range required.Disks {
-			requiredDisk += volSize
-		}
+
 		if mustFulfill{
 			//check minimal resource
 			if cell.CpuUsage > HealthCpuUsage{
 				log.Printf("<resource_manager> debug: ignore cell '%s' due to cpu overload (%.2f%%)", cellName, cell.CpuUsage)
 				continue
+			}else if !coreMeetsRequirement{
+				coreMeetsRequirement = true
 			}
 			if cell.DiskAvailable < requiredDisk{
-				log.Printf("<resource_manager> debug: ignore cell '%s' due to insuffient disk (%d GB for %d GB)",
-					cellName, cell.DiskAvailable >> 30, requiredDisk >> 30)
+				log.Printf("<resource_manager> debug: ignore cell '%s' due to insuffient disk (%s for %s)",
+					cellName, bytesToString(cell.DiskAvailable), bytesToString(requiredDisk))
 				continue
+			}else if !diskMeetsRequirement{
+				diskMeetsRequirement = true
 			}
-			if cell.MemoryAvailable < uint64(required.Memory){
-				log.Printf("<resource_manager> debug: ignore cell '%s' due to insuffient memory (%d GB for %d GB)",
-					cellName, cell.MemoryAvailable >> 30, required.Memory >> 30)
+			if cell.MemoryAvailable < requiredMemory{
+				log.Printf("<resource_manager> debug: ignore cell '%s' due to insuffient memory (%s for %s)",
+					cellName, bytesToString(cell.MemoryAvailable), bytesToString(requiredMemory))
 				continue
+			}else if !memoryMeetsRequirement{
+				memoryMeetsRequirement = true
 			}
 		}
 		var realLoad = manager.evaluateRealTimeCapacity(cell, required.Cores, required.Memory, requiredDisk)
@@ -3868,6 +3884,17 @@ func (manager *ResourceManager) selectCell(poolName string, required InstanceRes
 			selectedCapacity = capacity
 		}
 	}
+	if mustFulfill{
+		if !diskMeetsRequirement{
+			return "", fmt.Errorf("no cell has enough disk: %s", bytesToString(requiredDisk))
+		}
+		if !memoryMeetsRequirement{
+			return "", fmt.Errorf("no cell has enough memory: %s", bytesToString(requiredMemory))
+		}
+		if !coreMeetsRequirement{
+			return "", fmt.Errorf("all cell cores are busy (load over %.2f%%)", HealthCpuUsage)
+		}
+	}
 	if 0.0 == selectedCapacity {
 		return "", errors.New("no cell fulfill the resource requirement")
 	}
@@ -3876,9 +3903,6 @@ func (manager *ResourceManager) selectCell(poolName string, required InstanceRes
 
 func (manager *ResourceManager) evaluateRealTimeCapacity(cell ManagedComputeCell, requireCore, requireMemory uint, requireDisk uint64) (capacity float32){
 	const (
-		coreFactor   = 2
-		memoryFactor = 1.5
-		diskFactor   = 1
 		fullCPUUsage = 100
 	)
 
@@ -3892,7 +3916,7 @@ func (manager *ResourceManager) evaluateRealTimeCapacity(cell ManagedComputeCell
 	var coreCapacity = availableCores / float32(requireCore)
 	var memoryCapacity = float32(cell.MemoryAvailable) / float32(requireMemory)
 	var diskCapacity = float32(cell.DiskAvailable / requireDisk)
-	capacity = coreFactor * coreCapacity + memoryFactor * memoryCapacity + diskFactor * diskCapacity
+	capacity = evaluateCoreFactor* coreCapacity + evaluateMemoryFactor* memoryCapacity + evaluateDiskFactor* diskCapacity
 	//log.Printf("<resource_manager> debug: real capacity %.2f, core %.2f / %d => %.2f, mem %d / %d => %.2f, disk %d / %d => %.2f",
 	//	capacity, availableCores, requireCore, coreCapacity, cell.MemoryAvailable >> 20, requireMemory >> 20, memoryCapacity,
 	//	cell.DiskAvailable  >> 30, requireDisk >> 30, diskCapacity)
@@ -3902,9 +3926,6 @@ func (manager *ResourceManager) evaluateRealTimeCapacity(cell ManagedComputeCell
 func (manager *ResourceManager) evaluateConfigureCapacity(cell ManagedComputeCell, requireCore, requireMemory uint, requireDisk uint64) (capacity float32, err error){
 	const (
 		configureScale = 3
-		coreFactor     = 2
-		memoryFactor   = 1.5
-		diskFactor     = 1
 	)
 	var idList []string
 	for instanceID, _ := range cell.Instances{
@@ -3931,7 +3952,7 @@ func (manager *ResourceManager) evaluateConfigureCapacity(cell ManagedComputeCel
 	var coreCapacity = float32(availableCores/requireCore)
 	var memoryCapacity = float32(availableMemory/uint64(requireMemory))
 	var diskCapacity = float32(availableDisk/requireDisk)
-	capacity = coreFactor * coreCapacity + memoryFactor * memoryCapacity + diskFactor * diskCapacity
+	capacity = evaluateCoreFactor* coreCapacity + evaluateMemoryFactor* memoryCapacity + evaluateDiskFactor* diskCapacity
 	//log.Printf("<resource_manager> debug: configure capacity %.2f, core %d / %d => %.2f, mem %d / %d => %.2f, disk %d / %d => %.2f",
 	//	capacity, availableCores, requireCore, coreCapacity, availableMemory >> 20, requireMemory >> 20, memoryCapacity,
 	//		availableDisk >> 30, requireDisk >> 30, diskCapacity)
@@ -4305,8 +4326,6 @@ func (p *PoolStatistic) Reset() {
 	p.DisabledPools = 0
 }
 
-
-
 func IPv4ToNumber(ip net.IP) (number uint32){
 	number = binary.BigEndian.Uint32(ip[12:])
 	return number
@@ -4336,4 +4355,36 @@ func IPv4ToMask(stringValue string) (mask net.IPMask, err error){
 
 func IPv4MaskToString(mask net.IPMask) (string){
 	return net.IPv4(mask[0], mask[1], mask[2], mask[3]).String()
+}
+
+func bytesToString(sizeInBytes uint64) string {
+	const (
+		KB = 1 << 10
+		MB = KB << 10
+		GB = MB << 10
+		TB = GB << 10
+	)
+	var value = float64(sizeInBytes)
+	var unit string
+	if value < KB{
+		return fmt.Sprintf("%d Bytes", sizeInBytes)
+	}else if value < MB{
+		unit = "KB"
+		value = value / KB
+	}else if value < GB{
+		unit = "MB"
+		value = value / MB
+	}else if value < TB {
+		unit = "GB"
+		value = value / GB
+	}else{
+		unit = "TB"
+		value = value / TB
+	}
+	if value == math.Round(value){
+		//integer
+		return fmt.Sprintf("%d %s", int(value), unit)
+	}else{
+		return fmt.Sprintf("%.02f %s", value, unit)
+	}
 }
