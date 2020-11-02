@@ -3783,39 +3783,209 @@ func (manager *ResourceManager) handleQuerySecurityPolicyGroups(condition Securi
 }
 
 func (manager *ResourceManager) handleGetSecurityPolicyGroup(groupID string, respChan chan ResourceResult) (err error){
-	panic("not implement")
+	var group managedSecurityPolicyGroup
+	var exists bool
+	if group, exists = manager.policyGroups[groupID]; !exists{
+		err = fmt.Errorf("invalid security policy group '%s'", groupID)
+		respChan <- ResourceResult{Error: err}
+		return
+	}
+	var status = SecurityPolicyGroupStatus{
+		ID:                  group.ID,
+		SecurityPolicyGroup: group.SecurityPolicyGroup,
+	}
+	respChan <- ResourceResult{PolicyGroup: status}
+	return nil
 }
 
 func (manager *ResourceManager) handleCreateSecurityPolicyGroup(config SecurityPolicyGroup, respChan chan ResourceResult) (err error){
-	panic("not implement")
+	var newID = uuid.NewV4()
+	var groupID = newID.String()
+	if _, exists := manager.policyGroups[groupID]; exists{
+		err = fmt.Errorf("security policy group '%s' already exists", groupID)
+		respChan <- ResourceResult{Error: err}
+		return
+	}
+	var group = managedSecurityPolicyGroup{
+		ID:                  groupID,
+		SecurityPolicyGroup: config,
+	}
+	manager.policyGroups[groupID] = group
+	manager.sortedPolicyGroupID = append(manager.sortedPolicyGroupID, groupID)
+	respChan <- ResourceResult{
+		PolicyGroup: SecurityPolicyGroupStatus{
+			ID: groupID,
+			SecurityPolicyGroup: config,
+		},
+	}
+	log.Printf("<resource_manager> new security policy group '%s'(%s) created", config.Name, groupID)
+	return manager.saveConfig()
 }
 
 func (manager *ResourceManager) handleModifySecurityPolicyGroup(groupID string, config SecurityPolicyGroup, respChan chan error) (err error){
-	panic("not implement")
+	var group managedSecurityPolicyGroup
+	var exists bool
+	if group, exists = manager.policyGroups[groupID]; !exists{
+		err = fmt.Errorf("invalid security policy group '%s'", groupID)
+		respChan <- err
+		return
+	}
+	group.SecurityPolicyGroup = config
+	manager.policyGroups[groupID] = group
+	respChan <- err
+	log.Printf("<resource_manager> security policy group '%s'(%s) modified", config.Name, groupID)
+	return manager.saveConfig()
 }
 
 func (manager *ResourceManager) handleDeleteSecurityPolicyGroup(groupID string, respChan chan error) (err error){
-	panic("not implement")
+	var group managedSecurityPolicyGroup
+	var exists bool
+	if group, exists = manager.policyGroups[groupID]; !exists{
+		err = fmt.Errorf("invalid security policy group '%s'", groupID)
+		respChan <- err
+		return
+	}
+	var index = -1
+	for offset, id := range manager.sortedPolicyGroupID{
+		if id == groupID{
+			index = offset
+			break
+		}
+	}
+	if -1 == index{
+		err = fmt.Errorf("can not found security policy group '%s' in index", groupID)
+		respChan <- err
+		return
+	}
+	if index == len(manager.sortedPolicyGroupID) - 1{
+		//truncate tail
+		manager.sortedPolicyGroupID = manager.sortedPolicyGroupID[:index]
+	}else{
+		manager.sortedPolicyGroupID = append(manager.sortedPolicyGroupID[:index], manager.sortedPolicyGroupID[index + 1:]...)
+	}
+	delete(manager.policyGroups, groupID)
+	respChan <- nil
+	log.Printf("<resource_manager> security policy group '%s'(%s) deleted", group.Name, groupID)
+	return manager.saveConfig()
 }
 
 func (manager *ResourceManager) handleGetSecurityPolicyRules(groupID string, respChan chan ResourceResult) (err error){
-	panic("not implement")
+	var group managedSecurityPolicyGroup
+	var exists bool
+	if group, exists = manager.policyGroups[groupID]; !exists{
+		err = fmt.Errorf("invalid security policy group '%s'", groupID)
+		respChan <- ResourceResult{Error: err}
+		return
+	}
+	respChan <- ResourceResult{PolicyRuleList: group.Rules}
+	return nil
 }
 
 func (manager *ResourceManager) handleAddSecurityPolicyRule(groupID string, rule SecurityPolicyRule, respChan chan error) (err error){
-	panic("not implement")
+	var group managedSecurityPolicyGroup
+	var exists bool
+	if group, exists = manager.policyGroups[groupID]; !exists{
+		err = fmt.Errorf("invalid security policy group '%s'", groupID)
+		respChan <- err
+		return
+	}
+	group.Rules = append(group.Rules, rule)
+	manager.policyGroups[groupID] = group
+	respChan <- nil
+	log.Printf("<resource_manager> new rule added to securiy policy group '%s'(%s)",
+		group.Name, groupID)
+	return manager.saveConfig()
 }
 
 func (manager *ResourceManager) handleModifySecurityPolicyRule(groupID string, index int, rule SecurityPolicyRule, respChan chan error) (err error){
-	panic("not implement")
+	var group managedSecurityPolicyGroup
+	var exists bool
+	if group, exists = manager.policyGroups[groupID]; !exists{
+		err = fmt.Errorf("invalid security policy group '%s'", groupID)
+		respChan <- err
+		return
+	}
+	if index >= len(group.Rules){
+		err = fmt.Errorf("invalid index %d on security policy group '%s'", index, groupID)
+		respChan <- err
+		return
+	}
+	group.Rules[index] = rule
+	manager.policyGroups[groupID] = group
+	respChan <- nil
+	log.Printf("<resource_manager> %dth rule of securiy policy group '%s'(%s) modified",
+		index, group.Name, groupID)
+	return manager.saveConfig()
 }
 
 func (manager *ResourceManager) handleRemoveSecurityPolicyRule(groupID string, index int, respChan chan error) (err error){
-	panic("not implement")
+	var group managedSecurityPolicyGroup
+	var exists bool
+	if group, exists = manager.policyGroups[groupID]; !exists{
+		err = fmt.Errorf("invalid security policy group '%s'", groupID)
+		respChan <- err
+		return
+	}
+	if index >= len(group.Rules){
+		err = fmt.Errorf("invalid index %d on security policy group '%s'", index, groupID)
+		respChan <- err
+		return
+	}
+	if index == len(group.Rules) - 1{
+		//last
+		group.Rules = group.Rules[:index]
+	}else{
+		group.Rules = append(group.Rules[:index], group.Rules[index + 1:]...)
+	}
+	manager.policyGroups[groupID] = group
+	respChan <- nil
+	log.Printf("<resource_manager> %dth rule of securiy policy group '%s'(%s) removed",
+		index, group.Name, groupID)
+	return manager.saveConfig()
 }
 
-func (manager *ResourceManager) handleMoveSecurityPolicyRule(groupID string, index int, up bool, respChan chan error) (err error){
-	panic("not implement")
+func (manager *ResourceManager) handleMoveSecurityPolicyRule(groupID string, index int, moveUp bool, respChan chan error) (err error){
+	var group managedSecurityPolicyGroup
+	var exists bool
+	if group, exists = manager.policyGroups[groupID]; !exists{
+		err = fmt.Errorf("invalid security policy group '%s'", groupID)
+		respChan <- err
+		return
+	}
+	var ruleCount = len(group.Rules)
+	if index >= ruleCount{
+		err = fmt.Errorf("invalid index %d on security policy group '%s'", index, groupID)
+		respChan <- err
+		return
+	}
+	var swapIndex int
+	if moveUp{
+		if 0 == index{
+			err = errors.New("already on top")
+			respChan <- err
+			return
+		}
+		swapIndex = index - 1
+	}else{
+		if ruleCount - 1 == index{
+			err = errors.New("already on bottom")
+			respChan <- err
+			return
+		}
+		swapIndex = index + 1
+	}
+	var current = group.Rules[index]
+	group.Rules[index] = group.Rules[swapIndex]
+	group.Rules[swapIndex] = current
+	respChan <- nil
+	if moveUp{
+		log.Printf("<resource_manager> %dth rule of securiy policy group '%s'(%s) moved up",
+			index, group.Name, groupID)
+	}else{
+		log.Printf("<resource_manager> %dth rule of securiy policy group '%s'(%s) moved down",
+			index, group.Name, groupID)
+	}
+	return manager.saveConfig()
 }
 
 func (manager *ResourceManager) transferInstances(sourceName, targetName string, instances []string, monitorPorts []uint64) (err error) {
