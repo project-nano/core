@@ -140,6 +140,10 @@ type ResourceResult struct {
 	BatchStop           []StopGuestStatus
 	Template            SystemTemplate
 	TemplateList        []SystemTemplate
+	ID                  string
+	PolicyGroup         SecurityPolicyGroupStatus
+	PolicyGroupList     []SecurityPolicyGroupStatus
+	PolicyRuleList      []SecurityPolicyRule
 }
 
 type DiskImageConfig struct {
@@ -259,6 +263,58 @@ type AddressPoolStatus struct {
 	Allocated []AllocatedAddress   `json:"allocated,omitempty"`
 }
 
+//Security Policy Group
+
+type PolicyRuleProtocol string
+
+const (
+	PolicyRuleProtocolTCP  = "tcp"
+	PolicyRuleProtocolUDP  = "udp"
+	PolicyRuleProtocolICMP = "icmp"
+)
+
+const (
+	PolicyRuleProtocolIndexTCP  = iota
+	PolicyRuleProtocolIndexUDP
+	PolicyRuleProtocolIndexICMP
+	PolicyRuleProtocolIndexInvalid
+)
+
+const (
+	PolicyRuleActionAccept = iota
+	PolicyRuleActionReject
+)
+
+type SecurityPolicyRule struct {
+	Accept        bool               `json:"accept"`
+	Protocol      PolicyRuleProtocol `json:"protocol"`
+	SourceAddress string             `json:"source_address,omitempty"`
+	TargetAddress string             `json:"target_address,omitempty"`
+	TargetPort    uint               `json:"target_port"`
+}
+
+type SecurityPolicyGroup struct {
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	User        string `json:"user"`
+	Group       string `json:"group"`
+	Enabled     bool   `json:"enabled"`
+	Global      bool   `json:"global"`
+	Accept      bool   `json:"accept"`
+}
+
+type SecurityPolicyGroupStatus struct {
+	ID string `json:"id"`
+	SecurityPolicyGroup
+}
+
+type SecurityPolicyGroupQueryCondition struct {
+	User        string
+	Group       string
+	EnabledOnly bool
+	GlobalOnly  bool
+}
+
 type ResourceModule interface {
 	//zone
 	QueryZoneStatus(resp chan ResourceResult)
@@ -370,6 +426,19 @@ type ResourceModule interface {
 	CreateSystemTemplate(config SystemTemplateConfig, respChan chan ResourceResult)
 	ModifySystemTemplate(id string, config SystemTemplateConfig, respChan chan error)
 	DeleteSystemTemplate(id string, respChan chan error)
+
+	//Security Policy Group
+	QuerySecurityPolicyGroups(condition SecurityPolicyGroupQueryCondition, respChan chan ResourceResult)
+	GetSecurityPolicyGroup(groupID string, respChan chan ResourceResult)
+	CreateSecurityPolicyGroup(config SecurityPolicyGroup, respChan chan ResourceResult)
+	ModifySecurityPolicyGroup(groupID string, config SecurityPolicyGroup, respChan chan error)
+	DeleteSecurityPolicyGroup(groupID string, respChan chan error)
+
+	GetSecurityPolicyRules(groupID string, respChan chan ResourceResult)
+	AddSecurityPolicyRule(groupID string, rule SecurityPolicyRule, respChan chan error)
+	ModifySecurityPolicyRule(groupID string, index int, rule SecurityPolicyRule, respChan chan error)
+	RemoveSecurityPolicyRule(groupID string, index int, respChan chan error)
+	MoveSecurityPolicyRule(groupID string, index int, up bool, respChan chan error)
 }
 
 func (report *CellStatusReport) FromMessage(msg framework.Message) (err error) {

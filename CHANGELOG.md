@@ -5,6 +5,8 @@
 ### Changed
 
 - Optimize the strategy and error output of computing pool allocation
+- Manage security policy of instance
+- Manage security policy group
 
 ## [1.2.0] - 2020-04-12
 

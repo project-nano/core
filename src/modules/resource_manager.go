@@ -50,11 +50,12 @@ type addressPoolDefine struct {
 }
 
 type ResourceData struct {
-	Zone            string              `json:"zone"`
-	Pools           []poolDefine        `json:"pools"`
-	StoragePools    []storageDefine     `json:"storage_pools,omitempty"`
-	AddressPools    []addressPoolDefine `json:"address_pools,omitempty"`
-	SystemTemplates []SystemTemplate    `json:"system_templates,omitempty"`
+	Zone                string                       `json:"zone"`
+	Pools               []poolDefine                 `json:"pools"`
+	StoragePools        []storageDefine              `json:"storage_pools,omitempty"`
+	AddressPools        []addressPoolDefine          `json:"address_pools,omitempty"`
+	SystemTemplates     []SystemTemplate             `json:"system_templates,omitempty"`
+	SecurityPolicyGroup []managedSecurityPolicyGroup `json:"security_policy_group,omitempty"`
 }
 
 //memory status define
@@ -122,6 +123,12 @@ type BatchDeleteGuestTask struct {
 	GuestID      map[string]int //id => index
 }
 
+type managedSecurityPolicyGroup struct {
+	ID    string               `json:"id"`
+	Rules []SecurityPolicyRule `json:"rules,omitempty"`
+	SecurityPolicyGroup
+}
+
 type BatchStopGuestTask struct {
 	StartTime    time.Time
 	LatestUpdate time.Time
@@ -131,77 +138,84 @@ type BatchStopGuestTask struct {
 }
 
 type ResourceManager struct {
-	reportChan       chan CellStatusReport
-	commands         chan resourceCommand
-	pools            map[string]ManagedComputePool
-	cells            map[string]ManagedComputeCell
-	unallocatedCells map[string]bool
-	instances        map[string]InstanceStatus
-	imageServers     map[string]imageServer //key = server name
-	pendingError     map[string]error       //pending create error
-	storagePools     map[string]StoragePoolInfo
-	addressPools     map[string]ManagedAddressPool
-	migrations       map[string]MigrationStatus
-	batchCreateTasks map[string]BatchCreateGuestTask
-	batchDeleteTasks map[string]BatchDeleteGuestTask
-	batchStopTasks   map[string]BatchStopGuestTask
-	templates        map[string]SystemTemplate
-	allTemplateID    []string
-	generator        *rand.Rand
-	zone             ManagedZone
-	startTime        time.Time
-	dataFile         string
-	runner           *framework.SimpleRunner
+	reportChan          chan CellStatusReport
+	commands            chan resourceCommand
+	pools               map[string]ManagedComputePool
+	cells               map[string]ManagedComputeCell
+	unallocatedCells    map[string]bool
+	instances           map[string]InstanceStatus
+	imageServers        map[string]imageServer //key = server name
+	pendingError        map[string]error       //pending create error
+	storagePools        map[string]StoragePoolInfo
+	addressPools        map[string]ManagedAddressPool
+	migrations          map[string]MigrationStatus
+	batchCreateTasks    map[string]BatchCreateGuestTask
+	batchDeleteTasks    map[string]BatchDeleteGuestTask
+	batchStopTasks      map[string]BatchStopGuestTask
+	templates           map[string]SystemTemplate
+	allTemplateID       []string
+	policyGroups        map[string]managedSecurityPolicyGroup
+	sortedPolicyGroupID []string
+	generator           *rand.Rand
+	zone                ManagedZone
+	startTime           time.Time
+	dataFile            string
+	runner              *framework.SimpleRunner
 }
 
 type resourceCommand struct {
-	Type           commandType
-	DiskImage      DiskImageConfig
-	Migration      MigrationParameter
-	Pool           string
-	Cell           string
-	Address        string
-	Range          string
-	Start          string
-	InstanceID     string
-	Hardware       string
-	InstanceList   []InstanceStatus
-	Instance       InstanceStatus
-	InstanceQuery  GuestQueryCondition
-	MonitorPort    uint
-	Name           string
-	Host           string
-	Port           int
-	Group          string
-	Tags           []string
-	Progress       uint
-	Size           uint64
-	Image          string
-	Secret         string
-	Storage        string
-	StorageType    string
-	Target         string
-	MigrationID    string
-	Error          error
-	Failover       bool
-	IDList         []string
-	PortList       []uint64
-	DiskImages     []DiskImageStatus
-	AddressPool    AddressPoolConfig
-	AddressRange   AddressRangeConfig
-	BatchID        string
-	BatchCreating  BatchCreateRequest
-	Priority       PriorityEnum
-	ReadSpeed      uint64
-	WriteSpeed     uint64
-	ReadIOPS       uint64
-	WriteIOPS      uint64
-	ReceiveSpeed   uint64
-	SendSpeed      uint64
-	TemplateID     string
-	TemplateConfig SystemTemplateConfig
-	ErrorChan      chan error
-	ResultChan     chan ResourceResult
+	Type             commandType
+	DiskImage        DiskImageConfig
+	Migration        MigrationParameter
+	Pool             string
+	Cell             string
+	Address          string
+	Range            string
+	Start            string
+	InstanceID       string
+	Hardware         string
+	InstanceList     []InstanceStatus
+	Instance         InstanceStatus
+	InstanceQuery    GuestQueryCondition
+	MonitorPort      uint
+	Name             string
+	Host             string
+	Port             int
+	Group            string
+	Tags             []string
+	Progress         uint
+	Size             uint64
+	Image            string
+	Secret           string
+	Storage          string
+	StorageType      string
+	Target           string
+	MigrationID      string
+	Error            error
+	Failover         bool
+	IDList           []string
+	PortList         []uint64
+	DiskImages       []DiskImageStatus
+	AddressPool      AddressPoolConfig
+	AddressRange     AddressRangeConfig
+	BatchID          string
+	BatchCreating    BatchCreateRequest
+	Priority         PriorityEnum
+	ReadSpeed        uint64
+	WriteSpeed       uint64
+	ReadIOPS         uint64
+	WriteIOPS        uint64
+	ReceiveSpeed     uint64
+	SendSpeed        uint64
+	TemplateID       string
+	TemplateConfig   SystemTemplateConfig
+	PolicyGroup      SecurityPolicyGroup
+	PolicyGroupQuery SecurityPolicyGroupQueryCondition
+	PolicyRule       SecurityPolicyRule
+	Index            int
+	Flag             bool
+	ErrorChan        chan error
+	ResultChan       chan ResourceResult
 }
 
 type ResourceStatistic struct {
@@ -305,6 +319,16 @@ const (
 	cmdCreateSystemTemplate
 	cmdModifySystemTemplate
 	cmdDeleteSystemTemplate
+	cmdQuerySecurityPolicyGroups
+	cmdGetSecurityPolicyGroup
+	cmdCreateSecurityPolicyGroup
+	cmdModifySecurityPolicyGroup
+	cmdDeleteSecurityPolicyGroup
+	cmdGetSecurityPolicyRules
+	cmdAddSecurityPolicyRule
+	cmdModifySecurityPolicyRule
+	cmdRemoveSecurityPolicyRule
+	cmdMoveSecurityPolicyRule
 	cmdInvalid
 )
 
@@ -390,6 +414,16 @@ var commandNames = []string{
 	"CreateSystemTemplate",
 	"ModifySystemTemplate",
 	"DeleteSystemTemplate",
+	"QuerySecurityPolicyGroups",
+	"GetSecurityPolicyGroup",
+	"CreateSecurityPolicyGroup",
+	"ModifySecurityPolicyGroup",
+	"DeleteSecurityPolicyGroup",
+	"GetSecurityPolicyRules",
+	"AddSecurityPolicyRule",
+	"ModifySecurityPolicyRule",
+	"RemoveSecurityPolicyRule",
+	"MoveSecurityPolicyRule",
 }
 
 func (c commandType) toString() string {
@@ -431,6 +465,7 @@ func CreateResourceManager(dataPath string) (manager *ResourceManager, err error
 	manager.storagePools = map[string]StoragePoolInfo{}
 	manager.addressPools = map[string]ManagedAddressPool{}
 	manager.templates = map[string]SystemTemplate{}
+	manager.policyGroups = map[string]managedSecurityPolicyGroup{}
 	manager.migrations = map[string]MigrationStatus{}
 	manager.batchCreateTasks = map[string]BatchCreateGuestTask{}
 	manager.batchDeleteTasks = map[string]BatchDeleteGuestTask{}
@@ -792,6 +827,42 @@ func (manager *ResourceManager) DeleteSystemTemplate(id string, respChan chan er
 	manager.commands <- resourceCommand{Type: cmdDeleteSystemTemplate, TemplateID: id, ErrorChan: respChan}
 }
 
+//Security Policy Group
+func (manager *ResourceManager) QuerySecurityPolicyGroups(condition SecurityPolicyGroupQueryCondition, respChan chan ResourceResult){
+	manager.commands <- resourceCommand{Type: cmdQuerySecurityPolicyGroups, PolicyGroupQuery: condition, ResultChan: respChan}
+}
+func (manager *ResourceManager) GetSecurityPolicyGroup(groupID string, respChan chan ResourceResult){
+	manager.commands <- resourceCommand{Type: cmdGetSecurityPolicyGroup, Group: groupID, ResultChan: respChan}
+}
+
+func (manager *ResourceManager) CreateSecurityPolicyGroup(config SecurityPolicyGroup, respChan chan ResourceResult){
+	manager.commands <- resourceCommand{Type: cmdCreateSecurityPolicyGroup, PolicyGroup: config, ResultChan: respChan}
+}
+
+func (manager *ResourceManager) ModifySecurityPolicyGroup(groupID string, config SecurityPolicyGroup, respChan chan error){
+	manager.commands <- resourceCommand{Type: cmdModifySecurityPolicyGroup, Group: groupID, PolicyGroup: config, ErrorChan: respChan}
+}
+
+func (manager *ResourceManager) DeleteSecurityPolicyGroup(groupID string, respChan chan error){
+	manager.commands <- resourceCommand{Type: cmdDeleteSecurityPolicyGroup, Group: groupID, ErrorChan: respChan}
+}
+
+func (manager *ResourceManager) GetSecurityPolicyRules(groupID string, respChan chan ResourceResult){
+	manager.commands <- resourceCommand{Type: cmdGetSecurityPolicyRules, Group: groupID, ResultChan: respChan}
+}
+func (manager *ResourceManager) AddSecurityPolicyRule(groupID string, rule SecurityPolicyRule, respChan chan error){
+	manager.commands <- resourceCommand{Type: cmdAddSecurityPolicyRule, Group: groupID, PolicyRule: rule, ErrorChan: respChan}
+}
+func (manager *ResourceManager) ModifySecurityPolicyRule(groupID string, index int, rule SecurityPolicyRule, respChan chan error){
+	manager.commands <- resourceCommand{Type: cmdModifySecurityPolicyRule, Group: groupID, Index: index, PolicyRule: rule, ErrorChan: respChan}
+}
+func (manager *ResourceManager) RemoveSecurityPolicyRule(groupID string, index int, respChan chan error){
+	manager.commands <- resourceCommand{Type: cmdRemoveSecurityPolicyRule, Group: groupID, Index: index, ErrorChan: respChan}
+}
+func (manager *ResourceManager) MoveSecurityPolicyRule(groupID string, index int, up bool, respChan chan error){
+	manager.commands <- resourceCommand{Type: cmdMoveSecurityPolicyRule, Group: groupID, Index: index, Flag: up, ErrorChan: respChan}
+}
+
 func (manager *ResourceManager) mainRoutine(c framework.RoutineController) {
 	const (
 		summaryInterval     = time.Second * 5
@@ -1150,6 +1221,26 @@ func (manager *ResourceManager) handleCommand(cmd resourceCommand) {
 		err = manager.handleModifySystemTemplate(cmd.TemplateID, cmd.TemplateConfig, cmd.ErrorChan)
 	case cmdDeleteSystemTemplate:
 		err = manager.handleDeleteSystemTemplate(cmd.TemplateID, cmd.ErrorChan)
+	case cmdQuerySecurityPolicyGroups:
+		err = manager.handleQuerySecurityPolicyGroups(cmd.PolicyGroupQuery, cmd.ResultChan)
+	case cmdGetSecurityPolicyGroup:
+		err = manager.handleGetSecurityPolicyGroup(cmd.Group, cmd.ResultChan)
+	case cmdCreateSecurityPolicyGroup:
+		err = manager.handleCreateSecurityPolicyGroup(cmd.PolicyGroup, cmd.ResultChan)
+	case cmdModifySecurityPolicyGroup:
+		err = manager.handleModifySecurityPolicyGroup(cmd.Group, cmd.PolicyGroup, cmd.ErrorChan)
+	case cmdDeleteSecurityPolicyGroup:
+		err = manager.handleDeleteSecurityPolicyGroup(cmd.Group, cmd.ErrorChan)
+	case cmdGetSecurityPolicyRules:
+		err = manager.handleGetSecurityPolicyRules(cmd.Group, cmd.ResultChan)
+	case cmdAddSecurityPolicyRule:
+		err = manager.handleAddSecurityPolicyRule(cmd.Group, cmd.PolicyRule, cmd.ErrorChan)
+	case cmdModifySecurityPolicyRule:
+		err = manager.handleModifySecurityPolicyRule(cmd.Group, cmd.Index, cmd.PolicyRule, cmd.ErrorChan)
+	case cmdRemoveSecurityPolicyRule:
+		err = manager.handleRemoveSecurityPolicyRule(cmd.Group, cmd.Index, cmd.ErrorChan)
+	case cmdMoveSecurityPolicyRule:
+		err = manager.handleMoveSecurityPolicyRule(cmd.Group, cmd.Index, cmd.Flag, cmd.ErrorChan)
 	default:
 		log.Printf("<resource_manager> unsupported command type %d", cmd.Type)
 		break
@@ -3686,6 +3777,47 @@ func (manager *ResourceManager) handleDeleteSystemTemplate(id string, respChan c
 	return
 }
 
+//Security Policy Group
+func (manager *ResourceManager) handleQuerySecurityPolicyGroups(condition SecurityPolicyGroupQueryCondition, respChan chan ResourceResult) (err error){
+	panic("not implement")
+}
+
+func (manager *ResourceManager) handleGetSecurityPolicyGroup(groupID string, respChan chan ResourceResult) (err error){
+	panic("not implement")
+}
+
+func (manager *ResourceManager) handleCreateSecurityPolicyGroup(config SecurityPolicyGroup, respChan chan ResourceResult) (err error){
+	panic("not implement")
+}
+
+func (manager *ResourceManager) handleModifySecurityPolicyGroup(groupID string, config SecurityPolicyGroup, respChan chan error) (err error){
+	panic("not implement")
+}
+
+func (manager *ResourceManager) handleDeleteSecurityPolicyGroup(groupID string, respChan chan error) (err error){
+	panic("not implement")
+}
+
+func (manager *ResourceManager) handleGetSecurityPolicyRules(groupID string, respChan chan ResourceResult) (err error){
+	panic("not implement")
+}
+
+func (manager *ResourceManager) handleAddSecurityPolicyRule(groupID string, rule SecurityPolicyRule, respChan chan error) (err error){
+	panic("not implement")
+}
+
+func (manager *ResourceManager) handleModifySecurityPolicyRule(groupID string, index int, rule SecurityPolicyRule, respChan chan error) (err error){
+	panic("not implement")
+}
+
+func (manager *ResourceManager) handleRemoveSecurityPolicyRule(groupID string, index int, respChan chan error) (err error){
+	panic("not implement")
+}
+
+func (manager *ResourceManager) handleMoveSecurityPolicyRule(groupID string, index int, up bool, respChan chan error) (err error){
+	panic("not implement")
+}
+
 func (manager *ResourceManager) transferInstances(sourceName, targetName string, instances []string, monitorPorts []uint64) (err error) {
 	sourceCell, exists := manager.cells[sourceName]
 	if !exists{
@@ -3959,7 +4091,7 @@ func (manager *ResourceManager) evaluateConfigureCapacity(cell ManagedComputeCel
 	return capacity, nil
 }
 
-func (manager *ResourceManager) saveConfig() error {
+func (manager *ResourceManager) saveConfig() (err error) {
 	var config ResourceData
 	var totalPools, totalCells = 0, 0
 	config.Zone = manager.zone.Name
@@ -4008,19 +4140,34 @@ func (manager *ResourceManager) saveConfig() error {
 		}
 		config.AddressPools = append(config.AddressPools, define)
 	}
-	for _, template := range manager.templates{
+	var template SystemTemplate
+	var exists bool
+	for _, templateID := range manager.allTemplateID{
+		if template, exists = manager.templates[templateID]; !exists{
+			err = fmt.Errorf("invalid system template '%s'", templateID)
+			return
+		}
 		config.SystemTemplates = append(config.SystemTemplates, template)
 	}
-	data, err := json.MarshalIndent(config, "", " ")
-	if err != nil {
-		return err
+	var policy managedSecurityPolicyGroup
+	for _, groupID := range manager.sortedPolicyGroupID{
+		if policy, exists = manager.policyGroups[groupID]; !exists{
+			err = fmt.Errorf("invalid security policy '%s'", groupID)
+			return
+		}
+		config.SecurityPolicyGroup = append(config.SecurityPolicyGroup, policy)
+	}
+	var data []byte
+	if data, err = json.MarshalIndent(config, "", " "); err != nil {
+		err = fmt.Errorf("marshal config data fail: %s", err.Error())
+		return
 	}
 	if err = ioutil.WriteFile(manager.dataFile, data, DefaultConfigPerm); err != nil {
 		return err
 	}
-	log.Printf("<resource_manager> %d pools, %d storages, %d address pool(s), %d cells saved to '%s'",
+	log.Printf("<resource_manager> %d pools, %d storages, %d address pool(s), %d cells, %d template(s), %d policy group(s) saved to '%s'",
 		totalPools, len(config.StoragePools), len(config.AddressPools),
-		totalCells, manager.dataFile)
+		totalCells, len(config.SystemTemplates), len(config.SecurityPolicyGroup), manager.dataFile)
 	return nil
 }
 
@@ -4107,6 +4254,7 @@ func (manager *ResourceManager) generateDefaultConfig() (err error){
 		manager.templates[template.ID] = template
 		manager.allTemplateID = append(manager.allTemplateID, template.ID)
 	}
+	manager.policyGroups = map[string]managedSecurityPolicyGroup{}
 	log.Println("<resource_manager> default configure generated")
 	return nil
 }
@@ -4129,9 +4277,11 @@ func (manager *ResourceManager) loadConfig() (err error) {
 		configChanged = true
 		return
 	}
-	data, err := ioutil.ReadFile(manager.dataFile)
-	if err != nil {
-		return err
+	var data []byte
+
+	if data, err = ioutil.ReadFile(manager.dataFile); err != nil {
+		err = fmt.Errorf("read config from '%s' fail: %s", manager.dataFile, err.Error())
+		return
 	}
 	var config ResourceData
 	if err = json.Unmarshal(data, &config); err != nil {
@@ -4211,11 +4361,14 @@ func (manager *ResourceManager) loadConfig() (err error) {
 		manager.templates[template.ID] = template
 		manager.allTemplateID = append(manager.allTemplateID, template.ID)
 	}
-
+	for _, policy := range config.SecurityPolicyGroup{
+		manager.policyGroups[policy.ID] = policy
+		manager.sortedPolicyGroupID = append(manager.sortedPolicyGroupID, policy.ID)
+	}
 	manager.zone.Name = config.Zone
-	log.Printf("<resource_manager> load resource success, %d compute/ %d storage/ %d address pools, %d templates, %d cell. %d instance available",
+	log.Printf("<resource_manager>  %d compute/ %d storage/ %d address pools, %d templates, %d security policy, %d cell(s), %d instance(s) loaded",
 		len(manager.pools), len(manager.storagePools), len(manager.addressPools),
-		len(manager.allTemplateID), len(manager.cells), totalInstances)
+		len(manager.allTemplateID), len(manager.sortedPolicyGroupID), len(manager.cells), totalInstances)
 
 	return nil
 }

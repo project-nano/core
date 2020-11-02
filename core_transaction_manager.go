@@ -467,5 +467,55 @@ func CreateTransactionManager(sender framework.MessageSender, resourceModule mod
 		err = fmt.Errorf("register delete system template fail: %s", err.Error())
 		return
 	}
+
+	//Guest Security Policy Group
+	if err = manager.RegisterExecutor(framework.GetGuestRuleRequest,
+		&task.GetGuestSecurityPolicyExecutor{
+			Sender:         sender,
+			ResourceModule: resourceModule,
+		}); err != nil{
+		err = fmt.Errorf("register get guest security policy fail: %s", err.Error())
+		return
+	}
+	if err = manager.RegisterExecutor(framework.ChangeGuestRuleDefaultActionRequest,
+		&task.ChangeGuestSecurityActionExecutor{
+			Sender:         sender,
+			ResourceModule: resourceModule,
+		}); err != nil{
+		err = fmt.Errorf("register change guest security action fail: %s", err.Error())
+		return
+	}
+	if err = manager.RegisterExecutor(framework.ChangeGuestRuleOrderRequest,
+		&task.ModifyGuestSecurityRuleExecutor{
+			Sender:         sender,
+			ResourceModule: resourceModule,
+		}); err != nil{
+		err = fmt.Errorf("register move guest security rule fail: %s", err.Error())
+		return
+	}
+	if err = manager.RegisterExecutor(framework.AddGuestRuleRequest,
+		&task.AddGuestSecurityRuleExecutor{
+			Sender:         sender,
+			ResourceModule: resourceModule,
+		}); err != nil{
+		err = fmt.Errorf("register add guest security rule fail: %s", err.Error())
+		return
+	}
+	if err = manager.RegisterExecutor(framework.ModifyGuestRuleRequest,
+		&task.ModifyGuestSecurityRuleExecutor{
+			Sender:         sender,
+			ResourceModule: resourceModule,
+		}); err != nil{
+		err = fmt.Errorf("register modify guest security rule fail: %s", err.Error())
+		return
+	}
+	if err = manager.RegisterExecutor(framework.RemovePolicyRuleRequest,
+		&task.RemoveGuestSecurityRuleExecutor{
+			Sender:         sender,
+			ResourceModule: resourceModule,
+		}); err != nil{
+		err = fmt.Errorf("register remove guest security rule fail: %s", err.Error())
+		return
+	}
 	return manager, nil
 }

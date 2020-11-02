@@ -153,6 +153,13 @@ func (core *CoreService)OnMessageReceived(msg framework.Message){
 	case framework.DeleteTemplateRequest:
 	case framework.ComputeCellDisconnectedEvent:
 
+	//guest security policy
+	case framework.GetGuestRuleRequest:
+	case framework.ChangeGuestRuleOrderRequest:
+	case framework.ChangeGuestRuleDefaultActionRequest:
+	case framework.AddGuestRuleRequest:
+	case framework.ModifyGuestRuleRequest:
+	case framework.RemovePolicyRuleRequest:
 	default:
 		core.handleIncomingMessage(msg)
 		return
