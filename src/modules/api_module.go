@@ -493,6 +493,27 @@ func (module *APIModule) RegisterAPIHandler(router *httprouter.Router) {
 	router.POST(apiPath("/templates/"), module.createSystemTemplate)
 	router.PUT(apiPath("/templates/:id"), module.modifySystemTemplate)
 	router.DELETE(apiPath("/templates/:id"), module.deleteSystemTemplate)
+
+	//security policy group
+	router.GET(apiPath("/security_policy_groups/*filepath"), module.querySecurityPolicyGroups)
+	router.GET(apiPath("/security_policy_groups/:id"), module.getSecurityPolicyGroup)
+	router.POST(apiPath("/security_policy_groups/"), module.createSecurityPolicyGroup)
+	router.PUT(apiPath("/security_policy_groups/:id"), module.modifySecurityPolicyGroup)
+	router.DELETE(apiPath("/security_policy_groups/:id"), module.deleteSecurityPolicyGroup)
+
+	router.GET(apiPath("/security_policy_groups/:id/rules/"), module.getSecurityPolicyRule)
+	router.POST(apiPath("/security_policy_groups/:id/rules/"), module.addSecurityPolicyRule)
+	router.PUT(apiPath("/security_policy_groups/:id/rules/:index"), module.modifySecurityPolicyRule)
+	router.DELETE(apiPath("/security_policy_groups/:id/rules/:index"), module.removeSecurityPolicyRule)
+	router.PUT(apiPath("/security_policy_groups/:id/rules/:index/order"), module.moveSecurityPolicyRule)
+
+	router.GET(apiPath("/guests/:id/security_policy/"), module.getGuestSecurityPolicy)
+	router.PUT(apiPath("/guests/:id/security_policy/default_action"), module.changeGuestSecurityAction)
+	router.POST(apiPath("/guests/:id/security_policy/rules/"), module.addGuestSecurityRule)
+	router.PUT(apiPath("/guests/:id/security_policy/rules/:index"), module.modifyGuestSecurityRule)
+	router.DELETE(apiPath("/guests/:id/security_policy/rules/:index"), module.removeGuestSecurityRule)
+	router.PUT(apiPath("/guests/:id/security_policy/rules/:index/order"), module.moveGuestSecurityRule)
+
 }
 
 func (module *APIModule) queryZoneStatistic(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
@@ -5518,7 +5539,6 @@ func (module *APIModule) queryCellStorages(w http.ResponseWriter, r *http.Reques
 	ResponseOK(payload, w)
 }
 
-
 func (module *APIModule) changeCellStorage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
 	var err = module.verifyRequestSignature(r)
 	if  err != nil{
@@ -5559,6 +5579,72 @@ func (module *APIModule) changeCellStorage(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	ResponseOK("", w)
+}
+//Security Policy Group
+func (module *APIModule) querySecurityPolicyGroups(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	panic("not implement")
+}
+
+func (module *APIModule) getSecurityPolicyGroup(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	panic("not implement")
+}
+
+func (module *APIModule) createSecurityPolicyGroup(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	panic("not implement")
+}
+
+func (module *APIModule) modifySecurityPolicyGroup(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	panic("not implement")
+}
+
+func (module *APIModule) deleteSecurityPolicyGroup(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	panic("not implement")
+}
+
+
+func (module *APIModule) getSecurityPolicyRule(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	panic("not implement")
+}
+
+func (module *APIModule) addSecurityPolicyRule(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	panic("not implement")
+}
+
+func (module *APIModule) modifySecurityPolicyRule(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	panic("not implement")
+}
+
+func (module *APIModule) removeSecurityPolicyRule(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	panic("not implement")
+}
+
+func (module *APIModule) moveSecurityPolicyRule(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	panic("not implement")
+}
+
+
+func (module *APIModule) getGuestSecurityPolicy(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	panic("not implement")
+}
+
+func (module *APIModule) changeGuestSecurityAction(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	panic("not implement")
+}
+
+func (module *APIModule) addGuestSecurityRule(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	panic("not implement")
+}
+
+func (module *APIModule) modifyGuestSecurityRule(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	panic("not implement")
+}
+
+func (module *APIModule) removeGuestSecurityRule(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	panic("not implement")
+}
+
+func (module *APIModule) moveGuestSecurityRule(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	panic("not implement")
 }
 
 func IsResponseSuccess(respChan chan ProxyResult) (resp framework.Message, errMessage string, success bool) {
