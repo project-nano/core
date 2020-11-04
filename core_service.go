@@ -152,6 +152,17 @@ func (core *CoreService)OnMessageReceived(msg framework.Message){
 	case framework.ModifyTemplateRequest:
 	case framework.DeleteTemplateRequest:
 	case framework.ComputeCellDisconnectedEvent:
+	//security policy group
+	case framework.QueryPolicyGroupRequest:
+	case framework.GetPolicyGroupRequest:
+	case framework.CreatePolicyGroupRequest:
+	case framework.ModifyPolicyGroupRequest:
+	case framework.DeletePolicyGroupRequest:
+	case framework.QueryPolicyRuleRequest:
+	case framework.AddPolicyRuleRequest:
+	case framework.ModifyPolicyRuleRequest:
+	case framework.ChangePolicyRuleOrderRequest:
+	case framework.RemovePolicyRuleRequest:
 
 	//guest security policy
 	case framework.GetGuestRuleRequest:
@@ -159,7 +170,7 @@ func (core *CoreService)OnMessageReceived(msg framework.Message){
 	case framework.ChangeGuestRuleDefaultActionRequest:
 	case framework.AddGuestRuleRequest:
 	case framework.ModifyGuestRuleRequest:
-	case framework.RemovePolicyRuleRequest:
+	case framework.RemoveGuestRuleRequest:
 	default:
 		core.handleIncomingMessage(msg)
 		return

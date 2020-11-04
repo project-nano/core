@@ -509,12 +509,94 @@ func CreateTransactionManager(sender framework.MessageSender, resourceModule mod
 		err = fmt.Errorf("register modify guest security rule fail: %s", err.Error())
 		return
 	}
-	if err = manager.RegisterExecutor(framework.RemovePolicyRuleRequest,
+	if err = manager.RegisterExecutor(framework.RemoveGuestRuleRequest,
 		&task.RemoveGuestSecurityRuleExecutor{
 			Sender:         sender,
 			ResourceModule: resourceModule,
 		}); err != nil{
 		err = fmt.Errorf("register remove guest security rule fail: %s", err.Error())
+		return
+	}
+	//Security Policy Group
+	if err = manager.RegisterExecutor(framework.QueryPolicyRuleRequest,
+		&task.GetSecurityPolicyRulesExecutor{
+			Sender:         sender,
+			ResourceModule: resourceModule,
+		}); err != nil{
+		err = fmt.Errorf("register query security policy rules fail: %s", err.Error())
+		return
+	}
+	if err = manager.RegisterExecutor(framework.AddPolicyRuleRequest,
+		&task.AddSecurityPolicyRuleExecutor{
+			Sender:         sender,
+			ResourceModule: resourceModule,
+		}); err != nil{
+		err = fmt.Errorf("register add security policy rule fail: %s", err.Error())
+		return
+	}
+	if err = manager.RegisterExecutor(framework.ModifyPolicyRuleRequest,
+		&task.ModifySecurityPolicyRuleExecutor{
+			Sender:         sender,
+			ResourceModule: resourceModule,
+		}); err != nil{
+		err = fmt.Errorf("register modify security policy rule fail: %s", err.Error())
+		return
+	}
+	if err = manager.RegisterExecutor(framework.RemovePolicyRuleRequest,
+		&task.RemoveSecurityPolicyRuleExecutor{
+			Sender:         sender,
+			ResourceModule: resourceModule,
+		}); err != nil{
+		err = fmt.Errorf("register remove security policy rule fail: %s", err.Error())
+		return
+	}
+	if err = manager.RegisterExecutor(framework.ChangePolicyRuleOrderRequest,
+		&task.MoveSecurityPolicyRuleExecutor{
+			Sender:         sender,
+			ResourceModule: resourceModule,
+		}); err != nil{
+		err = fmt.Errorf("register move security policy rule fail: %s", err.Error())
+		return
+	}
+
+	if err = manager.RegisterExecutor(framework.QueryPolicyGroupRequest,
+		&task.QuerySecurityPolicyGroupsExecutor{
+			Sender:         sender,
+			ResourceModule: resourceModule,
+		}); err != nil{
+		err = fmt.Errorf("register query security policy groups fail: %s", err.Error())
+		return
+	}
+	if err = manager.RegisterExecutor(framework.GetPolicyGroupRequest,
+		&task.GetSecurityPolicyGroupExecutor{
+			Sender:         sender,
+			ResourceModule: resourceModule,
+		}); err != nil{
+		err = fmt.Errorf("register get security policy group fail: %s", err.Error())
+		return
+	}
+	if err = manager.RegisterExecutor(framework.CreatePolicyGroupRequest,
+		&task.CreateSecurityPolicyGroupExecutor{
+			Sender:         sender,
+			ResourceModule: resourceModule,
+		}); err != nil{
+		err = fmt.Errorf("register create security policy group fail: %s", err.Error())
+		return
+	}
+	if err = manager.RegisterExecutor(framework.ModifyPolicyGroupRequest,
+		&task.ModifySecurityPolicyGroupExecutor{
+			Sender:         sender,
+			ResourceModule: resourceModule,
+		}); err != nil{
+		err = fmt.Errorf("register modify security policy group fail: %s", err.Error())
+		return
+	}
+	if err = manager.RegisterExecutor(framework.DeletePolicyGroupRequest,
+		&task.DeleteSecurityPolicyGroupExecutor{
+			Sender:         sender,
+			ResourceModule: resourceModule,
+		}); err != nil{
+		err = fmt.Errorf("register delete security policy group fail: %s", err.Error())
 		return
 	}
 	return manager, nil
