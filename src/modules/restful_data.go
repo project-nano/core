@@ -413,3 +413,22 @@ func (status *restInstanceStatus) Unmarshal(msg framework.Message) (err error) {
 	}
 	return nil
 }
+
+type restSecurityPolicyRule struct {
+	Action string `json:"action"`
+	Protocol      string `json:"protocol"`
+	FromAddress string `json:"from_address,omitempty"`
+	SourceAddress string             `json:"source_address,omitempty"`
+	TargetAddress string             `json:"target_address,omitempty"`
+	TargetPort    uint               `json:"target_port"`
+}
+
+type SecurityPolicyGroup struct {
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	User        string `json:"user"`
+	Group       string `json:"group"`
+	Enabled     bool   `json:"enabled"`
+	Global      bool   `json:"global"`
+	Accept      bool   `json:"accept"`
+}
