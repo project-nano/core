@@ -5582,19 +5582,155 @@ func (module *APIModule) changeCellStorage(w http.ResponseWriter, r *http.Reques
 }
 //Security Policy Group
 func (module *APIModule) querySecurityPolicyGroups(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	panic("not implement")
+	var err = module.verifyRequestSignature(r)
+	if err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	var enabledOnly = r.URL.Query().Get("enabled_only")
+	var globalOnly = r.URL.Query().Get("global_only")
+	var owner = r.URL.Query().Get("owner")
+	var group = r.URL.Query().Get("group")
+
+	msg, _ := framework.CreateJsonMessage(framework.QueryPolicyGroupRequest)
+
+	msg.SetString(framework.ParamKeyUser, owner)
+	msg.SetString(framework.ParamKeyGroup, group)
+
+	if "true" == globalOnly{
+		msg.SetBoolean(framework.ParamKeyLimit, true)
+	}else{
+		msg.SetBoolean(framework.ParamKeyLimit, false)
+	}
+	if "true" == enabledOnly{
+		msg.SetBoolean(framework.ParamKeyEnable, true)
+	}else{
+		msg.SetBoolean(framework.ParamKeyEnable, false)
+	}
+	var respChan = make(chan ProxyResult, 1)
+	if err = module.proxy.SendRequest(msg, respChan); err != nil {
+		log.Printf("<api> send query security policy groups request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	resp, errMsg, success := IsResponseSuccess(respChan)
+	if !success {
+		log.Printf("<api> query security policy groups fail: %s", errMsg)
+		ResponseFail(ResponseDefaultError, errMsg, w)
+		return
+	}
+
+	payload, err := parsePolicyGroupList(resp)
+	if err != nil{
+		log.Printf("<api> parse security policy groups result fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	ResponseOK(payload, w)
 }
 
 func (module *APIModule) getSecurityPolicyGroup(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	panic("not implement")
+	var err = module.verifyRequestSignature(r)
+	if  err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	var policyID = params.ByName("id")
+	msg, _ := framework.CreateJsonMessage(framework.GetPolicyGroupRequest)
+	msg.SetString(framework.ParamKeyPolicy, policyID)
+	var respChan = make(chan ProxyResult, 1)
+	if err = module.proxy.SendRequest(msg, respChan); err != nil {
+		log.Printf("<api> send get security policy group request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	resp, errMsg, success := IsResponseSuccess(respChan)
+	if !success {
+		log.Printf("<api> get security policy group fail: %s", errMsg)
+		ResponseFail(ResponseDefaultError, errMsg, w)
+		return
+	}
+	var payload restSecurityPolicyGroup
+	if payload, err = parsePolicyGroup(resp); err != nil{
+		log.Printf("<api> parse get security policy group result fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	ResponseOK(payload, w)
 }
 
 func (module *APIModule) createSecurityPolicyGroup(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	panic("not implement")
+	var err = module.verifyRequestSignature(r)
+	if  err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	var decoder = json.NewDecoder(r.Body)
+	var request restSecurityPolicyGroup
+	if err = decoder.Decode(&request);err != nil{
+		log.Printf("<api> parse create security policy group request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+
+	msg, _ := framework.CreateJsonMessage(framework.CreatePolicyGroupRequest)
+	request.build(msg)
+	var respChan = make(chan ProxyResult, 1)
+	if err = module.proxy.SendRequest(msg, respChan); err != nil {
+		log.Printf("<api> send create security policy group request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	resp, errMsg, success := IsResponseSuccess(respChan)
+	if !success {
+		log.Printf("<api> create security policy group fail: %s", errMsg)
+		ResponseFail(ResponseDefaultError, errMsg, w)
+		return
+	}
+	type Response struct {
+		ID string `json:"id"`
+	}
+	var result Response
+	if result.ID, err = resp.GetString(framework.ParamKeyPolicy); err != nil{
+		err = fmt.Errorf("get policy id fail: %s", err.Error())
+		log.Printf("<api> parse create security policy group result fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	ResponseOK(result, w)
 }
 
 func (module *APIModule) modifySecurityPolicyGroup(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	panic("not implement")
+	var err = module.verifyRequestSignature(r)
+	if  err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	var policyID = params.ByName("id")
+	var decoder = json.NewDecoder(r.Body)
+	var request restSecurityPolicyGroup
+	if err = decoder.Decode(&request);err != nil{
+		log.Printf("<api> parse modify security policy group request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+
+	msg, _ := framework.CreateJsonMessage(framework.ModifyPolicyGroupRequest)
+	request.build(msg)
+	msg.SetString(framework.ParamKeyPolicy, policyID)
+	var respChan = make(chan ProxyResult, 1)
+	if err = module.proxy.SendRequest(msg, respChan); err != nil {
+		log.Printf("<api> send modify security policy group request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	_, errMsg, success := IsResponseSuccess(respChan)
+	if !success {
+		log.Printf("<api> modify security policy group fail: %s", errMsg)
+		ResponseFail(ResponseDefaultError, errMsg, w)
+		return
+	}
+	ResponseOK("", w)
 }
 
 func (module *APIModule) deleteSecurityPolicyGroup(w http.ResponseWriter, r *http.Request, params httprouter.Params){

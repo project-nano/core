@@ -1,8 +1,8 @@
 package modules
 
 import (
-	"github.com/project-nano/framework"
 	"fmt"
+	"github.com/project-nano/framework"
 )
 
 type restAddressList struct {
@@ -415,20 +415,167 @@ func (status *restInstanceStatus) Unmarshal(msg framework.Message) (err error) {
 }
 
 type restSecurityPolicyRule struct {
-	Action string `json:"action"`
+	Action        string `json:"action"`
 	Protocol      string `json:"protocol"`
-	FromAddress string `json:"from_address,omitempty"`
-	SourceAddress string             `json:"source_address,omitempty"`
-	TargetAddress string             `json:"target_address,omitempty"`
-	TargetPort    uint               `json:"target_port"`
+	FromAddress   string `json:"from_address,omitempty"`
+	SourceAddress string `json:"source_address,omitempty"`
+	TargetAddress string `json:"target_address,omitempty"`
+	TargetPort    uint   `json:"target_port"`
 }
 
-type SecurityPolicyGroup struct {
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
-	User        string `json:"user"`
-	Group       string `json:"group"`
-	Enabled     bool   `json:"enabled"`
-	Global      bool   `json:"global"`
-	Accept      bool   `json:"accept"`
+type restSecurityPolicyGroup struct {
+	ID            string `json:"id,omitempty"`
+	Name          string `json:"name"`
+	Description   string `json:"description,omitempty"`
+	User          string `json:"user"`
+	Group         string `json:"group"`
+	Enabled       bool   `json:"enabled"`
+	Global        bool   `json:"global"`
+	DefaultAction string `json:"default_action"`
+}
+
+const (
+	actionStringAccept = "accept"
+	actionStringReject = "reject"
+)
+
+func (policy *restSecurityPolicyGroup) build(msg framework.Message) {
+	if "" != policy.ID{
+		msg.SetString(framework.ParamKeyPolicy, policy.ID)
+	}
+	msg.SetString(framework.ParamKeyName, policy.Name)
+	msg.SetString(framework.ParamKeyDescription, policy.Description)
+	msg.SetString(framework.ParamKeyUser, policy.User)
+	msg.SetString(framework.ParamKeyGroup, policy.Group)
+	if actionStringAccept == policy.DefaultAction{
+		msg.SetBoolean(framework.ParamKeyAction, true)
+	}else{
+		msg.SetBoolean(framework.ParamKeyAction, false)
+	}
+
+	msg.SetBoolean(framework.ParamKeyEnable, policy.Enabled)
+	msg.SetBoolean(framework.ParamKeyLimit, policy.Global)
+}
+
+func parsePolicyGroupList(msg framework.Message) (groups []restSecurityPolicyGroup, err error){
+	const (
+		flagFalse = iota
+		flagTrue
+	)
+	var id, name, description, user, group []string
+	var action, enabled, global []uint64
+	if id, err = msg.GetStringArray(framework.ParamKeyPolicy); err != nil{
+		err = fmt.Errorf("get policy id fail: %s", err.Error())
+		return
+	}
+	var elementCount = len(id)
+	if name, err = msg.GetStringArray(framework.ParamKeyName); err != nil{
+		err = fmt.Errorf("get policy name fail: %s", err.Error())
+		return
+	}else if len(name) != elementCount{
+		err = fmt.Errorf("invalid name count %d", len(name))
+		return
+	}
+	if description, err  = msg.GetStringArray(framework.ParamKeyDescription); err != nil{
+		err = fmt.Errorf("get description fail: %s", err.Error())
+		return
+	}else if len(description) != elementCount{
+		err = fmt.Errorf("invalid description count %d", len(description))
+		return
+	}
+	if user, err  = msg.GetStringArray(framework.ParamKeyUser); err != nil{
+		err = fmt.Errorf("get user fail: %s", err.Error())
+		return
+	}else if len(user) != elementCount{
+		err = fmt.Errorf("invalid user count %d", len(user))
+		return
+	}
+	if group, err  = msg.GetStringArray(framework.ParamKeyGroup); err != nil{
+		err = fmt.Errorf("get group fail: %s", err.Error())
+		return
+	}else if len(group) != elementCount{
+		err = fmt.Errorf("invalid group count %d", len(group))
+		return
+	}
+	if action, err  = msg.GetUIntArray(framework.ParamKeyAction); err != nil{
+		err = fmt.Errorf("get action fail: %s", err.Error())
+		return
+	}else if len(action) != elementCount{
+		err = fmt.Errorf("invalid action count %d", len(action))
+		return
+	}
+	if enabled, err  = msg.GetUIntArray(framework.ParamKeyEnable); err != nil{
+		err = fmt.Errorf("get enable flag fail: %s", err.Error())
+		return
+	}else if len(enabled) != elementCount{
+		err = fmt.Errorf("invalid enable flag count %d", len(enabled))
+		return
+	}
+	if global, err  = msg.GetUIntArray(framework.ParamKeyLimit); err != nil{
+		err = fmt.Errorf("get global flag fail: %s", err.Error())
+		return
+	}else if len(global) != elementCount{
+		err = fmt.Errorf("invalid global flag count %d", len(global))
+		return
+	}
+	for i := 0; i < elementCount; i++ {
+		var policy = restSecurityPolicyGroup{
+			ID:          id[i],
+			Name:        name[i],
+			User:        user[i],
+			Group:       group[i],
+			Description: description[i],
+			Enabled:     flagTrue == enabled[i],
+			Global:      flagTrue == global[i],
+		}
+		if flagTrue == action[i] {
+			policy.DefaultAction = actionStringAccept
+		} else {
+			policy.DefaultAction = actionStringReject
+		}
+		groups = append(groups, policy)
+	}
+	return
+}
+
+func parsePolicyGroup(msg framework.Message) (policy restSecurityPolicyGroup, err error){
+	if policy.ID, err  = msg.GetString(framework.ParamKeyPolicy); err != nil{
+		err = fmt.Errorf("get policy id fail: %s", err.Error())
+		return
+	}
+	if policy.Name, err  = msg.GetString(framework.ParamKeyName); err != nil{
+		err = fmt.Errorf("get name fail: %s", err.Error())
+		return
+	}
+	if policy.Description, err  = msg.GetString(framework.ParamKeyDescription); err != nil{
+		err = fmt.Errorf("get description fail: %s", err.Error())
+		return
+	}
+	if policy.User, err  = msg.GetString(framework.ParamKeyUser); err != nil{
+		err = fmt.Errorf("get user fail: %s", err.Error())
+		return
+	}
+	if policy.Group, err  = msg.GetString(framework.ParamKeyGroup); err != nil{
+		err = fmt.Errorf("get group fail: %s", err.Error())
+		return
+	}
+	var accept bool
+	if accept, err  = msg.GetBoolean(framework.ParamKeyAction); err != nil{
+		err = fmt.Errorf("get accept flag fail: %s", err.Error())
+		return
+	}
+	if accept{
+		policy.DefaultAction = actionStringAccept
+	}else{
+		policy.DefaultAction = actionStringReject
+	}
+	if policy.Enabled, err  = msg.GetBoolean(framework.ParamKeyEnable); err != nil{
+		err = fmt.Errorf("get enabled flag fail: %s", err.Error())
+		return
+	}
+	if policy.Global, err  = msg.GetBoolean(framework.ParamKeyLimit); err != nil{
+		err = fmt.Errorf("get global flag fail: %s", err.Error())
+		return
+	}
+	return
 }

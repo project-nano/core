@@ -124,9 +124,8 @@ type BatchDeleteGuestTask struct {
 }
 
 type managedSecurityPolicyGroup struct {
-	ID    string               `json:"id"`
+	SecurityPolicyGroupStatus
 	Rules []SecurityPolicyRule `json:"rules,omitempty"`
-	SecurityPolicyGroup
 }
 
 type BatchStopGuestTask struct {
@@ -3779,7 +3778,33 @@ func (manager *ResourceManager) handleDeleteSystemTemplate(id string, respChan c
 
 //Security Policy Group
 func (manager *ResourceManager) handleQuerySecurityPolicyGroups(condition SecurityPolicyGroupQueryCondition, respChan chan ResourceResult) (err error){
-	panic("not implement")
+	var group managedSecurityPolicyGroup
+	var exists bool
+	var groupID string
+	var result ResourceResult
+	for _, groupID = range manager.sortedPolicyGroupID{
+		if group, exists = manager.policyGroups[groupID]; !exists{
+			err = fmt.Errorf("invalid security policy group '%s' in index", groupID)
+			respChan <- ResourceResult{Error: err}
+			return
+		}
+		if "" != condition.User && condition.User != group.User{
+			continue
+		}
+		if "" != condition.Group && condition.Group != group.Group{
+			continue
+		}
+		if condition.EnabledOnly && !group.Enabled{
+			continue
+		}
+		if condition.GlobalOnly && !group.Global{
+			continue
+		}
+		result.PolicyGroupList = append(result.PolicyGroupList, group.SecurityPolicyGroupStatus)
+	}
+	log.Printf("<resource_manager> %d security policy group(s) queried", len(result.PolicyGroupList))
+	respChan <- result
+	return nil
 }
 
 func (manager *ResourceManager) handleGetSecurityPolicyGroup(groupID string, respChan chan ResourceResult) (err error){
@@ -3806,10 +3831,9 @@ func (manager *ResourceManager) handleCreateSecurityPolicyGroup(config SecurityP
 		respChan <- ResourceResult{Error: err}
 		return
 	}
-	var group = managedSecurityPolicyGroup{
-		ID:                  groupID,
-		SecurityPolicyGroup: config,
-	}
+	var group managedSecurityPolicyGroup
+	group.ID = groupID
+	group.SecurityPolicyGroup = config
 	manager.policyGroups[groupID] = group
 	manager.sortedPolicyGroupID = append(manager.sortedPolicyGroupID, groupID)
 	respChan <- ResourceResult{
