@@ -415,12 +415,11 @@ func (status *restInstanceStatus) Unmarshal(msg framework.Message) (err error) {
 }
 
 type restSecurityPolicyRule struct {
-	Action        string `json:"action"`
-	Protocol      string `json:"protocol"`
-	FromAddress   string `json:"from_address,omitempty"`
-	SourceAddress string `json:"source_address,omitempty"`
-	TargetAddress string `json:"target_address,omitempty"`
-	TargetPort    uint   `json:"target_port"`
+	Action      string `json:"action"`
+	Protocol    string `json:"protocol"`
+	FromAddress string `json:"from_address,omitempty"`
+	ToAddress   string `json:"to_address,omitempty"`
+	ToPort      uint   `json:"to_port"`
 }
 
 type restSecurityPolicyGroup struct {
@@ -439,6 +438,18 @@ const (
 	actionStringReject = "reject"
 )
 
+func (rule *restSecurityPolicyRule) build(msg framework.Message) {
+	msg.SetString(framework.ParamKeyProtocol, rule.Protocol)
+	msg.SetString(framework.ParamKeyFrom, rule.FromAddress)
+	msg.SetString(framework.ParamKeyTo, rule.ToAddress)
+	msg.SetUInt(framework.ParamKeyPort, rule.ToPort)
+	if actionStringAccept == rule.Action{
+		msg.SetBoolean(framework.ParamKeyAction, true)
+	}else{
+		msg.SetBoolean(framework.ParamKeyAction, false)
+	}
+}
+
 func (policy *restSecurityPolicyGroup) build(msg framework.Message) {
 	if "" != policy.ID{
 		msg.SetString(framework.ParamKeyPolicy, policy.ID)
@@ -455,6 +466,55 @@ func (policy *restSecurityPolicyGroup) build(msg framework.Message) {
 
 	msg.SetBoolean(framework.ParamKeyEnable, policy.Enabled)
 	msg.SetBoolean(framework.ParamKeyLimit, policy.Global)
+}
+
+func parsePolicyRuleList(msg framework.Message) (rules []restSecurityPolicyRule, err error){
+	const (
+		flagFalse = iota
+		flagTrue
+	)
+	var from, protocol []string
+	var actions, ports []uint64
+	if from, err = msg.GetStringArray(framework.ParamKeyFrom); err != nil{
+		err = fmt.Errorf("get source address fail: %s", err.Error())
+		return
+	}
+	var elementCount = len(from)
+	if protocol, err  = msg.GetStringArray(framework.ParamKeyProtocol); err != nil{
+		err = fmt.Errorf("get protocol fail: %s", err.Error())
+		return
+	}else if len(protocol) != elementCount{
+		err = fmt.Errorf("invalid protocol count %d", len(protocol))
+		return
+	}
+	if actions, err  = msg.GetUIntArray(framework.ParamKeyAction); err != nil{
+		err = fmt.Errorf("get action fail: %s", err.Error())
+		return
+	}else if len(actions) != elementCount{
+		err = fmt.Errorf("invalid action count %d", len(actions))
+		return
+	}
+	if ports, err  = msg.GetUIntArray(framework.ParamKeyPort); err != nil{
+		err = fmt.Errorf("get target port fail: %s", err.Error())
+		return
+	}else if len(ports) != elementCount{
+		err = fmt.Errorf("invalid target port count %d", len(ports))
+		return
+	}
+	for i := 0; i < elementCount; i++ {
+		var rule = restSecurityPolicyRule{
+			FromAddress: from[i],
+			ToPort: uint(ports[i]),
+			Protocol: protocol[i],
+		}
+		if flagTrue == actions[i] {
+			rule.Action = actionStringAccept
+		} else {
+			rule.Action = actionStringReject
+		}
+		rules = append(rules, rule)
+	}
+	return
 }
 
 func parsePolicyGroupList(msg framework.Message) (groups []restSecurityPolicyGroup, err error){

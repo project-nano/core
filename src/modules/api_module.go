@@ -501,7 +501,7 @@ func (module *APIModule) RegisterAPIHandler(router *httprouter.Router) {
 	router.PUT(apiPath("/security_policy_groups/:id"), module.modifySecurityPolicyGroup)
 	router.DELETE(apiPath("/security_policy_groups/:id"), module.deleteSecurityPolicyGroup)
 
-	router.GET(apiPath("/security_policy_groups/:id/rules/"), module.getSecurityPolicyRule)
+	router.GET(apiPath("/security_policy_groups/:id/rules/"), module.querySecurityPolicyRules)
 	router.POST(apiPath("/security_policy_groups/:id/rules/"), module.addSecurityPolicyRule)
 	router.PUT(apiPath("/security_policy_groups/:id/rules/:index"), module.modifySecurityPolicyRule)
 	router.DELETE(apiPath("/security_policy_groups/:id/rules/:index"), module.removeSecurityPolicyRule)
@@ -5734,28 +5734,219 @@ func (module *APIModule) modifySecurityPolicyGroup(w http.ResponseWriter, r *htt
 }
 
 func (module *APIModule) deleteSecurityPolicyGroup(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	panic("not implement")
+	var err = module.verifyRequestSignature(r)
+	if  err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	var policyID = params.ByName("id")
+
+	msg, _ := framework.CreateJsonMessage(framework.DeletePolicyGroupRequest)
+	msg.SetString(framework.ParamKeyPolicy, policyID)
+	var respChan = make(chan ProxyResult, 1)
+	if err = module.proxy.SendRequest(msg, respChan); err != nil {
+		log.Printf("<api> send delete security policy group request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	_, errMsg, success := IsResponseSuccess(respChan)
+	if !success {
+		log.Printf("<api> delete security policy group fail: %s", errMsg)
+		ResponseFail(ResponseDefaultError, errMsg, w)
+		return
+	}
+	ResponseOK("", w)
 }
 
+func (module *APIModule) querySecurityPolicyRules(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	var err = module.verifyRequestSignature(r)
+	if err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	var policyID = params.ByName("id")
 
-func (module *APIModule) getSecurityPolicyRule(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	panic("not implement")
+	msg, _ := framework.CreateJsonMessage(framework.QueryPolicyRuleRequest)
+	msg.SetString(framework.ParamKeyPolicy, policyID)
+	var respChan = make(chan ProxyResult, 1)
+	if err = module.proxy.SendRequest(msg, respChan); err != nil {
+		log.Printf("<api> send query security policy rules request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	resp, errMsg, success := IsResponseSuccess(respChan)
+	if !success {
+		log.Printf("<api> query security policy rules fail: %s", errMsg)
+		ResponseFail(ResponseDefaultError, errMsg, w)
+		return
+	}
+
+	payload, err := parsePolicyRuleList(resp)
+	if err != nil{
+		log.Printf("<api> parse security policy rules result fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	ResponseOK(payload, w)
 }
 
 func (module *APIModule) addSecurityPolicyRule(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	panic("not implement")
+	var err = module.verifyRequestSignature(r)
+	if  err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	var policyID = params.ByName("id")
+	var decoder = json.NewDecoder(r.Body)
+	var request restSecurityPolicyRule
+	if err = decoder.Decode(&request);err != nil{
+		log.Printf("<api> parse add security policy rule request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+
+	msg, _ := framework.CreateJsonMessage(framework.AddPolicyRuleRequest)
+	request.build(msg)
+	msg.SetString(framework.ParamKeyPolicy, policyID)
+	var respChan = make(chan ProxyResult, 1)
+	if err = module.proxy.SendRequest(msg, respChan); err != nil {
+		log.Printf("<api> send add security policy rule request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	_, errMsg, success := IsResponseSuccess(respChan)
+	if !success {
+		log.Printf("<api> add security policy rule fail: %s", errMsg)
+		ResponseFail(ResponseDefaultError, errMsg, w)
+		return
+	}
+	ResponseOK("", w)
 }
 
 func (module *APIModule) modifySecurityPolicyRule(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	panic("not implement")
+	var err = module.verifyRequestSignature(r)
+	if  err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	var policyID = params.ByName("id")
+	var indexString = params.ByName("index")
+	var index int
+	if index, err = strconv.Atoi(indexString); err != nil{
+		err = fmt.Errorf("invalid index %s", indexString)
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	var decoder = json.NewDecoder(r.Body)
+	var request restSecurityPolicyRule
+	if err = decoder.Decode(&request);err != nil{
+		log.Printf("<api> parse modify security policy rule request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+
+	msg, _ := framework.CreateJsonMessage(framework.ModifyPolicyRuleRequest)
+	request.build(msg)
+	msg.SetString(framework.ParamKeyPolicy, policyID)
+	msg.SetInt(framework.ParamKeyIndex, index)
+	var respChan = make(chan ProxyResult, 1)
+	if err = module.proxy.SendRequest(msg, respChan); err != nil {
+		log.Printf("<api> send modify security policy rule request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	_, errMsg, success := IsResponseSuccess(respChan)
+	if !success {
+		log.Printf("<api> modify security policy rule fail: %s", errMsg)
+		ResponseFail(ResponseDefaultError, errMsg, w)
+		return
+	}
+	ResponseOK("", w)
 }
 
 func (module *APIModule) removeSecurityPolicyRule(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	panic("not implement")
+	var err = module.verifyRequestSignature(r)
+	if  err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	var policyID = params.ByName("id")
+	var indexString = params.ByName("index")
+	var index int
+	if index, err = strconv.Atoi(indexString); err != nil{
+		err = fmt.Errorf("invalid index %s", indexString)
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+
+	msg, _ := framework.CreateJsonMessage(framework.DeletePolicyGroupRequest)
+	msg.SetString(framework.ParamKeyPolicy, policyID)
+	msg.SetInt(framework.ParamKeyIndex, index)
+	var respChan = make(chan ProxyResult, 1)
+	if err = module.proxy.SendRequest(msg, respChan); err != nil {
+		log.Printf("<api> send remove security policy rule request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	_, errMsg, success := IsResponseSuccess(respChan)
+	if !success {
+		log.Printf("<api> remove security policy rule fail: %s", errMsg)
+		ResponseFail(ResponseDefaultError, errMsg, w)
+		return
+	}
+	ResponseOK("", w)
 }
 
 func (module *APIModule) moveSecurityPolicyRule(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	panic("not implement")
+	const (
+		directionUp   = "up"
+		//directionDown = "down"
+	)
+	var err = module.verifyRequestSignature(r)
+	if  err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	var policyID = params.ByName("id")
+	var indexString = params.ByName("index")
+	var index int
+	if index, err = strconv.Atoi(indexString); err != nil{
+		err = fmt.Errorf("invalid index %s", indexString)
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	var decoder = json.NewDecoder(r.Body)
+	type RequestPayload struct {
+		Direction string `json:"direction"`
+	}
+	var request RequestPayload
+	if err = decoder.Decode(&request);err != nil{
+		log.Printf("<api> parse move security policy rule request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+
+	msg, _ := framework.CreateJsonMessage(framework.ChangePolicyRuleOrderRequest)
+	msg.SetString(framework.ParamKeyPolicy, policyID)
+	msg.SetInt(framework.ParamKeyIndex, index)
+	if directionUp == request.Direction{
+		msg.SetBoolean(framework.ParamKeyFlag, true)
+	}else{
+		msg.SetBoolean(framework.ParamKeyFlag, false)
+	}
+	var respChan = make(chan ProxyResult, 1)
+	if err = module.proxy.SendRequest(msg, respChan); err != nil {
+		log.Printf("<api> send move security policy rule request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	_, errMsg, success := IsResponseSuccess(respChan)
+	if !success {
+		log.Printf("<api> move security policy rule fail: %s", errMsg)
+		ResponseFail(ResponseDefaultError, errMsg, w)
+		return
+	}
+	ResponseOK("", w)
 }
 
 
@@ -5764,23 +5955,197 @@ func (module *APIModule) getGuestSecurityPolicy(w http.ResponseWriter, r *http.R
 }
 
 func (module *APIModule) changeGuestSecurityAction(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	panic("not implement")
+	var err = module.verifyRequestSignature(r)
+	if  err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	var instanceID = params.ByName("id")
+	var decoder = json.NewDecoder(r.Body)
+	type RequestPayload struct {
+		Action string `json:"action"`
+	}
+	var request RequestPayload
+	if err = decoder.Decode(&request);err != nil{
+		log.Printf("<api> parse change guest policy action request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+
+	msg, _ := framework.CreateJsonMessage(framework.ChangeGuestRuleDefaultActionRequest)
+	msg.SetString(framework.ParamKeyInstance, instanceID)
+	msg.SetBoolean(framework.ParamKeyAction, actionStringAccept == request.Action)
+	var respChan = make(chan ProxyResult, 1)
+	if err = module.proxy.SendRequest(msg, respChan); err != nil {
+		log.Printf("<api> send change guest policy action fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	_, errMsg, success := IsResponseSuccess(respChan)
+	if !success {
+		log.Printf("<api> change guest policy action fail: %s", errMsg)
+		ResponseFail(ResponseDefaultError, errMsg, w)
+		return
+	}
+	ResponseOK("", w)
 }
 
 func (module *APIModule) addGuestSecurityRule(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	panic("not implement")
+	var err = module.verifyRequestSignature(r)
+	if  err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	var instanceID = params.ByName("id")
+	var decoder = json.NewDecoder(r.Body)
+	var request restSecurityPolicyRule
+	if err = decoder.Decode(&request);err != nil{
+		log.Printf("<api> parse add guest policy rule request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+
+	msg, _ := framework.CreateJsonMessage(framework.AddGuestRuleRequest)
+	request.build(msg)
+	msg.SetString(framework.ParamKeyInstance, instanceID)
+	var respChan = make(chan ProxyResult, 1)
+	if err = module.proxy.SendRequest(msg, respChan); err != nil {
+		log.Printf("<api> send add guest policy rule request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	_, errMsg, success := IsResponseSuccess(respChan)
+	if !success {
+		log.Printf("<api> add guest policy rule fail: %s", errMsg)
+		ResponseFail(ResponseDefaultError, errMsg, w)
+		return
+	}
+	ResponseOK("", w)
 }
 
 func (module *APIModule) modifyGuestSecurityRule(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	panic("not implement")
+	var err = module.verifyRequestSignature(r)
+	if  err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	var instanceID = params.ByName("id")
+	var indexString = params.ByName("index")
+	var index int
+	if index, err = strconv.Atoi(indexString); err != nil{
+		err = fmt.Errorf("invalid index %s", indexString)
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	var decoder = json.NewDecoder(r.Body)
+	var request restSecurityPolicyRule
+	if err = decoder.Decode(&request);err != nil{
+		log.Printf("<api> parse modify guest policy rule request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+
+	msg, _ := framework.CreateJsonMessage(framework.ModifyGuestRuleRequest)
+	request.build(msg)
+	msg.SetString(framework.ParamKeyInstance, instanceID)
+	msg.SetInt(framework.ParamKeyIndex, index)
+	var respChan = make(chan ProxyResult, 1)
+	if err = module.proxy.SendRequest(msg, respChan); err != nil {
+		log.Printf("<api> send modify guest policy rule request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	_, errMsg, success := IsResponseSuccess(respChan)
+	if !success {
+		log.Printf("<api> modify guest policy rule fail: %s", errMsg)
+		ResponseFail(ResponseDefaultError, errMsg, w)
+		return
+	}
+	ResponseOK("", w)
 }
 
 func (module *APIModule) removeGuestSecurityRule(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	panic("not implement")
+	var err = module.verifyRequestSignature(r)
+	if  err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	var instanceID = params.ByName("id")
+	var indexString = params.ByName("index")
+	var index int
+	if index, err = strconv.Atoi(indexString); err != nil{
+		err = fmt.Errorf("invalid index %s", indexString)
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+
+	msg, _ := framework.CreateJsonMessage(framework.RemoveGuestRuleRequest)
+	msg.SetString(framework.ParamKeyInstance, instanceID)
+	msg.SetInt(framework.ParamKeyIndex, index)
+	var respChan = make(chan ProxyResult, 1)
+	if err = module.proxy.SendRequest(msg, respChan); err != nil {
+		log.Printf("<api> send remove guest policy rule request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	_, errMsg, success := IsResponseSuccess(respChan)
+	if !success {
+		log.Printf("<api> remove guest policy rule fail: %s", errMsg)
+		ResponseFail(ResponseDefaultError, errMsg, w)
+		return
+	}
+	ResponseOK("", w)
 }
 
 func (module *APIModule) moveGuestSecurityRule(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	panic("not implement")
+	const (
+		directionUp   = "up"
+	)
+	var err = module.verifyRequestSignature(r)
+	if  err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	var instanceID = params.ByName("id")
+	var indexString = params.ByName("index")
+	var index int
+	if index, err = strconv.Atoi(indexString); err != nil{
+		err = fmt.Errorf("invalid index %s", indexString)
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	var decoder = json.NewDecoder(r.Body)
+	type RequestPayload struct {
+		Direction string `json:"direction"`
+	}
+	var request RequestPayload
+	if err = decoder.Decode(&request);err != nil{
+		log.Printf("<api> parse move guest policy rule request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+
+	msg, _ := framework.CreateJsonMessage(framework.ChangeGuestRuleOrderRequest)
+	msg.SetString(framework.ParamKeyInstance, instanceID)
+	msg.SetInt(framework.ParamKeyIndex, index)
+	if directionUp == request.Direction{
+		msg.SetBoolean(framework.ParamKeyFlag, true)
+	}else{
+		msg.SetBoolean(framework.ParamKeyFlag, false)
+	}
+	var respChan = make(chan ProxyResult, 1)
+	if err = module.proxy.SendRequest(msg, respChan); err != nil {
+		log.Printf("<api> send move guest policy rule request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	_, errMsg, success := IsResponseSuccess(respChan)
+	if !success {
+		log.Printf("<api> move guest policy rule fail: %s", errMsg)
+		ResponseFail(ResponseDefaultError, errMsg, w)
+		return
+	}
+	ResponseOK("", w)
 }
 
 func IsResponseSuccess(respChan chan ProxyResult) (resp framework.Message, errMessage string, success bool) {

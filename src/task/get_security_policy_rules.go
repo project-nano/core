@@ -20,7 +20,7 @@ func (executor *GetSecurityPolicyRulesExecutor)Execute(id framework.SessionID, r
 		return
 	}
 
-	resp, _ := framework.CreateJsonMessage(framework.AddPolicyRuleResponse)
+	resp, _ := framework.CreateJsonMessage(framework.QueryPolicyRuleResponse)
 	resp.SetToSession(request.GetFromSession())
 	resp.SetFromSession(id)
 	resp.SetTransactionID(request.GetTransactionID())
@@ -51,7 +51,7 @@ func (executor *GetSecurityPolicyRulesExecutor)Execute(id framework.SessionID, r
 		resp.SetUIntArray(framework.ParamKeyPort, targetPorts)
 		resp.SetStringArray(framework.ParamKeyProtocol, protocols)
 		resp.SetStringArray(framework.ParamKeyFrom, sourceAddresses)
-		resp.SetUIntArray(framework.ParamKeyTo, targetPorts)
+		resp.SetStringArray(framework.ParamKeyTo, targetAddresses)
 		log.Printf("[%08X] %d rules of security policy '%s' available",
 			id, len(actions), policyID)
 		resp.SetSuccess(true)
