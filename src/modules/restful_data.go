@@ -1,8 +1,10 @@
 package modules
 
 import (
+	"encoding/binary"
 	"fmt"
 	"github.com/project-nano/framework"
+	"net"
 )
 
 type restAddressList struct {
@@ -433,6 +435,11 @@ type restSecurityPolicyGroup struct {
 	DefaultAction string `json:"default_action"`
 }
 
+type restGuestSecurityPolicy struct {
+	DefaultAction string                   `json:"default_action"`
+	Rules         []restSecurityPolicyRule `json:"rules,omitempty"`
+}
+
 const (
 	actionStringAccept = "accept"
 	actionStringReject = "reject"
@@ -448,6 +455,29 @@ func (rule *restSecurityPolicyRule) build(msg framework.Message) {
 	}else{
 		msg.SetBoolean(framework.ParamKeyAction, false)
 	}
+}
+
+func (rule *restSecurityPolicyRule) buildForCell(msg framework.Message) (err error){
+	switch rule.Protocol {
+	case PolicyRuleProtocolTCP:
+		msg.SetUInt(framework.ParamKeyProtocol, PolicyRuleProtocolIndexTCP)
+	case PolicyRuleProtocolUDP:
+		msg.SetUInt(framework.ParamKeyProtocol, PolicyRuleProtocolIndexUDP)
+	case PolicyRuleProtocolICMP:
+		msg.SetUInt(framework.ParamKeyProtocol, PolicyRuleProtocolIndexICMP)
+	default:
+		err = fmt.Errorf("invalid protocol '%s'", rule.Protocol)
+		return
+	}
+	msg.SetUInt(framework.ParamKeyFrom, uint(IPv4ToUInt32(rule.FromAddress)))
+	msg.SetUInt(framework.ParamKeyTo, uint(IPv4ToUInt32(rule.ToAddress)))
+	msg.SetUInt(framework.ParamKeyPort, rule.ToPort)
+	if actionStringAccept == rule.Action{
+		msg.SetBoolean(framework.ParamKeyAction, true)
+	}else{
+		msg.SetBoolean(framework.ParamKeyAction, false)
+	}
+	return nil
 }
 
 func (policy *restSecurityPolicyGroup) build(msg framework.Message) {
@@ -466,6 +496,32 @@ func (policy *restSecurityPolicyGroup) build(msg framework.Message) {
 
 	msg.SetBoolean(framework.ParamKeyEnable, policy.Enabled)
 	msg.SetBoolean(framework.ParamKeyLimit, policy.Global)
+}
+
+func (config *AddressPoolConfig) build(msg framework.Message) (err error) {
+	switch config.Provider {
+	case AddressProviderDHCP:
+	case AddressProviderCloudInit:
+	default:
+		err = fmt.Errorf("invalid provider '%s'", config.Provider)
+		return
+	}
+	if "" != config.Mode{
+		switch config.Mode {
+		case AddressAllocationInternal:
+		case AddressAllocationExternal:
+		case AddressAllocationBoth:
+		default:
+			err = fmt.Errorf("invalid allocation mode '%s'", config.Mode)
+			return
+		}
+	}
+	msg.SetString(framework.ParamKeyMode, config.Provider)
+	//msg.SetString(framework.ParamKeyAllocate, config.Mode)
+	msg.SetString(framework.ParamKeyAddress, config.Name)
+	msg.SetString(framework.ParamKeyGateway, config.Gateway)
+	msg.SetStringArray(framework.ParamKeyServer, config.DNS)
+	return nil
 }
 
 func parsePolicyRuleList(msg framework.Message) (rules []restSecurityPolicyRule, err error){
@@ -638,4 +694,93 @@ func parsePolicyGroup(msg framework.Message) (policy restSecurityPolicyGroup, er
 		return
 	}
 	return
+}
+
+func parseGuestSecurityPolicy(msg framework.Message) (policy restGuestSecurityPolicy, err error){
+	const (
+		flagFalse = iota
+		flagTrue
+	)
+	var from, to, protocol, actions, ports []uint64
+	if from, err = msg.GetUIntArray(framework.ParamKeyFrom); err != nil{
+		err = fmt.Errorf("get source address fail: %s", err.Error())
+		return
+	}
+	var elementCount = len(from)
+	if to, err  = msg.GetUIntArray(framework.ParamKeyTo); err != nil{
+		err = fmt.Errorf("get target address fail: %s", err.Error())
+		return
+	}else if len(to) != elementCount{
+		err = fmt.Errorf("invalid target address count %d", len(to))
+		return
+	}
+	if protocol, err  = msg.GetUIntArray(framework.ParamKeyProtocol); err != nil{
+		err = fmt.Errorf("get protocol fail: %s", err.Error())
+		return
+	}else if len(protocol) != elementCount{
+		err = fmt.Errorf("invalid protocol count %d", len(protocol))
+		return
+	}
+	if actions, err  = msg.GetUIntArray(framework.ParamKeyAction); err != nil{
+		err = fmt.Errorf("get action fail: %s", err.Error())
+		return
+	}else if len(actions) != elementCount + 1{
+		err = fmt.Errorf("invalid action count %d", len(actions))
+		return
+	}
+	if ports, err  = msg.GetUIntArray(framework.ParamKeyPort); err != nil{
+		err = fmt.Errorf("get target port fail: %s", err.Error())
+		return
+	}else if len(ports) != elementCount{
+		err = fmt.Errorf("invalid target port count %d", len(ports))
+		return
+	}
+	if flagTrue == actions[elementCount] {
+		policy.DefaultAction = actionStringAccept
+	} else {
+		policy.DefaultAction = actionStringReject
+	}
+	for i := 0; i < elementCount; i++ {
+
+		var rule = restSecurityPolicyRule{
+			FromAddress: UInt32ToIPv4(uint32(from[i])),
+			ToAddress: UInt32ToIPv4(uint32(to[i])),
+			ToPort: uint(ports[i]),
+		}
+		if flagTrue == actions[i] {
+			rule.Action = actionStringAccept
+		} else {
+			rule.Action = actionStringReject
+		}
+		switch protocol[i] {
+		case PolicyRuleProtocolIndexTCP:
+			rule.Protocol = PolicyRuleProtocolTCP
+		case PolicyRuleProtocolIndexUDP:
+			rule.Protocol = PolicyRuleProtocolUDP
+		case PolicyRuleProtocolIndexICMP:
+			rule.Protocol = PolicyRuleProtocolICMP
+		default:
+			err = fmt.Errorf("invalid protocol %d in %dth rule", protocol[i], i)
+			return
+		}
+		policy.Rules = append(policy.Rules, rule)
+	}
+	return
+}
+
+func UInt32ToIPv4(input uint32) string{
+	if 0 == input{
+		return ""
+	}
+	var bytes = make([]byte, net.IPv4len)
+	binary.BigEndian.PutUint32(bytes, input)
+	return net.IP(bytes).String()
+}
+
+func IPv4ToUInt32(input string) uint32 {
+	if "" == input{
+		return 0
+	}
+	var ip = net.ParseIP(input)
+	return binary.BigEndian.Uint32(ip.To4())
 }

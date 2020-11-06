@@ -131,6 +131,7 @@ func (executor *HandleCellAvailableExecutor)Execute(id framework.SessionID, requ
 			var addressPool = result.AddressPool
 			notify.SetString(framework.ParamKeyGateway, addressPool.Gateway)
 			notify.SetStringArray(framework.ParamKeyServer, addressPool.DNS)
+			notify.SetString(framework.ParamKeyMode, addressPool.Provider)
 		}
 		notify.SetFromSession(id)
 		if err = executor.Sender.SendMessage(notify, cellName);err != nil{

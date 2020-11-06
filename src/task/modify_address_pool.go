@@ -1,6 +1,7 @@
 package task
 
 import (
+	"fmt"
 	"github.com/project-nano/framework"
 	"github.com/project-nano/core/modules"
 	"log"
@@ -24,6 +25,10 @@ func (executor *ModifyAddressPoolExecutor)Execute(id framework.SessionID, reques
 		return
 	}
 	if config.DNS, err = request.GetStringArray(framework.ParamKeyServer); err != nil{
+		return
+	}
+	if config.Provider, err = request.GetString(framework.ParamKeyMode); err != nil{
+		err = fmt.Errorf("get provider fail: %s", err.Error())
 		return
 	}
 	var respChan = make(chan modules.ResourceResult, 1)
@@ -51,6 +56,7 @@ func (executor *ModifyAddressPoolExecutor)Execute(id framework.SessionID, reques
 		notify, _ := framework.CreateJsonMessage(framework.AddressPoolChangedEvent)
 		notify.SetString(framework.ParamKeyAddress, poolName)
 		notify.SetString(framework.ParamKeyGateway, config.Gateway)
+		notify.SetString(framework.ParamKeyMode, config.Provider)
 		notify.SetStringArray(framework.ParamKeyServer, config.DNS)
 		notify.SetFromSession(id)
 		for _, cell := range result.ComputeCellInfoList {

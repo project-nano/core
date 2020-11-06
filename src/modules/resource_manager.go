@@ -98,6 +98,8 @@ type ManagedAddressPool struct {
 	name                string
 	gateway             string
 	dns                 []string
+	provider            string
+	mode                string
 	ranges              map[string]ManagedIPV4AddressRange
 	rangeStartAddressed []string
 }
@@ -2960,6 +2962,8 @@ func (manager *ResourceManager) handleQueryAddressPool(respChan chan ResourceRes
 		status.Name = poolName
 		status.Gateway = pool.gateway
 		status.DNS = pool.dns
+		status.Provider = pool.provider
+		status.Mode = pool.mode
 		status.Allocated = make([]AllocatedAddress, 0)
 		status.Ranges = make([]AddressRangeConfig, 0)
 		for _, addressRange := range pool.ranges{
@@ -2991,6 +2995,8 @@ func (manager *ResourceManager) handleGetAddressPool(poolName string, respChan c
 	status.Name = poolName
 	status.Gateway = pool.gateway
 	status.DNS = pool.dns
+	status.Provider = pool.provider
+	status.Mode = pool.mode
 	status.Allocated = make([]AllocatedAddress, 0)
 	status.Ranges = make([]AddressRangeConfig, 0)
 	for _, addressRange := range pool.ranges{
@@ -3032,6 +3038,8 @@ func (manager *ResourceManager) handleCreateAddressPool(config AddressPoolConfig
 		}
 	}
 	pool.dns = config.DNS
+	pool.provider = config.Provider
+	pool.mode = config.Mode
 	pool.ranges = map[string]ManagedIPV4AddressRange{}
 	pool.rangeStartAddressed = make([]string, 0)
 	manager.addressPools[pool.name] = pool
@@ -3063,6 +3071,8 @@ func (manager *ResourceManager) handleModifyAddressPool(config AddressPoolConfig
 	}
 	pool.gateway = config.Gateway
 	pool.dns = config.DNS
+	pool.provider = config.Provider
+	pool.mode = config.Mode
 	manager.addressPools[pool.name] = pool
 	//check affected cells
 	var affected = make([]ComputeCellInfo, 0)
@@ -4315,6 +4325,8 @@ func (manager *ResourceManager) saveConfig() (err error) {
 		define.Name = poolName
 		define.Gateway = pool.gateway
 		define.DNS = pool.dns
+		define.Provider = pool.provider
+		define.Mode = pool.mode
 		define.Ranges = make([]AddressRangeStatus, 0)
 		for _, startAddress := range pool.rangeStartAddressed{
 			currentRange, exists := pool.ranges[startAddress]
@@ -4486,6 +4498,8 @@ func (manager *ResourceManager) loadConfig() (err error) {
 		pool.name = poolDefine.Name
 		pool.gateway = poolDefine.Gateway
 		pool.dns = poolDefine.DNS
+		pool.provider = poolDefine.Provider
+		pool.mode = poolDefine.Mode
 		pool.ranges = map[string]ManagedIPV4AddressRange{}
 		pool.rangeStartAddressed = make([]string, 0)
 		for _, rangeDefine := range poolDefine.Ranges{
@@ -4596,13 +4610,14 @@ func (manager *ResourceManager) syncInstanceStatistic(cellName string) (err erro
 }
 
 func (cell *ManagedComputeCell) isInstanceConsistent() bool{
-	var total = int(cell.InstanceStatistic.StoppedInstances + cell.InstanceStatistic.RunningInstances +
-		cell.InstanceStatistic.LostInstances + cell.InstanceStatistic.MigratingInstances)
+	var current = cell.InstanceStatistic.StoppedInstances + cell.InstanceStatistic.RunningInstances +
+		cell.InstanceStatistic.LostInstances + cell.InstanceStatistic.MigratingInstances
+	var required = uint64(len(cell.Instances))
 	//if total != len(cell.Instances){
 	//	log.Printf("debug: cell %s => total %d ,  %d, %d, %d, %d",
 	//		total, cell.StoppedInstances, cell.RunningInstances, cell.LostInstances, cell.MigratingInstances)
 	//}
-	return total == len(cell.Instances)
+	return current == required
 }
 
 func (s *ResourceUsage) Accumulate(add ResourceUsage) {

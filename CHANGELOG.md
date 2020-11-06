@@ -1,12 +1,20 @@
 # Change Log
 
-## [1.3.0] - 2020-11-03
+## [1.3.0] - 2020-11-06
+
+### Added
+
+- Manage security policy of instance
+- Manage security policy group
+- Allow address pool bind IP using Cloud-Init
 
 ### Changed
 
 - Optimize the strategy and error output of computing pool allocation
-- Manage security policy of instance
-- Manage security policy group
+
+### Fixed
+
+- Consistent checking of instance quantity is not working
 
 ## [1.2.0] - 2020-04-12
 

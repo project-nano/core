@@ -251,10 +251,20 @@ type AddressRangeStatus struct {
 	Allocated []AllocatedAddress `json:"allocated,omitempty"`
 }
 
+const (
+	AddressProviderDHCP       = "dhcp"
+	AddressProviderCloudInit  = "cloudinit"
+	AddressAllocationInternal = "internal"
+	AddressAllocationExternal = "external"
+	AddressAllocationBoth     = "both"
+)
+
 type AddressPoolConfig struct {
-	Name     string   `json:"name"`
+	Name     string   `json:"name,omitempty"`
 	Gateway  string   `json:"gateway"`
-	DNS      []string `json:"dns"`
+	DNS      []string `json:"dns,omitempty"`
+	Provider string   `json:"provider"`
+	Mode     string   `json:"mode,omitempty"`
 }
 
 type AddressPoolStatus struct {

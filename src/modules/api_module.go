@@ -4049,13 +4049,15 @@ func (module *APIModule) handleQueryAddressPool(w http.ResponseWriter, r *http.R
 		Name      string   `json:"name"`
 		Gateway   string   `json:"gateway"`
 		DNS       []string `json:"dns,omitempty"`
+		Provider  string   `json:"provider,omitempty"`
+		Mode      string   `json:"mode,omitempty"`
 		Addresses uint64   `json:"addresses"`
 		Allocated uint64   `json:"allocated"`
 	}
 
 	var parser = func(msg framework.Message) (payload []Pool, err error) {
 		payload = make([]Pool, 0)
-		var nameArray, gatewayArray, dnsArray []string
+		var nameArray, gatewayArray, dnsArray, providerArray []string
 		var addressArray, allocateArray, dnsCountArray []uint64
 		if nameArray, err = msg.GetStringArray(framework.ParamKeyName); err != nil{
 			return
@@ -4063,8 +4065,11 @@ func (module *APIModule) handleQueryAddressPool(w http.ResponseWriter, r *http.R
 		if gatewayArray, err = msg.GetStringArray(framework.ParamKeyGateway); err != nil{
 			return
 		}
-
 		if dnsArray, err = msg.GetStringArray(framework.ParamKeyServer); err != nil{
+			return
+		}
+		if providerArray, err = msg.GetStringArray(framework.ParamKeyMode); err != nil{
+			err = fmt.Errorf("get provider fail: %s", err.Error())
 			return
 		}
 		if addressArray, err = msg.GetUIntArray(framework.ParamKeyAddress); err != nil{
@@ -4094,7 +4099,15 @@ func (module *APIModule) handleQueryAddressPool(w http.ResponseWriter, r *http.R
 			var dnsCount = int(dnsCountArray[i])
 			var end = start + dnsCount
 			var dns = dnsArray[start : end]
-			payload = append(payload, Pool{nameArray[i], gatewayArray[i], dns, addressArray[i], allocateArray[i]})
+			var pool = Pool{
+				Name: nameArray[i],
+				Gateway: gatewayArray[i],
+				DNS: dns,
+				Provider: providerArray[i],
+				Addresses: addressArray[i],
+				Allocated: allocateArray[i],
+			}
+			payload = append(payload, pool)
 			start = end
 		}
 		return
@@ -4154,15 +4167,16 @@ func (module *APIModule) handleGetAddressPool(w http.ResponseWriter, r *http.Req
 		if payload.DNS, err = msg.GetStringArray(framework.ParamKeyServer); err != nil{
 			return
 		}
-
+		if payload.Provider, err = msg.GetString(framework.ParamKeyMode); err != nil{
+			err = fmt.Errorf("get provider fail: %s", err.Error())
+			return
+		}
 		if addressArray, err = msg.GetStringArray(framework.ParamKeyAddress); err != nil{
 			return
 		}
 		if instanceArray, err = msg.GetStringArray(framework.ParamKeyInstance); err != nil{
 			return
 		}
-
-
 		var rangeCount = len(startArray)
 		if rangeCount != len(endArray) {
 			err = fmt.Errorf("unmatched end array size %d", len(endArray))
@@ -4205,22 +4219,21 @@ func (module *APIModule) handleCreateAddressPool(w http.ResponseWriter, r *http.
 		return
 	}
 	var poolName = params.ByName("pool")
-	type PoolConfig struct {
-		Gateway string `json:"gateway"`
-		DNS []string `json:"dns,omitempty"`
-	}
 	var err error
 	var decoder = json.NewDecoder(r.Body)
-	var request PoolConfig
+	var request AddressPoolConfig
 	if err = decoder.Decode(&request); err != nil{
 		log.Printf("<api> parse create address pool request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
+	request.Name = poolName
 	msg, _ := framework.CreateJsonMessage(framework.CreateAddressPoolRequest)
-	msg.SetString(framework.ParamKeyAddress, poolName)
-	msg.SetString(framework.ParamKeyGateway, request.Gateway)
-	msg.SetStringArray(framework.ParamKeyServer, request.DNS)
+	if err = request.build(msg); err != nil{
+		log.Printf("<api> build create address pool request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var respChan = make(chan ProxyResult, 1)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> send create address pool request fail: %s", err.Error())
@@ -4242,22 +4255,21 @@ func (module *APIModule) handleModifyAddressPool(w http.ResponseWriter, r *http.
 		return
 	}
 	var poolName = params.ByName("pool")
-	type PoolConfig struct {
-		Gateway string `json:"gateway"`
-		DNS []string `json:"dns,omitempty"`
-	}
 	var err error
 	var decoder = json.NewDecoder(r.Body)
-	var request PoolConfig
+	var request AddressPoolConfig
 	if err = decoder.Decode(&request); err != nil{
 		log.Printf("<api> parse modify address pool request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
+	request.Name = poolName
 	msg, _ := framework.CreateJsonMessage(framework.ModifyAddressPoolRequest)
-	msg.SetString(framework.ParamKeyAddress, poolName)
-	msg.SetString(framework.ParamKeyGateway, request.Gateway)
-	msg.SetStringArray(framework.ParamKeyServer, request.DNS)
+	if err = request.build(msg); err != nil{
+		log.Printf("<api> build modify address pool request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	var respChan = make(chan ProxyResult, 1)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> send modify address pool request fail: %s", err.Error())
@@ -5951,7 +5963,35 @@ func (module *APIModule) moveSecurityPolicyRule(w http.ResponseWriter, r *http.R
 
 
 func (module *APIModule) getGuestSecurityPolicy(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	panic("not implement")
+	var err = module.verifyRequestSignature(r)
+	if err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	var instanceID = params.ByName("id")
+
+	msg, _ := framework.CreateJsonMessage(framework.GetGuestRuleRequest)
+	msg.SetString(framework.ParamKeyInstance, instanceID)
+	var respChan = make(chan ProxyResult, 1)
+	if err = module.proxy.SendRequest(msg, respChan); err != nil {
+		log.Printf("<api> send query guest security policy request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	resp, errMsg, success := IsResponseSuccess(respChan)
+	if !success {
+		log.Printf("<api> query guest security policy fail: %s", errMsg)
+		ResponseFail(ResponseDefaultError, errMsg, w)
+		return
+	}
+
+	payload, err := parseGuestSecurityPolicy(resp)
+	if err != nil{
+		log.Printf("<api> parse guest security policy result fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	ResponseOK(payload, w)
 }
 
 func (module *APIModule) changeGuestSecurityAction(w http.ResponseWriter, r *http.Request, params httprouter.Params){
@@ -6006,7 +6046,11 @@ func (module *APIModule) addGuestSecurityRule(w http.ResponseWriter, r *http.Req
 	}
 
 	msg, _ := framework.CreateJsonMessage(framework.AddGuestRuleRequest)
-	request.build(msg)
+	if err =request.buildForCell(msg); err != nil{
+		log.Printf("<api> build add guest policy rule request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	msg.SetString(framework.ParamKeyInstance, instanceID)
 	var respChan = make(chan ProxyResult, 1)
 	if err = module.proxy.SendRequest(msg, respChan); err != nil {
@@ -6046,7 +6090,11 @@ func (module *APIModule) modifyGuestSecurityRule(w http.ResponseWriter, r *http.
 	}
 
 	msg, _ := framework.CreateJsonMessage(framework.ModifyGuestRuleRequest)
-	request.build(msg)
+	if err =request.buildForCell(msg); err != nil{
+		log.Printf("<api> build modify guest policy rule request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	msg.SetString(framework.ParamKeyInstance, instanceID)
 	msg.SetInt(framework.ParamKeyIndex, index)
 	var respChan = make(chan ProxyResult, 1)
@@ -6099,7 +6147,9 @@ func (module *APIModule) removeGuestSecurityRule(w http.ResponseWriter, r *http.
 
 func (module *APIModule) moveGuestSecurityRule(w http.ResponseWriter, r *http.Request, params httprouter.Params){
 	const (
-		directionUp   = "up"
+		directionUp = "up"
+		modeUp      = 1
+		modeDown    = -1
 	)
 	var err = module.verifyRequestSignature(r)
 	if  err != nil{
@@ -6129,9 +6179,9 @@ func (module *APIModule) moveGuestSecurityRule(w http.ResponseWriter, r *http.Re
 	msg.SetString(framework.ParamKeyInstance, instanceID)
 	msg.SetInt(framework.ParamKeyIndex, index)
 	if directionUp == request.Direction{
-		msg.SetBoolean(framework.ParamKeyFlag, true)
+		msg.SetInt(framework.ParamKeyMode, modeUp)
 	}else{
-		msg.SetBoolean(framework.ParamKeyFlag, false)
+		msg.SetInt(framework.ParamKeyMode, modeDown)
 	}
 	var respChan = make(chan ProxyResult, 1)
 	if err = module.proxy.SendRequest(msg, respChan); err != nil {
