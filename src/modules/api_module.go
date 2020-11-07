@@ -26,12 +26,12 @@ import (
 )
 
 type APIModule struct {
-	server           http.Server
-	exitChan         chan bool
-	currentImageHost string
-	currentImageURL  string
+	server            http.Server
+	exitChan          chan bool
+	currentImageHost  string
+	currentImageURL   string
 	currentImageProxy *httputil.ReverseProxy
-	apiCredentials map[string]string
+	apiCredentials    map[string]string
 	proxy             *RequestProxy
 	resource          ResourceModule
 }
@@ -436,7 +436,7 @@ func (module *APIModule) RegisterAPIHandler(router *httprouter.Router) {
 	router.POST(apiPath("/media_images/"), module.createMediaImage)
 	router.PUT(apiPath("/media_images/:id"), module.modifyMediaImage)
 	router.DELETE(apiPath("/media_images/:id"), module.deleteMediaImage)
-
+	router.PATCH(apiPath("/media_images/"), module.syncMediaImages)
 
 	router.POST(apiPath("/media_images/:id/file/"), module.redirectToImageServer)
 
@@ -447,6 +447,7 @@ func (module *APIModule) RegisterAPIHandler(router *httprouter.Router) {
 	router.POST(apiPath("/disk_images/"), module.createDiskImage)
 	router.PUT(apiPath("/disk_images/:id"), module.modifyDiskImage)
 	router.DELETE(apiPath("/disk_images/:id"), module.deleteDiskImage)
+	router.PATCH(apiPath("/disk_images/"), module.syncDiskImages)
 
 	router.GET(apiPath("/disk_images/:id/file/"), module.redirectToImageServer)
 	router.POST(apiPath("/disk_images/:id/file/"), module.redirectToImageServer)//upload from web
@@ -2803,7 +2804,6 @@ func (module *APIModule) modifyMediaImage(w http.ResponseWriter, r *http.Request
 	ResponseOK("", w)
 }
 
-
 func (module *APIModule) deleteMediaImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
 	if err := module.verifyRequestSignature(r); err != nil{
 		ResponseFail(ResponseDefaultError, err.Error(), w)
@@ -2827,6 +2827,30 @@ func (module *APIModule) deleteMediaImage(w http.ResponseWriter, r *http.Request
 	ResponseOK("", w)
 }
 
+func (module *APIModule) syncMediaImages(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	var filterOwner = r.URL.Query().Get("owner")
+	var filterGroup = r.URL.Query().Get("group")
+	msg, _ := framework.CreateJsonMessage(framework.SynchronizeMediaImageRequest)
+	msg.SetString(framework.ParamKeyUser, filterOwner)
+	msg.SetString(framework.ParamKeyGroup, filterGroup)
+	var respChan = make(chan ProxyResult, 1)
+	if err := module.proxy.SendRequest(msg, respChan); err != nil {
+		log.Printf("<api> send sync media images request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	_, errMsg, success := IsResponseSuccess(respChan)
+	if !success {
+		log.Printf("<api> sync media images fail: %s", errMsg)
+		ResponseFail(ResponseDefaultError, errMsg, w)
+		return
+	}
+	ResponseOK("", w)
+}
 
 func (module *APIModule) queryDiskImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
 	if err := module.verifyRequestSignature(r); err != nil{
@@ -3123,6 +3147,31 @@ func (module *APIModule) deleteDiskImage(w http.ResponseWriter, r *http.Request,
 	_, errMsg, success := IsResponseSuccess(respChan)
 	if !success {
 		log.Printf("<api> delete disk image fail: %s", errMsg)
+		ResponseFail(ResponseDefaultError, errMsg, w)
+		return
+	}
+	ResponseOK("", w)
+}
+
+func (module *APIModule) syncDiskImages(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	var filterOwner = r.URL.Query().Get("owner")
+	var filterGroup = r.URL.Query().Get("group")
+	msg, _ := framework.CreateJsonMessage(framework.SynchronizeDiskImageRequest)
+	msg.SetString(framework.ParamKeyUser, filterOwner)
+	msg.SetString(framework.ParamKeyGroup, filterGroup)
+	var respChan = make(chan ProxyResult, 1)
+	if err := module.proxy.SendRequest(msg, respChan); err != nil {
+		log.Printf("<api> send sync disk images request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	_, errMsg, success := IsResponseSuccess(respChan)
+	if !success {
+		log.Printf("<api> sync disk images fail: %s", errMsg)
 		ResponseFail(ResponseDefaultError, errMsg, w)
 		return
 	}

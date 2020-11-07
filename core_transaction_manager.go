@@ -599,5 +599,21 @@ func CreateTransactionManager(sender framework.MessageSender, resourceModule mod
 		err = fmt.Errorf("register delete security policy group fail: %s", err.Error())
 		return
 	}
+	if err = manager.RegisterExecutor(framework.SynchronizeMediaImageRequest,
+		&task.SyncMediaImagesExecutor{
+			Sender:         sender,
+			ResourceModule: resourceModule,
+		}); err != nil{
+		err = fmt.Errorf("register sync media images fail: %s", err.Error())
+		return
+	}
+	if err = manager.RegisterExecutor(framework.SynchronizeDiskImageRequest,
+		&task.SyncDiskImagesExecutor{
+			Sender:         sender,
+			ResourceModule: resourceModule,
+		}); err != nil{
+		err = fmt.Errorf("register sync disk images fail: %s", err.Error())
+		return
+	}
 	return manager, nil
 }

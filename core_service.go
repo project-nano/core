@@ -129,12 +129,14 @@ func (core *CoreService)OnMessageReceived(msg framework.Message){
 	case framework.CreateDiskImageRequest:
 	case framework.DeleteDiskImageRequest:
 	case framework.ModifyDiskImageRequest:
+	case framework.SynchronizeDiskImageRequest:
 
 	case framework.QueryMediaImageRequest:
 	case framework.GetMediaImageRequest:
 	case framework.CreateMediaImageRequest:
 	case framework.DeleteMediaImageRequest:
 	case framework.ModifyMediaImageRequest:
+	case framework.SynchronizeMediaImageRequest:
 
 	case framework.QuerySnapshotRequest:
 	case framework.GetSnapshotRequest:

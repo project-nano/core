@@ -1,16 +1,17 @@
 package imageserver
 
 import (
-	"github.com/project-nano/framework"
-	"log"
-	"github.com/satori/go.uuid"
+	"encoding/json"
 	"fmt"
+	"github.com/project-nano/framework"
+	"github.com/satori/go.uuid"
+	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
-	"encoding/json"
-	"io/ioutil"
-	"time"
 	"sort"
+	"strings"
+	"time"
 )
 
 type MediaConfig struct {
@@ -82,7 +83,7 @@ const (
 	cmdUnlockMediaImage
 	cmdGetMediaImageFile
 	cmdGetMediaImage
-
+	cmdSyncMediaImages
 	cmdQueryDiskImage
 	cmdCreateDiskImage
 	cmdModifyDiskImage
@@ -93,6 +94,7 @@ const (
 	cmdGetDiskImage
 	cmdGetDiskImageFile
 	cmdUpdateDiskImageProgress
+	cmdSyncDiskImages
 )
 
 type ImageResult struct {
@@ -120,7 +122,11 @@ type ImageManager struct {
 }
 
 const (
-	TimeFormatLayout = "2006-01-02 15:04:05"
+	TimeFormatLayout   = "2006-01-02 15:04:05"
+	FormatExtQCOW2     = "qcow2"
+	FormatExtISO       = "iso"
+	DefaultDiskFormat  = FormatExtQCOW2
+	DefaultMediaFormat = FormatExtISO
 )
 
 func CreateImageManager(dataPath string) (manager *ImageManager, err error){
@@ -264,7 +270,6 @@ func (manager *ImageManager) handleCommand(cmd imageCommand){
 		err = manager.handleGetMediaImage(cmd.ID, cmd.ResultChan)
 	case cmdModifyMediaImage:
 		err = manager.handleModifyMediaImage(cmd.ID, cmd.MediaImageConfig, cmd.ErrorChan)
-
 	case cmdQueryDiskImage:
 		err = manager.handleQueryDiskImage(cmd.User, cmd.Group, cmd.Tags, cmd.ResultChan)
 	case cmdCreateDiskImage:
@@ -285,7 +290,10 @@ func (manager *ImageManager) handleCommand(cmd imageCommand){
 		err = manager.handleGetDiskImageFile(cmd.ID, cmd.ResultChan)
 	case cmdUpdateDiskImageProgress:
 		err = manager.handleUpdateDiskImageProgress(cmd.ID, cmd.Progress, cmd.ErrorChan)
-
+	case cmdSyncMediaImages:
+		err = manager.handleSyncMediaImages(cmd.User, cmd.Group, cmd.ErrorChan)
+	case cmdSyncDiskImages:
+		err = manager.handleSyncDiskImages(cmd.User, cmd.Group, cmd.ErrorChan)
 	default:
 		log.Printf("<image> unsupported command type %d", cmd.Type)
 		break
@@ -384,9 +392,16 @@ func (manager * ImageManager) GetDiskImageFile(id string, respChan chan ImageRes
 	manager.commands <- cmd
 }
 
-
 func (manager * ImageManager) UpdateDiskImageProgress(id string, progress uint, respChan chan error){
 	manager.commands <- imageCommand{Type: cmdUpdateDiskImageProgress, ID:id, Progress: progress, ErrorChan: respChan}
+}
+
+func (manager * ImageManager) SyncMediaImages(owner, group string, respChan chan error){
+	manager.commands <- imageCommand{Type: cmdSyncMediaImages, User: owner, Group: group, ErrorChan: respChan}
+}
+
+func (manager * ImageManager) SyncDiskImages(owner, group string, respChan chan error){
+	manager.commands <- imageCommand{Type: cmdSyncDiskImages, User: owner, Group: group, ErrorChan: respChan}
 }
 
 func (manager *ImageManager) handleQueryMediaImage(owner, group string, respChan chan ImageResult) (err error){
@@ -428,9 +443,6 @@ func (manager *ImageManager) handleQueryMediaImage(owner, group string, respChan
 }
 
 func (manager *ImageManager) handleCreateMediaImage(config MediaConfig, respChan chan ImageResult) (err error){
-	const (
-		MediaImageFormat = "iso"
-	)
 	var nameWithGroup = fmt.Sprintf("%s.%s", config.Group, config.Name)
 	if _, exists := manager.mediaImageNames[nameWithGroup]; exists{
 		err = fmt.Errorf("media image '%s' already exists in group '%s'", config.Name, config.Group)
@@ -444,7 +456,7 @@ func (manager *ImageManager) handleCreateMediaImage(config MediaConfig, respChan
 	image.Size = 0
 	image.Version = 0
 	image.Locked = false
-	image.Format = MediaImageFormat
+	image.Format = DefaultMediaFormat
 	image.CreateTime = time.Now().Format(TimeFormatLayout)
 	manager.mediaImages[image.ID] = image
 	manager.mediaImageNames[nameWithGroup] = true
@@ -686,9 +698,6 @@ func (manager *ImageManager) handleQueryDiskImage(owner, group string, tags []st
 }
 
 func (manager *ImageManager) handleCreateDiskImage(config DiskConfig, respChan chan ImageResult) (err error){
-	const (
-		DiskImageFormat = "qcow2"
-	)
 	var nameWithGroup = fmt.Sprintf("%s.%s", config.Group, config.Name)
 	if _, exists := manager.diskImageNames[nameWithGroup]; exists{
 		err = fmt.Errorf("disk image '%s' already exists in group '%s'", config.Name, config.Group)
@@ -706,7 +715,7 @@ func (manager *ImageManager) handleCreateDiskImage(config DiskConfig, respChan c
 	image.Created = false
 	image.Progress = 0
 	//todo: more format support
-	image.Format = DiskImageFormat
+	image.Format = DefaultDiskFormat
 	image.CreateTime = time.Now().Format(TimeFormatLayout)
 	manager.diskImages[image.ID] = image
 	manager.diskImageNames[nameWithGroup] = true
@@ -920,3 +929,144 @@ func (manager * ImageManager) handleGetDiskImageFile(id string, respChan chan Im
 	return nil
 }
 
+func (manager * ImageManager) handleSyncMediaImages(owner, group string, respChan chan error) (err error){
+	var existsKeys = map[string]bool{}
+	for id, _ := range manager.mediaImages{
+		existsKeys[id] = true
+	}
+	var filenames []string
+	if filenames, err = findAbsentFile(manager.mediaPath, DefaultMediaFormat, existsKeys); err != nil{
+		err = fmt.Errorf("find absent media images fail: %s", err.Error())
+		respChan <- err
+		return
+	}
+	if 0 == len(filenames){
+		respChan <- nil
+		log.Println("<image> all media images synchronized, no absent file discovered")
+		return
+	}
+	for _, filename := range filenames{
+		var now = time.Now()
+		var timestamp = now.Format(TimeFormatLayout)
+		var image MediaStatus
+		image.Owner = owner
+		image.Group = group
+		image.Name = fmt.Sprintf("%s_%d", filename, now.Second())
+		image.Description = fmt.Sprintf("generated by synchronize media images on %s", timestamp)
+		image.ID = uuid.NewV4().String()
+		image.Version = 1
+		image.Format = DefaultMediaFormat
+		image.Locked = false
+		image.CreateTime = timestamp
+		image.ModifyTime = timestamp
+		image.Path = filepath.Join(manager.mediaPath, fmt.Sprintf("%s_v%d.%s", image.ID, image.Version, image.Format))
+		var info os.FileInfo
+		var sourceFile = filepath.Join(manager.mediaPath, fmt.Sprintf("%s.%s", filename, DefaultMediaFormat))
+		if info, err = os.Stat(sourceFile); err != nil{
+			err = fmt.Errorf("check source media file '%s' fail: %s", sourceFile, err.Error())
+			respChan <- err
+			return
+		}
+		image.Size = uint(info.Size())
+		if err = os.Rename(sourceFile, image.Path); err != nil{
+			err = fmt.Errorf("rename '%s' to '%s' fail: %s", sourceFile, image.Path, err.Error())
+			respChan <- err
+			return
+		}
+		var nameWithGroup = fmt.Sprintf("%s.%s", group, image.Name)
+		manager.mediaImages[image.ID] = image
+		manager.mediaImageNames[nameWithGroup] = true
+		log.Printf("<image> synchronize %s to media image '%s'(%s)", filename, image.Name, image.ID)
+	}
+	respChan <- nil
+	log.Printf("<image> %d new media image(s) synchronized", len(filenames))
+	return manager.SaveData()
+}
+
+func (manager * ImageManager) handleSyncDiskImages(owner, group string, respChan chan error) (err error){
+	var existsKeys = map[string]bool{}
+	for id, _ := range manager.diskImages{
+		existsKeys[id] = true
+	}
+	var filenames []string
+	if filenames, err = findAbsentFile(manager.diskPath, DefaultDiskFormat, existsKeys); err != nil{
+		err = fmt.Errorf("find absent disk images fail: %s", err.Error())
+		respChan <- err
+		return
+	}
+	if 0 == len(filenames){
+		respChan <- nil
+		log.Println("<image> all disk images synchronized, no absent file discovered")
+		return
+	}
+	for _, filename := range filenames{
+		var now = time.Now()
+		var timestamp = now.Format(TimeFormatLayout)
+		var image DiskStatus
+		image.Owner = owner
+		image.Group = group
+		image.Name = fmt.Sprintf("%s_%d", filename, now.Second())
+		image.Description = fmt.Sprintf("generated by synchronize disk images on %s", timestamp)
+		image.ID = uuid.NewV4().String()
+		image.Version = 1
+		image.Format = DefaultDiskFormat
+		image.CreateTime = timestamp
+		image.ModifyTime = timestamp
+		image.Created = true
+		image.Locked = false
+		image.Path = filepath.Join(manager.mediaPath, fmt.Sprintf("%s_v%d.%s", image.ID, image.Version, image.Format))
+		var info os.FileInfo
+		var sourceFile = filepath.Join(manager.mediaPath, fmt.Sprintf("%s.%s", filename, DefaultDiskFormat))
+		if info, err = os.Stat(sourceFile); err != nil{
+			err = fmt.Errorf("check source disk file '%s' fail: %s", sourceFile, err.Error())
+			respChan <- err
+			return
+		}
+		image.Size = uint(info.Size())
+		log.Printf("<image> compute checksum for '%s'...", sourceFile)
+		if image.CheckSum, err = computeCheckSum(sourceFile); err != nil{
+			err = fmt.Errorf("compute checksum for '%s' fail: %s", sourceFile, err.Error())
+			respChan <- err
+			return
+		}
+		if err = os.Rename(sourceFile, image.Path); err != nil{
+			err = fmt.Errorf("rename '%s' to '%s' fail: %s", sourceFile, image.Path, err.Error())
+			respChan <- err
+			return
+		}
+
+		var nameWithGroup = fmt.Sprintf("%s.%s", group, image.Name)
+		manager.diskImages[image.ID] = image
+		manager.diskImageNames[nameWithGroup] = true
+		log.Printf("<image> synchronize %s to disk image '%s'(%s)", filename, image.Name, image.ID)
+	}
+	respChan <- nil
+	log.Printf("<image> %d new disk image(s) synchronized", len(filenames))
+	return manager.SaveData()
+}
+
+func findAbsentFile(targetPath, ext string, existsKeys map[string]bool) (names []string, err error){
+	var suffix = fmt.Sprintf(".%s", ext)
+	var exists bool
+	err = filepath.Walk(targetPath, func(currentFile string, info os.FileInfo, accessErr error) error {
+		if accessErr != nil{
+			return fmt.Errorf("access '%s' fail: %s", currentFile, accessErr.Error())
+		}
+		if targetPath == currentFile{
+			return nil
+		}
+		if info.IsDir(){
+			return filepath.SkipDir
+		}
+		var base = filepath.Base(currentFile)
+		if !strings.HasSuffix(base, suffix){
+			return nil
+		}
+		var filename = strings.TrimSuffix(base, suffix)
+		if _, exists = existsKeys[filename]; !exists{
+			names = append(names, filename)
+		}
+		return nil
+	})
+	return
+}

@@ -1,6 +1,7 @@
 package imageserver
 
 import (
+	"fmt"
 	"github.com/project-nano/framework"
 )
 
@@ -59,6 +60,22 @@ func CreateTaskManager(sender framework.MessageSender, imageManager *ImageManage
 	}
 	if err = manager.RegisterExecutor(framework.DiskImageUpdatedEvent,
 		&DiskImageUpdateExecutor{sender, imageManager}); err != nil{
+		return nil, err
+	}
+	if err = manager.RegisterExecutor(framework.SynchronizeDiskImageRequest,
+		&SyncDiskImagesExecutor{
+			Sender:      sender,
+			ImageServer: imageManager,
+		}); err != nil {
+		err = fmt.Errorf("register sync disk images fail: %s", err.Error())
+		return nil, err
+	}
+	if err = manager.RegisterExecutor(framework.SynchronizeMediaImageRequest,
+		&SyncMediaImagesExecutor{
+			Sender:      sender,
+			ImageServer: imageManager,
+		}); err != nil {
+		err = fmt.Errorf("register sync disk images fail: %s", err.Error())
 		return nil, err
 	}
 
