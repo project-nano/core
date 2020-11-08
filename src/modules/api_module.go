@@ -2139,22 +2139,23 @@ func (module *APIModule) handleCreateGuest(w http.ResponseWriter, r *http.Reques
 	}
 
 	type userRequest struct {
-		Name            string           `json:"name"`
-		Owner           string           `json:"owner"`
-		Group           string           `json:"group"`
-		Pool            string           `json:"pool"`
-		Cores           uint             `json:"cores"`
-		Memory          uint             `json:"memory"`
-		Disks           []uint64         `json:"disks"`
-		Template        string           `json:"template"`
-		AutoStart       bool             `json:"auto_start,omitempty"`
-		NetworkAddress  string           `json:"network_address,omitempty"`
-		EthernetAddress string           `json:"ethernet_address,omitempty"`
-		FromImage       string           `json:"from_image,omitempty"`
-		Port            []uint64         `json:"port,omitempty"`
-		Modules         []string         `json:"modules,omitempty"`
-		CloudInit       *ciConfig        `json:"cloud_init,omitempty"`
-		QoS             *restInstanceQoS `json:"qos,omitempty"`
+		Name                string           `json:"name"`
+		Owner               string           `json:"owner"`
+		Group               string           `json:"group"`
+		Pool                string           `json:"pool"`
+		Cores               uint             `json:"cores"`
+		Memory              uint             `json:"memory"`
+		Disks               []uint64         `json:"disks"`
+		Template            string           `json:"template"`
+		AutoStart           bool             `json:"auto_start,omitempty"`
+		NetworkAddress      string           `json:"network_address,omitempty"`
+		EthernetAddress     string           `json:"ethernet_address,omitempty"`
+		FromImage           string           `json:"from_image,omitempty"`
+		Port                []uint64         `json:"port,omitempty"`
+		Modules             []string         `json:"modules,omitempty"`
+		CloudInit           *ciConfig        `json:"cloud_init,omitempty"`
+		QoS                 *restInstanceQoS `json:"qos,omitempty"`
+		SecurityPolicyGroup string           `json:"security_policy_group,omitempty"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -2214,6 +2215,7 @@ func (module *APIModule) handleCreateGuest(w http.ResponseWriter, r *http.Reques
 	msg.SetUIntArray(framework.ParamKeyDisk, request.Disks)
 	msg.SetBoolean(framework.ParamKeyOption, request.AutoStart)
 	msg.SetString(framework.ParamKeyTemplate, request.Template)
+	msg.SetString(framework.ParamKeyPolicy, request.SecurityPolicyGroup)
 	//optional disk image
 	if "" != request.FromImage{
 		msg.SetString(framework.ParamKeyImage, request.FromImage)

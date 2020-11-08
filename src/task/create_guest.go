@@ -61,7 +61,7 @@ func (executor *CreateGuestExecutor)Execute(id framework.SessionID, request fram
 		executor.ResourceModule.GetSystemTemplate(templateID, respChan)
 		var result = <- respChan
 		if result.Error != nil{
-			err = fmt.Errorf("get template fail: %s", result.Error)
+			err = fmt.Errorf("get template '%s' fail: %s", templateID, result.Error)
 			return
 		}
 		var t = result.Template
@@ -77,6 +77,53 @@ func (executor *CreateGuestExecutor)Execute(id framework.SessionID, request fram
 			return
 		}
 		request.SetUIntArray(framework.ParamKeyTemplate, options)
+	}
+	//Security policy
+	{
+		var policyID string
+		if policyID, err = request.GetString(framework.ParamKeyPolicy); nil == err && "" != policyID{
+			var respChan = make(chan modules.ResourceResult, 1)
+			executor.ResourceModule.GetSecurityPolicyGroup(policyID, respChan)
+			var result = <- respChan
+			if result.Error != nil{
+				err = fmt.Errorf("get security policy '%s' fail: %s", policyID, result.Error)
+				return
+			}
+			var policy = result.PolicyGroup
+			request.SetBoolean(framework.ParamKeyAction, policy.Accept)
+			executor.ResourceModule.GetSecurityPolicyRules(policyID, respChan)
+			result = <- respChan
+			if result.Error != nil{
+				err = fmt.Errorf("get security rules of policy '%s' fail: %s", policyID, result.Error)
+				return
+			}
+			var rules = result.PolicyRuleList
+			//accept,protocol,from,to,port
+			var policyParameters []uint64
+			for index, rule := range rules{
+				if rule.Accept{
+					policyParameters = append(policyParameters, modules.PolicyRuleActionAccept)
+				}else{
+					policyParameters = append(policyParameters, modules.PolicyRuleActionReject)
+				}
+				switch rule.Protocol {
+				case modules.PolicyRuleProtocolTCP:
+					policyParameters = append(policyParameters, modules.PolicyRuleProtocolIndexTCP)
+				case modules.PolicyRuleProtocolUDP:
+					policyParameters = append(policyParameters, modules.PolicyRuleProtocolIndexUDP)
+				case modules.PolicyRuleProtocolICMP:
+					policyParameters = append(policyParameters, modules.PolicyRuleProtocolIndexICMP)
+				default:
+					err = fmt.Errorf("invalid protocol '%s' on %dth rule of policy '%s'",
+						rule.Protocol, index, policy.Name)
+					return
+				}
+				policyParameters = append(policyParameters, uint64(modules.IPv4ToUInt32(rule.SourceAddress)))
+				policyParameters = append(policyParameters, uint64(modules.IPv4ToUInt32(rule.TargetAddress)))
+				policyParameters = append(policyParameters, uint64(rule.TargetPort))
+			}
+			request.SetUIntArray(framework.ParamKeyPolicy, policyParameters)
+		}
 	}
 
 	//QoS

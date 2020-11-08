@@ -1,6 +1,6 @@
 # Change Log
 
-## [1.3.0] - 2020-11-07
+## [1.3.0] - 2020-11-08
 
 ### Added
 
@@ -8,6 +8,7 @@
 - Manage security policy group
 - Allow address pool bind IP using Cloud-Init
 - Sync disk/media images from local path
+- Create instances with security policy
 
 ### Changed
 
