@@ -12,7 +12,7 @@ type CreateDiskImageExecutor struct {
 
 func (executor *CreateDiskImageExecutor)Execute(id framework.SessionID, request framework.Message,
 	incoming chan framework.Message, terminate chan bool) (err error) {
-	var config DiskConfig
+	var config ImageConfig
 	if config.Name, err = request.GetString(framework.ParamKeyName); err != nil {
 		return err
 	}

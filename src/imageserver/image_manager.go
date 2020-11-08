@@ -2,6 +2,7 @@ package imageserver
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/project-nano/framework"
 	"github.com/satori/go.uuid"
@@ -14,27 +15,7 @@ import (
 	"time"
 )
 
-type MediaConfig struct {
-	Name        string   `json:"name"`
-	Owner       string   `json:"owner"`
-	Group       string   `json:"group"`
-	Description string   `json:"description"`
-	Tags        []string `json:"tags"`
-}
-
-type MediaStatus struct {
-	MediaConfig
-	ID         string `json:"id"`
-	Format     string `json:"format"`
-	Path       string `json:"path"`
-	Size       uint   `json:"size"`
-	Version    uint   `json:"version"`
-	Locked     bool   `json:"-"`
-	CreateTime string `json:"create_time,omitempty"`
-	ModifyTime string `json:"modify_time,omitempty"`
-}
-
-type DiskConfig struct {
+type ImageConfig struct {
 	Name        string   `json:"name"`
 	Owner       string   `json:"owner"`
 	Group       string   `json:"group"`
@@ -42,17 +23,21 @@ type DiskConfig struct {
 	Tags        []string `json:"tags,omitempty"`
 }
 
-type DiskStatus struct {
-	DiskConfig
+type ImageStatus struct {
+	ImageConfig
 	ID         string `json:"id"`
 	Format     string `json:"format"`
 	Path       string `json:"path"`
 	Size       uint   `json:"size"`
 	Version    uint   `json:"version"`
-	CheckSum   string `json:"check_sum,omitempty"`
 	Locked     bool   `json:"-"`
 	CreateTime string `json:"create_time,omitempty"`
 	ModifyTime string `json:"modify_time,omitempty"`
+}
+
+type DiskStatus struct {
+	ImageStatus
+	CheckSum   string `json:"check_sum,omitempty"`
 	Created    bool   `json:"-"`
 	Progress   uint   `json:"-"`
 }
@@ -65,8 +50,8 @@ type imageCommand struct {
 	User             string
 	Group            string
 	Tags             []string
-	MediaImageConfig MediaConfig
-	DiskImageConfig  DiskConfig
+	MediaImageConfig ImageConfig
+	DiskImageConfig  ImageConfig
 	ResultChan       chan ImageResult
 	ErrorChan        chan error
 }
@@ -103,14 +88,14 @@ type ImageResult struct {
 	Path       string
 	Size       uint
 	CheckSum   string
-	MediaList  []MediaStatus
+	MediaList  []ImageStatus
 	DiskList   []DiskStatus
-	MediaImage MediaStatus
+	MediaImage ImageStatus
 	DiskImage  DiskStatus
 }
 
 type ImageManager struct {
-	mediaImages     map[string]MediaStatus //key = image id
+	mediaImages     map[string]ImageStatus //key = image id
 	mediaImageNames map[string]bool        //key = group.name
 	mediaPath       string
 	diskImages      map[string]DiskStatus
@@ -139,7 +124,7 @@ func CreateImageManager(dataPath string) (manager *ImageManager, err error){
 	)
 	manager = &ImageManager{}
 	manager.runner = framework.CreateSimpleRunner(manager.Routine)
-	manager.mediaImages = map[string]MediaStatus{}
+	manager.mediaImages = map[string]ImageStatus{}
 	manager.mediaImageNames = map[string]bool{}
 	manager.diskImages = map[string]DiskStatus{}
 	manager.diskImageNames = map[string]bool{}
@@ -191,7 +176,7 @@ func (manager *ImageManager) Routine(c framework.RoutineController)  {
 }
 
 type imageSavedData struct {
-	MediaImages []MediaStatus `json:"media_images"`
+	MediaImages []ImageStatus `json:"media_images"`
 	DiskImages  []DiskStatus  `json:"disk_images"`
 }
 
@@ -308,7 +293,7 @@ func (manager *ImageManager) QueryMediaImage(owner, group string, respChan chan 
 	manager.commands <- cmd
 }
 
-func (manager *ImageManager) CreateMediaImage(config MediaConfig, respChan chan ImageResult){
+func (manager *ImageManager) CreateMediaImage(config ImageConfig, respChan chan ImageResult){
 	cmd := imageCommand{Type: cmdCreateMediaImage, MediaImageConfig:config, ResultChan:respChan}
 	manager.commands <- cmd
 }
@@ -344,7 +329,7 @@ func (manager * ImageManager) GetMediaImageFile(id string, respChan chan ImageRe
 	manager.commands <- cmd
 }
 
-func (manager * ImageManager) ModifyMediaImage(id string, config MediaConfig, respChan chan error){
+func (manager * ImageManager) ModifyMediaImage(id string, config ImageConfig, respChan chan error){
 	manager.commands <- imageCommand{Type: cmdModifyMediaImage, ID: id, MediaImageConfig:config, ErrorChan: respChan}
 }
 
@@ -354,12 +339,12 @@ func (manager *ImageManager) QueryDiskImage(owner, group string, tags []string, 
 	manager.commands <- cmd
 }
 
-func (manager *ImageManager) CreateDiskImage(config DiskConfig, respChan chan ImageResult){
+func (manager *ImageManager) CreateDiskImage(config ImageConfig, respChan chan ImageResult){
 	cmd := imageCommand{Type: cmdCreateDiskImage, DiskImageConfig:config, ResultChan:respChan}
 	manager.commands <- cmd
 }
 
-func (manager * ImageManager) ModifyDiskImage(id string, config DiskConfig, respChan chan error){
+func (manager * ImageManager) ModifyDiskImage(id string, config ImageConfig, respChan chan error){
 	manager.commands <- imageCommand{Type: cmdModifyDiskImage, ID: id, DiskImageConfig:config, ErrorChan: respChan}
 }
 
@@ -405,7 +390,7 @@ func (manager * ImageManager) SyncDiskImages(owner, group string, respChan chan 
 }
 
 func (manager *ImageManager) handleQueryMediaImage(owner, group string, respChan chan ImageResult) (err error){
-	var result []MediaStatus
+	var result []ImageStatus
 	var names []string
 	var nameToID = map[string]string{}
 	var filterByOwner = 0 != len(owner)
@@ -442,7 +427,7 @@ func (manager *ImageManager) handleQueryMediaImage(owner, group string, respChan
 	return nil
 }
 
-func (manager *ImageManager) handleCreateMediaImage(config MediaConfig, respChan chan ImageResult) (err error){
+func (manager *ImageManager) handleCreateMediaImage(config ImageConfig, respChan chan ImageResult) (err error){
 	var nameWithGroup = fmt.Sprintf("%s.%s", config.Group, config.Name)
 	if _, exists := manager.mediaImageNames[nameWithGroup]; exists{
 		err = fmt.Errorf("media image '%s' already exists in group '%s'", config.Name, config.Group)
@@ -450,8 +435,8 @@ func (manager *ImageManager) handleCreateMediaImage(config MediaConfig, respChan
 		return
 	}
 	var newID = uuid.NewV4()
-	var image = MediaStatus{}
-	image.MediaConfig = config
+	var image = ImageStatus{}
+	image.ImageConfig = config
 	image.ID = newID.String()
 	image.Size = 0
 	image.Version = 0
@@ -608,7 +593,7 @@ func (manager * ImageManager) handleGetMediaImageFile(id string, respChan chan I
 	return nil
 }
 
-func (manager * ImageManager) handleModifyMediaImage(id string, config MediaConfig, respChan chan error) (err error){
+func (manager * ImageManager) handleModifyMediaImage(id string, config ImageConfig, respChan chan error) (err error){
 	image, exists := manager.mediaImages[id]
 	if !exists{
 		err := fmt.Errorf("invalid media image '%s'", id)
@@ -697,7 +682,7 @@ func (manager *ImageManager) handleQueryDiskImage(owner, group string, tags []st
 	return nil
 }
 
-func (manager *ImageManager) handleCreateDiskImage(config DiskConfig, respChan chan ImageResult) (err error){
+func (manager *ImageManager) handleCreateDiskImage(config ImageConfig, respChan chan ImageResult) (err error){
 	var nameWithGroup = fmt.Sprintf("%s.%s", config.Group, config.Name)
 	if _, exists := manager.diskImageNames[nameWithGroup]; exists{
 		err = fmt.Errorf("disk image '%s' already exists in group '%s'", config.Name, config.Group)
@@ -707,7 +692,7 @@ func (manager *ImageManager) handleCreateDiskImage(config DiskConfig, respChan c
 	var newID = uuid.NewV4()
 
 	var image = DiskStatus{}
-	image.DiskConfig = config
+	image.ImageConfig = config
 	image.ID = newID.String()
 	image.Size = 0
 	image.Version = 0
@@ -725,7 +710,7 @@ func (manager *ImageManager) handleCreateDiskImage(config DiskConfig, respChan c
 }
 
 
-func (manager * ImageManager) handleModifyDiskImage(id string, config DiskConfig, respChan chan error) (err error){
+func (manager * ImageManager) handleModifyDiskImage(id string, config ImageConfig, respChan chan error) (err error){
 	image, exists := manager.diskImages[id]
 	if !exists{
 		err := fmt.Errorf("invalid disk image '%s'", id)
@@ -930,31 +915,43 @@ func (manager * ImageManager) handleGetDiskImageFile(id string, respChan chan Im
 }
 
 func (manager * ImageManager) handleSyncMediaImages(owner, group string, respChan chan error) (err error){
-	var existsKeys = map[string]bool{}
-	for id, _ := range manager.mediaImages{
-		existsKeys[id] = true
+	if "" == owner{
+		err = errors.New("image owner required")
+		respChan <- err
+		return
 	}
-	var filenames []string
-	if filenames, err = findAbsentFile(manager.mediaPath, DefaultMediaFormat, existsKeys); err != nil{
+	if "" == group{
+		err = errors.New("image group required")
+		respChan <- err
+		return
+	}
+	var existed = map[string]string{}
+	for _, image := range manager.mediaImages{
+		var name = fmt.Sprintf("%s_v%d", image.ID, image.Version)
+		existed[name] = image.ID
+	}
+	var newFiles, lostID []string
+	if newFiles, lostID, err = compareCurrentFiles(manager.mediaPath, DefaultMediaFormat, existed); err != nil{
 		err = fmt.Errorf("find absent media images fail: %s", err.Error())
 		respChan <- err
 		return
 	}
-	if 0 == len(filenames){
+	if 0 == len(newFiles) && 0 == len(lostID){
 		respChan <- nil
 		log.Println("<image> all media images synchronized, no absent file discovered")
 		return
 	}
-	for _, filename := range filenames{
+	for _, filename := range newFiles {
 		var now = time.Now()
 		var timestamp = now.Format(TimeFormatLayout)
-		var image MediaStatus
+		var image ImageStatus
 		image.Owner = owner
 		image.Group = group
-		image.Name = fmt.Sprintf("%s_%d", filename, now.Second())
+		image.Name = fmt.Sprintf("%s_%d", filename, now.Unix())
 		image.Description = fmt.Sprintf("generated by synchronize media images on %s", timestamp)
 		image.ID = uuid.NewV4().String()
 		image.Version = 1
+		image.Tags = []string{}
 		image.Format = DefaultMediaFormat
 		image.Locked = false
 		image.CreateTime = timestamp
@@ -978,45 +975,71 @@ func (manager * ImageManager) handleSyncMediaImages(owner, group string, respCha
 		manager.mediaImageNames[nameWithGroup] = true
 		log.Printf("<image> synchronize %s to media image '%s'(%s)", filename, image.Name, image.ID)
 	}
+	if 0 != len(lostID){
+		var image ImageStatus
+		var exists bool
+		for _, imageID := range lostID{
+			if image, exists = manager.mediaImages[imageID]; !exists{
+				log.Printf("<image> warning: found an invalid media image '%s'", imageID)
+				continue
+			}
+			log.Printf("<image> remove invalid media image '%s'(id '%s')", image.Name, imageID)
+			var nameWithGroup = fmt.Sprintf("%s.%s", image.Group, image.Name)
+			delete(manager.mediaImageNames, nameWithGroup)
+			delete(manager.mediaImages, imageID)
+		}
+	}
 	respChan <- nil
-	log.Printf("<image> %d new media image(s) synchronized", len(filenames))
+	log.Printf("<image> %d new/ %d lost media image(s) synchronized", len(newFiles), len(lostID))
 	return manager.SaveData()
 }
 
 func (manager * ImageManager) handleSyncDiskImages(owner, group string, respChan chan error) (err error){
-	var existsKeys = map[string]bool{}
-	for id, _ := range manager.diskImages{
-		existsKeys[id] = true
+	if "" == owner{
+		err = errors.New("image owner required")
+		respChan <- err
+		return
 	}
-	var filenames []string
-	if filenames, err = findAbsentFile(manager.diskPath, DefaultDiskFormat, existsKeys); err != nil{
+	if "" == group{
+		err = errors.New("image group required")
+		respChan <- err
+		return
+	}
+	var existed = map[string]string{}
+	for _, image := range manager.diskImages{
+		var name = fmt.Sprintf("%s_v%d", image.ID, image.Version)
+		existed[name] = image.ID
+	}
+	var newFiles, lostID []string
+	if newFiles, lostID, err = compareCurrentFiles(manager.diskPath, DefaultDiskFormat, existed); err != nil{
 		err = fmt.Errorf("find absent disk images fail: %s", err.Error())
 		respChan <- err
 		return
 	}
-	if 0 == len(filenames){
+	if 0 == len(newFiles) && 0 == len(lostID){
 		respChan <- nil
 		log.Println("<image> all disk images synchronized, no absent file discovered")
 		return
 	}
-	for _, filename := range filenames{
+	for _, filename := range newFiles {
 		var now = time.Now()
 		var timestamp = now.Format(TimeFormatLayout)
 		var image DiskStatus
 		image.Owner = owner
 		image.Group = group
-		image.Name = fmt.Sprintf("%s_%d", filename, now.Second())
+		image.Name = fmt.Sprintf("%s_%d", filename, now.Unix())
 		image.Description = fmt.Sprintf("generated by synchronize disk images on %s", timestamp)
 		image.ID = uuid.NewV4().String()
 		image.Version = 1
+		image.Tags = []string{}
 		image.Format = DefaultDiskFormat
 		image.CreateTime = timestamp
 		image.ModifyTime = timestamp
 		image.Created = true
 		image.Locked = false
-		image.Path = filepath.Join(manager.mediaPath, fmt.Sprintf("%s_v%d.%s", image.ID, image.Version, image.Format))
+		image.Path = filepath.Join(manager.diskPath, fmt.Sprintf("%s_v%d.%s", image.ID, image.Version, image.Format))
 		var info os.FileInfo
-		var sourceFile = filepath.Join(manager.mediaPath, fmt.Sprintf("%s.%s", filename, DefaultDiskFormat))
+		var sourceFile = filepath.Join(manager.diskPath, fmt.Sprintf("%s.%s", filename, DefaultDiskFormat))
 		if info, err = os.Stat(sourceFile); err != nil{
 			err = fmt.Errorf("check source disk file '%s' fail: %s", sourceFile, err.Error())
 			respChan <- err
@@ -1040,13 +1063,28 @@ func (manager * ImageManager) handleSyncDiskImages(owner, group string, respChan
 		manager.diskImageNames[nameWithGroup] = true
 		log.Printf("<image> synchronize %s to disk image '%s'(%s)", filename, image.Name, image.ID)
 	}
+	if 0 != len(lostID){
+		var image DiskStatus
+		var exists bool
+		for _, imageID := range lostID{
+			if image, exists = manager.diskImages[imageID]; !exists{
+				log.Printf("<image> warning: found an invalid disk image '%s'", imageID)
+				continue
+			}
+			log.Printf("<image> remove invalid disk image '%s'(id '%s')", image.Name, imageID)
+			var nameWithGroup = fmt.Sprintf("%s.%s", image.Group, image.Name)
+			delete(manager.diskImageNames, nameWithGroup)
+			delete(manager.diskImages, imageID)
+		}
+	}
 	respChan <- nil
-	log.Printf("<image> %d new disk image(s) synchronized", len(filenames))
+	log.Printf("<image> %d new/ %d lost disk image(s) synchronized", len(newFiles), len(lostID))
 	return manager.SaveData()
 }
 
-func findAbsentFile(targetPath, ext string, existsKeys map[string]bool) (names []string, err error){
+func compareCurrentFiles(targetPath, ext string, existed map[string]string) (newFiles, lostID []string, err error){
 	var suffix = fmt.Sprintf(".%s", ext)
+	var targets = existed
 	var exists bool
 	err = filepath.Walk(targetPath, func(currentFile string, info os.FileInfo, accessErr error) error {
 		if accessErr != nil{
@@ -1063,10 +1101,15 @@ func findAbsentFile(targetPath, ext string, existsKeys map[string]bool) (names [
 			return nil
 		}
 		var filename = strings.TrimSuffix(base, suffix)
-		if _, exists = existsKeys[filename]; !exists{
-			names = append(names, filename)
+		if _, exists = targets[filename]; !exists{
+			newFiles = append(newFiles, filename)
+		}else{
+			delete(targets, filename)
 		}
 		return nil
 	})
+	for _, id := range targets{
+		lostID = append(lostID, id)
+	}
 	return
 }

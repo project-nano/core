@@ -17,7 +17,7 @@ func (executor *ModifyDiskImageExecutor)Execute(id framework.SessionID, request 
 	if imageID, err = request.GetString(framework.ParamKeyImage); err != nil{
 		return
 	}
-	var config DiskConfig
+	var config ImageConfig
 	if config.Name, err = request.GetString(framework.ParamKeyName); err != nil {
 		return err
 	}

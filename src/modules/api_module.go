@@ -496,7 +496,6 @@ func (module *APIModule) RegisterAPIHandler(router *httprouter.Router) {
 	router.DELETE(apiPath("/templates/:id"), module.deleteSystemTemplate)
 
 	//security policy group
-	router.GET(apiPath("/security_policy_groups/*filepath"), module.querySecurityPolicyGroups)
 	router.GET(apiPath("/security_policy_groups/:id"), module.getSecurityPolicyGroup)
 	router.POST(apiPath("/security_policy_groups/"), module.createSecurityPolicyGroup)
 	router.PUT(apiPath("/security_policy_groups/:id"), module.modifySecurityPolicyGroup)
@@ -515,6 +514,8 @@ func (module *APIModule) RegisterAPIHandler(router *httprouter.Router) {
 	router.DELETE(apiPath("/guests/:id/security_policy/rules/:index"), module.removeGuestSecurityRule)
 	router.PUT(apiPath("/guests/:id/security_policy/rules/:index/order"), module.moveGuestSecurityRule)
 
+	//search resource
+	router.GET(apiPath("/search/security_policy_groups/*filepath"), module.querySecurityPolicyGroups)
 }
 
 func (module *APIModule) queryZoneStatistic(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
@@ -2835,7 +2836,15 @@ func (module *APIModule) syncMediaImages(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	var filterOwner = r.URL.Query().Get("owner")
+	if "" == filterOwner{
+		ResponseFail(ResponseDefaultError, "owner required", w)
+		return
+	}
 	var filterGroup = r.URL.Query().Get("group")
+	if "" == filterGroup{
+		ResponseFail(ResponseDefaultError, "group required", w)
+		return
+	}
 	msg, _ := framework.CreateJsonMessage(framework.SynchronizeMediaImageRequest)
 	msg.SetString(framework.ParamKeyUser, filterOwner)
 	msg.SetString(framework.ParamKeyGroup, filterGroup)
@@ -3161,7 +3170,15 @@ func (module *APIModule) syncDiskImages(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 	var filterOwner = r.URL.Query().Get("owner")
+	if "" == filterOwner{
+		ResponseFail(ResponseDefaultError, "owner required", w)
+		return
+	}
 	var filterGroup = r.URL.Query().Get("group")
+	if "" == filterGroup{
+		ResponseFail(ResponseDefaultError, "group required", w)
+		return
+	}
 	msg, _ := framework.CreateJsonMessage(framework.SynchronizeDiskImageRequest)
 	msg.SetString(framework.ParamKeyUser, filterOwner)
 	msg.SetString(framework.ParamKeyGroup, filterGroup)
