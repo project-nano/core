@@ -29,11 +29,12 @@ func (executor *QueryAddressPoolExecutor)Execute(id framework.SessionID, request
 			id, request.GetSender(), request.GetFromSession(), err.Error())
 		return executor.Sender.SendMessage(resp, request.GetSender())
 	}
-	var nameArray, gatewayArray, dnsArray []string
+	var nameArray, gatewayArray, dnsArray, providerArray []string
 	var addressArray, allocateArray, dnsCountArray []uint64
 	for _, pool := range result.AddressPoolList {
 		nameArray = append(nameArray, pool.Name)
 		gatewayArray = append(gatewayArray, pool.Gateway)
+		providerArray = append(providerArray, pool.Provider)
 		var addressCount uint32 = 0
 		allocateArray = append(allocateArray, uint64(len(pool.Allocated)))
 		for _, addressRange := range pool.Ranges{
@@ -47,6 +48,7 @@ func (executor *QueryAddressPoolExecutor)Execute(id framework.SessionID, request
 	resp.SetStringArray(framework.ParamKeyName, nameArray)
 	resp.SetStringArray(framework.ParamKeyGateway, gatewayArray)
 	resp.SetStringArray(framework.ParamKeyServer, dnsArray)
+	resp.SetStringArray(framework.ParamKeyMode, providerArray)
 	resp.SetUIntArray(framework.ParamKeyAddress, addressArray)
 	resp.SetUIntArray(framework.ParamKeyAllocate, allocateArray)
 	resp.SetUIntArray(framework.ParamKeyCount, dnsCountArray)

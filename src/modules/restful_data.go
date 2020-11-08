@@ -525,10 +525,7 @@ func (config *AddressPoolConfig) build(msg framework.Message) (err error) {
 }
 
 func parsePolicyRuleList(msg framework.Message) (rules []restSecurityPolicyRule, err error){
-	const (
-		flagFalse = iota
-		flagTrue
-	)
+	rules = make([]restSecurityPolicyRule, 0)
 	var from, protocol []string
 	var actions, ports []uint64
 	if from, err = msg.GetStringArray(framework.ParamKeyFrom); err != nil{
@@ -563,7 +560,7 @@ func parsePolicyRuleList(msg framework.Message) (rules []restSecurityPolicyRule,
 			ToPort: uint(ports[i]),
 			Protocol: protocol[i],
 		}
-		if flagTrue == actions[i] {
+		if PolicyRuleActionAccept == actions[i] {
 			rule.Action = actionStringAccept
 		} else {
 			rule.Action = actionStringReject
@@ -578,6 +575,7 @@ func parsePolicyGroupList(msg framework.Message) (groups []restSecurityPolicyGro
 		flagFalse = iota
 		flagTrue
 	)
+	groups = make([]restSecurityPolicyGroup, 0)
 	var id, name, description, user, group []string
 	var action, enabled, global []uint64
 	if id, err = msg.GetStringArray(framework.ParamKeyPolicy); err != nil{
@@ -644,7 +642,7 @@ func parsePolicyGroupList(msg framework.Message) (groups []restSecurityPolicyGro
 			Enabled:     flagTrue == enabled[i],
 			Global:      flagTrue == global[i],
 		}
-		if flagTrue == action[i] {
+		if PolicyRuleActionAccept == action[i] {
 			policy.DefaultAction = actionStringAccept
 		} else {
 			policy.DefaultAction = actionStringReject
@@ -697,10 +695,6 @@ func parsePolicyGroup(msg framework.Message) (policy restSecurityPolicyGroup, er
 }
 
 func parseGuestSecurityPolicy(msg framework.Message) (policy restGuestSecurityPolicy, err error){
-	const (
-		flagFalse = iota
-		flagTrue
-	)
 	var from, to, protocol, actions, ports []uint64
 	if from, err = msg.GetUIntArray(framework.ParamKeyFrom); err != nil{
 		err = fmt.Errorf("get source address fail: %s", err.Error())
@@ -735,7 +729,7 @@ func parseGuestSecurityPolicy(msg framework.Message) (policy restGuestSecurityPo
 		err = fmt.Errorf("invalid target port count %d", len(ports))
 		return
 	}
-	if flagTrue == actions[elementCount] {
+	if PolicyRuleActionAccept == actions[elementCount] {
 		policy.DefaultAction = actionStringAccept
 	} else {
 		policy.DefaultAction = actionStringReject
@@ -747,7 +741,7 @@ func parseGuestSecurityPolicy(msg framework.Message) (policy restGuestSecurityPo
 			ToAddress: UInt32ToIPv4(uint32(to[i])),
 			ToPort: uint(ports[i]),
 		}
-		if flagTrue == actions[i] {
+		if PolicyRuleActionAccept == actions[i] {
 			rule.Action = actionStringAccept
 		} else {
 			rule.Action = actionStringReject

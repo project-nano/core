@@ -156,6 +156,7 @@ type ResourceManager struct {
 	templates           map[string]SystemTemplate
 	allTemplateID       []string
 	policyGroups        map[string]managedSecurityPolicyGroup
+	policyGroupNames    map[string]bool
 	sortedPolicyGroupID []string
 	generator           *rand.Rand
 	zone                ManagedZone
@@ -467,6 +468,7 @@ func CreateResourceManager(dataPath string) (manager *ResourceManager, err error
 	manager.addressPools = map[string]ManagedAddressPool{}
 	manager.templates = map[string]SystemTemplate{}
 	manager.policyGroups = map[string]managedSecurityPolicyGroup{}
+	manager.policyGroupNames = map[string]bool{}
 	manager.migrations = map[string]MigrationStatus{}
 	manager.batchCreateTasks = map[string]BatchCreateGuestTask{}
 	manager.batchDeleteTasks = map[string]BatchDeleteGuestTask{}
@@ -3834,9 +3836,15 @@ func (manager *ResourceManager) handleGetSecurityPolicyGroup(groupID string, res
 }
 
 func (manager *ResourceManager) handleCreateSecurityPolicyGroup(config SecurityPolicyGroup, respChan chan ResourceResult) (err error){
+	var exists bool
+	if _, exists = manager.policyGroupNames[config.Name]; exists{
+		err = fmt.Errorf("security policy group '%s' already exists in system", config.Name)
+		respChan <- ResourceResult{Error: err}
+		return
+	}
 	var newID = uuid.NewV4()
 	var groupID = newID.String()
-	if _, exists := manager.policyGroups[groupID]; exists{
+	if _, exists = manager.policyGroups[groupID]; exists{
 		err = fmt.Errorf("security policy group '%s' already exists", groupID)
 		respChan <- ResourceResult{Error: err}
 		return
@@ -3845,6 +3853,7 @@ func (manager *ResourceManager) handleCreateSecurityPolicyGroup(config SecurityP
 	group.ID = groupID
 	group.SecurityPolicyGroup = config
 	manager.policyGroups[groupID] = group
+	manager.policyGroupNames[group.Name] = true
 	manager.sortedPolicyGroupID = append(manager.sortedPolicyGroupID, groupID)
 	respChan <- ResourceResult{
 		PolicyGroup: SecurityPolicyGroupStatus{
@@ -3897,6 +3906,7 @@ func (manager *ResourceManager) handleDeleteSecurityPolicyGroup(groupID string, 
 	}else{
 		manager.sortedPolicyGroupID = append(manager.sortedPolicyGroupID[:index], manager.sortedPolicyGroupID[index + 1:]...)
 	}
+	delete(manager.policyGroupNames, group.Name)
 	delete(manager.policyGroups, groupID)
 	respChan <- nil
 	log.Printf("<resource_manager> security policy group '%s'(%s) deleted", group.Name, groupID)
@@ -3923,6 +3933,14 @@ func (manager *ResourceManager) handleAddSecurityPolicyRule(groupID string, rule
 		respChan <- err
 		return
 	}
+	for _, current := range group.Rules{
+		if rule.TargetPort == current.TargetPort && rule.Protocol == current.Protocol && rule.SourceAddress == current.SourceAddress{
+			err = fmt.Errorf("rule %s:%s:%d already defined in policy group '%s'",
+				rule.Protocol, rule.SourceAddress, rule.TargetPort, group.Name)
+			respChan <- err
+			return
+		}
+	}
 	group.Rules = append(group.Rules, rule)
 	manager.policyGroups[groupID] = group
 	respChan <- nil
@@ -3943,6 +3961,14 @@ func (manager *ResourceManager) handleModifySecurityPolicyRule(groupID string, i
 		err = fmt.Errorf("invalid index %d on security policy group '%s'", index, groupID)
 		respChan <- err
 		return
+	}
+	for _, current := range group.Rules{
+		if rule.TargetPort == current.TargetPort && rule.Protocol == current.Protocol && rule.SourceAddress == current.SourceAddress{
+			err = fmt.Errorf("rule %s:%s:%d already defined in policy group '%s'",
+				rule.Protocol, rule.SourceAddress, rule.TargetPort, group.Name)
+			respChan <- err
+			return
+		}
 	}
 	group.Rules[index] = rule
 	manager.policyGroups[groupID] = group
@@ -4461,6 +4487,7 @@ func (manager *ResourceManager) generateDefaultConfig() (err error){
 		manager.allTemplateID = append(manager.allTemplateID, template.ID)
 	}
 	manager.policyGroups = map[string]managedSecurityPolicyGroup{}
+	manager.policyGroupNames = map[string]bool{}
 	log.Println("<resource_manager> default configure generated")
 	return nil
 }
@@ -4571,6 +4598,7 @@ func (manager *ResourceManager) loadConfig() (err error) {
 	}
 	for _, policy := range config.SecurityPolicyGroup{
 		manager.policyGroups[policy.ID] = policy
+		manager.policyGroupNames[policy.Name] = true
 		manager.sortedPolicyGroupID = append(manager.sortedPolicyGroupID, policy.ID)
 	}
 	manager.zone.Name = config.Zone

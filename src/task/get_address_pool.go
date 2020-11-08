@@ -50,6 +50,7 @@ func (executor *GetAddressPoolExecutor)Execute(id framework.SessionID, request f
 	}
 	resp.SetSuccess(true)
 	resp.SetString(framework.ParamKeyGateway, status.Gateway)
+	resp.SetString(framework.ParamKeyMode, status.Provider)
 	resp.SetStringArray(framework.ParamKeyServer, status.DNS)
 	resp.SetStringArray(framework.ParamKeyStart, startArray)
 	resp.SetStringArray(framework.ParamKeyEnd, endArray)

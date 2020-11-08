@@ -14,6 +14,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -5884,7 +5885,28 @@ func (module *APIModule) addSecurityPolicyRule(w http.ResponseWriter, r *http.Re
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-
+	//check IP format
+	if "" != request.ToAddress{
+		var ip = net.ParseIP(request.ToAddress)
+		if nil == ip{
+			err = fmt.Errorf("invalid source address '%s'", request.ToAddress)
+			ResponseFail(ResponseDefaultError, err.Error(), w)
+			return
+		}
+	}
+	if "" != request.FromAddress{
+		var ip = net.ParseIP(request.FromAddress)
+		if nil == ip{
+			err = fmt.Errorf("invalid target address '%s'", request.FromAddress)
+			ResponseFail(ResponseDefaultError, err.Error(), w)
+			return
+		}
+	}
+	if request.ToPort > 0xFFFF{
+		err = fmt.Errorf("invalid target port %d", request.ToPort)
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	msg, _ := framework.CreateJsonMessage(framework.AddPolicyRuleRequest)
 	request.build(msg)
 	msg.SetString(framework.ParamKeyPolicy, policyID)
@@ -5924,6 +5946,28 @@ func (module *APIModule) modifySecurityPolicyRule(w http.ResponseWriter, r *http
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
+	//check IP format
+	if "" != request.ToAddress{
+		var ip = net.ParseIP(request.ToAddress)
+		if nil == ip{
+			err = fmt.Errorf("invalid source address '%s'", request.ToAddress)
+			ResponseFail(ResponseDefaultError, err.Error(), w)
+			return
+		}
+	}
+	if "" != request.FromAddress{
+		var ip = net.ParseIP(request.FromAddress)
+		if nil == ip{
+			err = fmt.Errorf("invalid target address '%s'", request.FromAddress)
+			ResponseFail(ResponseDefaultError, err.Error(), w)
+			return
+		}
+	}
+	if request.ToPort > 0xFFFF{
+		err = fmt.Errorf("invalid target port %d", request.ToPort)
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 
 	msg, _ := framework.CreateJsonMessage(framework.ModifyPolicyRuleRequest)
 	request.build(msg)
@@ -5959,7 +6003,7 @@ func (module *APIModule) removeSecurityPolicyRule(w http.ResponseWriter, r *http
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.DeletePolicyGroupRequest)
+	msg, _ := framework.CreateJsonMessage(framework.RemovePolicyRuleRequest)
 	msg.SetString(framework.ParamKeyPolicy, policyID)
 	msg.SetInt(framework.ParamKeyIndex, index)
 	var respChan = make(chan ProxyResult, 1)
@@ -6028,7 +6072,6 @@ func (module *APIModule) moveSecurityPolicyRule(w http.ResponseWriter, r *http.R
 	}
 	ResponseOK("", w)
 }
-
 
 func (module *APIModule) getGuestSecurityPolicy(w http.ResponseWriter, r *http.Request, params httprouter.Params){
 	var err = module.verifyRequestSignature(r)
@@ -6112,7 +6155,28 @@ func (module *APIModule) addGuestSecurityRule(w http.ResponseWriter, r *http.Req
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-
+	//check IP format
+	if "" != request.ToAddress{
+		var ip = net.ParseIP(request.ToAddress)
+		if nil == ip{
+			err = fmt.Errorf("invalid source address '%s'", request.ToAddress)
+			ResponseFail(ResponseDefaultError, err.Error(), w)
+			return
+		}
+	}
+	if "" != request.FromAddress{
+		var ip = net.ParseIP(request.FromAddress)
+		if nil == ip{
+			err = fmt.Errorf("invalid target address '%s'", request.FromAddress)
+			ResponseFail(ResponseDefaultError, err.Error(), w)
+			return
+		}
+	}
+	if request.ToPort > 0xFFFF{
+		err = fmt.Errorf("invalid target port %d", request.ToPort)
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	msg, _ := framework.CreateJsonMessage(framework.AddGuestRuleRequest)
 	if err =request.buildForCell(msg); err != nil{
 		log.Printf("<api> build add guest policy rule request fail: %s", err.Error())
@@ -6156,7 +6220,28 @@ func (module *APIModule) modifyGuestSecurityRule(w http.ResponseWriter, r *http.
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-
+	//check IP format
+	if "" != request.ToAddress{
+		var ip = net.ParseIP(request.ToAddress)
+		if nil == ip{
+			err = fmt.Errorf("invalid source address '%s'", request.ToAddress)
+			ResponseFail(ResponseDefaultError, err.Error(), w)
+			return
+		}
+	}
+	if "" != request.FromAddress{
+		var ip = net.ParseIP(request.FromAddress)
+		if nil == ip{
+			err = fmt.Errorf("invalid target address '%s'", request.FromAddress)
+			ResponseFail(ResponseDefaultError, err.Error(), w)
+			return
+		}
+	}
+	if request.ToPort > 0xFFFF{
+		err = fmt.Errorf("invalid target port %d", request.ToPort)
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
 	msg, _ := framework.CreateJsonMessage(framework.ModifyGuestRuleRequest)
 	if err =request.buildForCell(msg); err != nil{
 		log.Printf("<api> build modify guest policy rule request fail: %s", err.Error())
