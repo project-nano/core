@@ -3962,12 +3962,21 @@ func (manager *ResourceManager) handleModifySecurityPolicyRule(groupID string, i
 		respChan <- err
 		return
 	}
-	for _, current := range group.Rules{
+	for currentIndex, current := range group.Rules{
 		if rule.TargetPort == current.TargetPort && rule.Protocol == current.Protocol && rule.SourceAddress == current.SourceAddress{
-			err = fmt.Errorf("rule %s:%s:%d already defined in policy group '%s'",
-				rule.Protocol, rule.SourceAddress, rule.TargetPort, group.Name)
-			respChan <- err
-			return
+			if index == currentIndex{
+				if rule.Accept == current.Accept{
+					err = errors.New("no need to change")
+					respChan <- err
+					return
+				}
+			}else{
+				err = fmt.Errorf("rule %s:%s:%d already defined in policy group '%s'",
+					rule.Protocol, rule.SourceAddress, rule.TargetPort, group.Name)
+				respChan <- err
+				return
+			}
+
 		}
 	}
 	group.Rules[index] = rule
