@@ -19,6 +19,12 @@ type CreateGuestExecutor struct {
 
 func (executor *CreateGuestExecutor)Execute(id framework.SessionID, request framework.Message,
 	incoming chan framework.Message, terminate chan bool) (err error) {
+	resp, _ := framework.CreateJsonMessage(framework.CreateGuestResponse)
+	resp.SetToSession(request.GetFromSession())
+	resp.SetFromSession(id)
+	resp.SetSuccess(false)
+	resp.SetTransactionID(request.GetTransactionID())
+
 	var config modules.InstanceStatus
 	var guestName string
 	if guestName, err = request.GetString(framework.ParamKeyName); err != nil{
@@ -46,7 +52,7 @@ func (executor *CreateGuestExecutor)Execute(id framework.SessionID, request fram
 	}
 	if 0 == len(config.Disks){
 		err = errors.New("must specify disk size")
-		return
+		return executor.ResponseFail(resp, err.Error(), request.GetSender())
 	}
 	var systemDiskSize = uint(config.Disks[0])
 	if config.AutoStart, err = request.GetBoolean(framework.ParamKeyOption); err != nil{
@@ -55,7 +61,7 @@ func (executor *CreateGuestExecutor)Execute(id framework.SessionID, request fram
 	var templateID string
 	if templateID, err = request.GetString(framework.ParamKeyTemplate); err != nil{
 		err = fmt.Errorf("get template id fail: %s", err.Error())
-		return
+		return executor.ResponseFail(resp, err.Error(), request.GetSender())
 	}else{
 		var respChan = make(chan modules.ResourceResult, 1)
 		executor.ResourceModule.GetSystemTemplate(templateID, respChan)
@@ -74,7 +80,7 @@ func (executor *CreateGuestExecutor)Execute(id framework.SessionID, request fram
 		var options []uint64
 		if options, err = t.ToOptions(); err != nil{
 			err = fmt.Errorf("invalid template: %s", err.Error())
-			return
+			return executor.ResponseFail(resp, err.Error(), request.GetSender())
 		}
 		request.SetUIntArray(framework.ParamKeyTemplate, options)
 	}
@@ -87,7 +93,7 @@ func (executor *CreateGuestExecutor)Execute(id framework.SessionID, request fram
 			var result = <- respChan
 			if result.Error != nil{
 				err = fmt.Errorf("get security policy '%s' fail: %s", policyID, result.Error)
-				return
+				return executor.ResponseFail(resp, err.Error(), request.GetSender())
 			}
 			var policy = result.PolicyGroup
 			request.SetBoolean(framework.ParamKeyAction, policy.Accept)
@@ -95,7 +101,7 @@ func (executor *CreateGuestExecutor)Execute(id framework.SessionID, request fram
 			result = <- respChan
 			if result.Error != nil{
 				err = fmt.Errorf("get security rules of policy '%s' fail: %s", policyID, result.Error)
-				return
+				return executor.ResponseFail(resp, err.Error(), request.GetSender())
 			}
 			var rules = result.PolicyRuleList
 			//accept,protocol,from,to,port
@@ -116,11 +122,15 @@ func (executor *CreateGuestExecutor)Execute(id framework.SessionID, request fram
 				default:
 					err = fmt.Errorf("invalid protocol '%s' on %dth rule of policy '%s'",
 						rule.Protocol, index, policy.Name)
-					return
+					return executor.ResponseFail(resp, err.Error(), request.GetSender())
 				}
 				policyParameters = append(policyParameters, uint64(modules.IPv4ToUInt32(rule.SourceAddress)))
 				policyParameters = append(policyParameters, uint64(modules.IPv4ToUInt32(rule.TargetAddress)))
 				policyParameters = append(policyParameters, uint64(rule.TargetPort))
+				//var lastOffset = len(policyParameters) - 1
+				//log.Printf("[%08X] debug: policy parameters %d, %d, %d, %d, %d",
+				//	id, policyParameters[lastOffset - 4], policyParameters[lastOffset - 3], policyParameters[lastOffset - 2],
+				//	policyParameters[lastOffset - 1], policyParameters[lastOffset])
 			}
 			request.SetUIntArray(framework.ParamKeyPolicy, policyParameters)
 		}
@@ -143,7 +153,7 @@ func (executor *CreateGuestExecutor)Execute(id framework.SessionID, request fram
 
 			if ValidLimitParametersCount != len(limitParameters){
 				err = fmt.Errorf("invalid QoS parameters count %d", len(limitParameters))
-				return err
+				return executor.ResponseFail(resp, err.Error(), request.GetSender())
 			}
 			config.ReadSpeed = limitParameters[ReadSpeedOffset]
 			config.WriteSpeed = limitParameters[WriteSpeedOffset]
@@ -157,11 +167,7 @@ func (executor *CreateGuestExecutor)Execute(id framework.SessionID, request fram
 	log.Printf("[%08X] request create guest '%s' from %s.[%08X]", id, guestName,
 		request.GetSender(), request.GetFromSession())
 
-	resp, _ := framework.CreateJsonMessage(framework.CreateGuestResponse)
-	resp.SetToSession(request.GetFromSession())
-	resp.SetFromSession(id)
-	resp.SetSuccess(false)
-	resp.SetTransactionID(request.GetTransactionID())
+
 
 	if err = QualifyNormalName(guestName); err != nil{
 		log.Printf("[%08X] invalid guest name '%s' : %s", id, guestName, err.Error())

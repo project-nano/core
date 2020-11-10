@@ -59,9 +59,9 @@ func (executor *QuerySecurityPolicyGroupsExecutor) Execute(id framework.SessionI
 			user = append(user, policy.User)
 			group = append(group, policy.Group)
 			if policy.Accept{
-				accept = append(accept, flagTrue)
+				accept = append(accept, modules.PolicyRuleActionAccept)
 			}else{
-				accept = append(accept, flagFalse)
+				accept = append(accept, modules.PolicyRuleActionReject)
 			}
 			if policy.Enabled{
 				enabled = append(enabled, flagTrue)
