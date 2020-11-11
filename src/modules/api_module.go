@@ -2832,23 +2832,35 @@ func (module *APIModule) deleteMediaImage(w http.ResponseWriter, r *http.Request
 }
 
 func (module *APIModule) syncMediaImages(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+	var err error
+	if err = module.verifyRequestSignature(r); err != nil{
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	var filterOwner = r.URL.Query().Get("owner")
-	if "" == filterOwner{
+	type RequestPayload struct {
+		Owner string `json:"owner,omitempty"`
+		Group string `json:"group,omitempty"`
+	}
+
+	var request RequestPayload
+	var decoder = json.NewDecoder(r.Body)
+	if err = decoder.Decode(&request);err != nil{
+		log.Printf("<api> parse sync media image request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+
+	if "" == request.Owner{
 		ResponseFail(ResponseDefaultError, "owner required", w)
 		return
 	}
-	var filterGroup = r.URL.Query().Get("group")
-	if "" == filterGroup{
+	if "" == request.Group{
 		ResponseFail(ResponseDefaultError, "group required", w)
 		return
 	}
 	msg, _ := framework.CreateJsonMessage(framework.SynchronizeMediaImageRequest)
-	msg.SetString(framework.ParamKeyUser, filterOwner)
-	msg.SetString(framework.ParamKeyGroup, filterGroup)
+	msg.SetString(framework.ParamKeyUser, request.Owner)
+	msg.SetString(framework.ParamKeyGroup, request.Group)
 	var respChan = make(chan ProxyResult, 1)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> send sync media images request fail: %s", err.Error())
@@ -3166,23 +3178,35 @@ func (module *APIModule) deleteDiskImage(w http.ResponseWriter, r *http.Request,
 }
 
 func (module *APIModule) syncDiskImages(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+	var err error
+	if err = module.verifyRequestSignature(r); err != nil{
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	var filterOwner = r.URL.Query().Get("owner")
-	if "" == filterOwner{
+	type RequestPayload struct {
+		Owner string `json:"owner,omitempty"`
+		Group string `json:"group,omitempty"`
+	}
+
+	var request RequestPayload
+	var decoder = json.NewDecoder(r.Body)
+	if err = decoder.Decode(&request);err != nil{
+		log.Printf("<api> parse sync disk image request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+
+	if "" == request.Owner{
 		ResponseFail(ResponseDefaultError, "owner required", w)
 		return
 	}
-	var filterGroup = r.URL.Query().Get("group")
-	if "" == filterGroup{
+	if "" == request.Group{
 		ResponseFail(ResponseDefaultError, "group required", w)
 		return
 	}
 	msg, _ := framework.CreateJsonMessage(framework.SynchronizeDiskImageRequest)
-	msg.SetString(framework.ParamKeyUser, filterOwner)
-	msg.SetString(framework.ParamKeyGroup, filterGroup)
+	msg.SetString(framework.ParamKeyUser, request.Owner)
+	msg.SetString(framework.ParamKeyGroup, request.Group)
 	var respChan = make(chan ProxyResult, 1)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> send sync disk images request fail: %s", err.Error())
