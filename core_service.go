@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	CurrentVersion = "1.3.0"
+	CurrentVersion = "1.3.1"
 )
 
 type CoreService struct {
@@ -88,6 +88,8 @@ func (core *CoreService)OnMessageReceived(msg framework.Message){
 	case framework.CreateGuestRequest:
 	case framework.DeleteGuestRequest:
 	case framework.ResetSystemRequest:
+	case framework.SearchGuestRequest:
+	case framework.ModifyAutoStartRequest:
 	case framework.QueryInstanceStatusRequest:
 	case framework.GetInstanceStatusRequest:
 	case framework.StartInstanceRequest:

@@ -24,6 +24,7 @@ type restGuestConfig struct {
 	Group           string          `json:"group"`
 	Pool            string          `json:"pool,omitempty"`
 	Cell            string          `json:"cell,omitempty"`
+	Host            string          `json:"host,omitempty"`
 	Cores           uint            `json:"cores"`
 	Memory          uint            `json:"memory"`
 	TotalDisk       uint64          `json:"total_disk"`
@@ -76,13 +77,20 @@ func UnmarshalGuestConfigListFromMessage(msg framework.Message) (result []restGu
 	if err != nil{
 		return result, err
 	}
-	var names, ids, pools, cells, users, groups, monitors, addresses, systems, createTime, internal, external, hardware []string
+	var names, ids, pools, cells, hosts, users, groups, monitors, addresses, systems,
+		createTime, internal, external, hardware []string
 	var cores, options, enables, progress, status, memories, disks, diskCounts, mediaAttached, cpuPriorities, ioLimits []uint64
 	if pools, err = msg.GetStringArray(framework.ParamKeyPool); err != nil {
 		return result, err
 	}
 	if cells, err = msg.GetStringArray(framework.ParamKeyCell); err != nil {
 		return result, err
+	}
+	if hosts, err = msg.GetStringArray(framework.ParamKeyHost); nil == err{
+		if int(count) != len(hosts){
+			err = fmt.Errorf("unexpected hosts count %d / %d", len(hosts), count)
+			return
+		}
 	}
 	if names, err = msg.GetStringArray(framework.ParamKeyName); err != nil {
 		return result, err
@@ -178,6 +186,9 @@ func UnmarshalGuestConfigListFromMessage(msg framework.Message) (result []restGu
 		var config restGuestConfig
 		config.Pool = pools[i]
 		config.Cell = cells[i]
+		if 0 != len(hosts){
+			config.Host = hosts[i]
+		}
 		config.Name = names[i]
 		config.ID = ids[i]
 		config.Owner = users[i]

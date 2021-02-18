@@ -414,6 +414,7 @@ func (module *APIModule) RegisterAPIHandler(router *httprouter.Router) {
 	router.PUT(apiPath("/guests/:id/name/"), module.handleModifyGuestName)
 	router.PUT(apiPath("/guests/:id/cores"), module.handleModifyGuestCores)
 	router.PUT(apiPath("/guests/:id/memory"), module.handleModifyGuestMemory)
+	router.PUT(apiPath("/guests/:id/auto_start"), module.handleModifyAutoStart)
 	router.PUT(apiPath("/guests/:id/qos/cpu"), module.handleModifyGuestPriority)
 	router.PUT(apiPath("/guests/:id/qos/disk"), module.handleModifyDiskThreshold)
 	router.PUT(apiPath("/guests/:id/qos/network"), module.handleModifyNetworkThreshold)
@@ -517,6 +518,7 @@ func (module *APIModule) RegisterAPIHandler(router *httprouter.Router) {
 
 	//search resource
 	router.GET(apiPath("/search/security_policy_groups/*filepath"), module.querySecurityPolicyGroups)
+	router.POST(apiPath("/search/guests/"), module.searchGuests)
 }
 
 func (module *APIModule) queryZoneStatistic(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
@@ -3334,6 +3336,42 @@ func (module *APIModule) handleModifyGuestMemory(w http.ResponseWriter, r *http.
 	ResponseOK("", w)
 }
 
+func (module *APIModule) handleModifyAutoStart(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	var id= params.ByName("id")
+	type userRequest struct {
+		Enable bool `json:"enable"`
+	}
+	decoder := json.NewDecoder(r.Body)
+	var request userRequest
+	if err := decoder.Decode(&request);err != nil{
+		log.Printf("<api> parse modify memory request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+
+	msg, _ := framework.CreateJsonMessage(framework.ModifyAutoStartRequest)
+	msg.SetString(framework.ParamKeyGuest, id)
+	msg.SetBoolean(framework.ParamKeyEnable, request.Enable)
+
+	var respChan = make(chan ProxyResult)
+	if err := module.proxy.SendRequest(msg, respChan); err != nil {
+		log.Printf("<api> send modify auto start request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	_, errMsg, success := IsResponseSuccess(respChan)
+	if !success {
+		log.Printf("<api> modify auto start fail: %s", errMsg)
+		ResponseFail(ResponseDefaultError, errMsg, w)
+		return
+	}
+	ResponseOK("", w)
+}
+
 func (module *APIModule) handleModifyGuestPriority(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	if err := module.verifyRequestSignature(r); err != nil{
 		ResponseFail(ResponseDefaultError, err.Error(), w)
@@ -5731,6 +5769,90 @@ func (module *APIModule) querySecurityPolicyGroups(w http.ResponseWriter, r *htt
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
+	ResponseOK(payload, w)
+}
+
+func (module *APIModule) searchGuests(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil{
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	const (
+		FlagOffsetTotal = iota
+		FlagOffsetLimit
+		FlagOffsetOffset
+		DefaultLimit   = 20
+		ValidFlagCount = 3
+	)
+
+	type userRequest struct {
+		Limit   int    `json:"limit"`
+		Offset  int    `json:"offset,omitempty"`
+		Pool    string `json:"pool,omitempty"`
+		Cell    string `json:"cell,omitempty"`
+		Keyword string `json:"keyword,omitempty"`
+	}
+	decoder := json.NewDecoder(r.Body)
+	var request userRequest
+	if err := decoder.Decode(&request);err != nil{
+		log.Printf("<api> parse search guests request fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	if 0 >= request.Limit{
+		request.Limit = DefaultLimit
+	}
+
+	msg, _ := framework.CreateJsonMessage(framework.SearchGuestRequest)
+	msg.SetInt(framework.ParamKeyLimit, request.Limit)
+	msg.SetInt(framework.ParamKeyStart, request.Offset)
+	msg.SetString(framework.ParamKeyPool, request.Pool)
+	msg.SetString(framework.ParamKeyCell, request.Cell)
+	msg.SetString(framework.ParamKeyData, request.Keyword)
+
+	respChan := make(chan ProxyResult)
+	if err := module.proxy.SendRequest(msg, respChan); err != nil {
+		log.Printf("<api> send query instance in pool fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	resp, errMsg, success := IsResponseSuccess(respChan)
+	if !success {
+		log.Printf("<api> search guests fail: %s", errMsg)
+		ResponseFail(ResponseDefaultError, errMsg, w)
+		return
+	}
+	type responsePayload struct {
+		Result []restGuestConfig `json:"result"`
+		Total  int               `json:"total"`
+		Limit  int               `json:"limit"`
+		Offset int               `json:"offset"`
+	}
+
+	var payload responsePayload
+	var err error
+	if payload.Result, err = UnmarshalGuestConfigListFromMessage(resp); err != nil{
+		log.Printf("<api> parse search guests result fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+	var flags []uint64
+	if flags, err = resp.GetUIntArray(framework.ParamKeyFlag); err != nil{
+		log.Printf("<api> parse search guests flags fail: %s", err.Error())
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+
+	if ValidFlagCount != len(flags){
+		log.Printf("<api> unexpected search guests flags count %d => %d", len(flags), ValidFlagCount)
+		ResponseFail(ResponseDefaultError, err.Error(), w)
+		return
+	}
+
+	payload.Total = int(flags[FlagOffsetTotal])
+	payload.Limit = int(flags[FlagOffsetLimit])
+	payload.Offset = int(flags[FlagOffsetOffset])
+
 	ResponseOK(payload, w)
 }
 
