@@ -1,5 +1,12 @@
 # Change Log
 
+## [1.3.1] - 2021-02-19
+
+### Added
+
+- Search guests by keyword
+- Modify auto start option of guest
+
 ## [1.3.0] - 2020-11-08
 
 ### Added

@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -216,6 +217,7 @@ type resourceCommand struct {
 	PolicyRule       SecurityPolicyRule
 	Index            int
 	Flag             bool
+	SearchCondition  SearchGuestsCondition
 	ErrorChan        chan error
 	ResultChan       chan ResourceResult
 }
@@ -275,7 +277,7 @@ const (
 	cmdUpdateInstanceMonitorSecret
 	cmdRenameInstance
 	cmdGetInstanceByName
-	cmdSearchGuests
+	cmdQueryGuestsByCondition
 	cmdAddImageServer
 	cmdRemoveImageServer
 	cmdGetImageServer
@@ -331,6 +333,8 @@ const (
 	cmdModifySecurityPolicyRule
 	cmdRemoveSecurityPolicyRule
 	cmdMoveSecurityPolicyRule
+	cmdSearchGuests
+	cmdUpdateAutoStart
 	cmdInvalid
 )
 
@@ -370,7 +374,7 @@ var commandNames = []string{
 	"UpdateInstanceMonitorSecret",
 	"RenameInstance",
 	"GetInstanceByName",
-	"SearchGuests",
+	"QueryGuestsByCondition",
 	"AddImageServer",
 	"RemoveImageServer",
 	"GetImageServer",
@@ -426,6 +430,8 @@ var commandNames = []string{
 	"ModifySecurityPolicyRule",
 	"RemoveSecurityPolicyRule",
 	"MoveSecurityPolicyRule",
+	"SearchGuests",
+	"UpdateAutoStart",
 }
 
 func (c commandType) toString() string {
@@ -604,9 +610,13 @@ func (manager *ResourceManager) SetCellDead(cellName string, respChan chan error
 	manager.commands <- resourceCommand{Type: cmdSetCellDead, Cell:cellName, ErrorChan:respChan}
 }
 
-func (manager *ResourceManager) SearchGuestConfig(condition GuestQueryCondition, respChan chan ResourceResult) {
-	cmd := resourceCommand{Type: cmdSearchGuests, InstanceQuery: condition, ResultChan: respChan}
+func (manager *ResourceManager) QueryGuestsByCondition(condition GuestQueryCondition, respChan chan ResourceResult) {
+	cmd := resourceCommand{Type: cmdQueryGuestsByCondition, InstanceQuery: condition, ResultChan: respChan}
 	manager.commands <- cmd
+}
+
+func (manager *ResourceManager) SearchGuests(condition SearchGuestsCondition, respChan chan ResourceResult){
+	manager.commands <- resourceCommand{Type: cmdSearchGuests, SearchCondition: condition, ResultChan: respChan}
 }
 
 func (manager *ResourceManager) BatchUpdateInstanceStatus(pool, cell string, instances []InstanceStatus, respChan chan error) {
@@ -664,6 +674,10 @@ func (manager *ResourceManager) UpdateInstanceDiskThreshold(id string, readSpeed
 
 func (manager *ResourceManager) UpdateInstanceNetworkThreshold(id string, receive, send uint64, respChan chan error) {
 	manager.commands <- resourceCommand{Type: cmdUpdateInstanceNetworkThreshold, InstanceID: id, ReceiveSpeed:receive, SendSpeed: send, ErrorChan: respChan}
+}
+
+func (manager *ResourceManager) UpdateGuestAutoStart(guestID string, enabled bool, respChan chan error){
+	manager.commands <- resourceCommand{Type: cmdUpdateAutoStart, InstanceID: guestID, Flag: enabled, ErrorChan: respChan}
 }
 
 func (manager *ResourceManager) RenameInstance(id, name string, respChan chan error){
@@ -1114,6 +1128,10 @@ func (manager *ResourceManager) handleCommand(cmd resourceCommand) {
 		err = manager.handleUpdateCellInfo(cmd.Cell, cmd.Address, cmd.ErrorChan)
 	case cmdGetCellStatus:
 		err = manager.handleGetCellStatus(cmd.Cell, cmd.ResultChan)
+	case cmdSearchGuests:
+		err = manager.handleSearchGuests(cmd.SearchCondition, cmd.ResultChan)
+	case cmdUpdateAutoStart:
+		err = manager.handleUpdateGuestAutoStart(cmd.InstanceID, cmd.Flag, cmd.ErrorChan)
 	case cmdBatchUpdateInstanceStatus:
 		err = manager.handleBatchUpdateInstanceStatus(cmd.Pool, cmd.Cell, cmd.InstanceList, cmd.ErrorChan)
 	case cmdAllocateInstance:
@@ -1144,8 +1162,8 @@ func (manager *ResourceManager) handleCommand(cmd resourceCommand) {
 		err = manager.handleUpdateInstanceDiskThreshold(cmd.InstanceID, cmd.ReadSpeed, cmd.ReadIOPS, cmd.WriteSpeed, cmd.WriteIOPS, cmd.ErrorChan)
 	case cmdGetInstanceByName:
 		err = manager.handleGetInstanceByName(cmd.Pool, cmd.Name, cmd.ResultChan)
-	case cmdSearchGuests:
-		err = manager.handleSearchGuestConfig(cmd.InstanceQuery, cmd.ResultChan)
+	case cmdQueryGuestsByCondition:
+		err = manager.handleQueryGuestsByCondition(cmd.InstanceQuery, cmd.ResultChan)
 	case cmdAddImageServer:
 		err = manager.handleAddImageServer(cmd.Name, cmd.Host, cmd.Port)
 	case cmdGetImageServer:
@@ -2019,7 +2037,7 @@ func (manager *ResourceManager) handleSetCellStopped(cellName string, respChan c
 	respChan <- nil
 	return nil
 }
-func (manager *ResourceManager) handleSearchGuestConfig(condition GuestQueryCondition, respChan chan ResourceResult) (err error) {
+func (manager *ResourceManager) handleQueryGuestsByCondition(condition GuestQueryCondition, respChan chan ResourceResult) (err error) {
 
 	var idList []string
 	{
@@ -2137,6 +2155,7 @@ func (manager *ResourceManager) handleBatchUpdateInstanceStatus(poolName, cellNa
 	cell.InstanceStatistic.Reset()
 	for _, config := range instances {
 		config.InternalNetwork.MonitorAddress = cell.Address
+		config.Host = cell.Address
 		manager.instances[config.ID] = config
 		cell.Instances[config.ID] = true
 		//todo: migrating
@@ -2199,6 +2218,7 @@ func (manager *ResourceManager) handleAllocateInstance(poolName string, config I
 		config.InternalNetwork.AssignedAddress = internal
 	}
 	config.InternalNetwork.MonitorAddress = cell.Address
+	config.Host = cell.Address
 	cell.Pending[config.ID] = true
 	pool.InstanceNames[config.Name] = config.ID
 
@@ -2300,6 +2320,7 @@ func (manager *ResourceManager) handleConfirmInstance(id string, monitorPort uin
 	respChan <- nil
 	return nil
 }
+
 func (manager *ResourceManager) handleDeallocateInstance(id string, err error, respChan chan error) error {
 	ins, exists := manager.instances[id]
 	if !exists {
@@ -2438,6 +2459,169 @@ func (manager *ResourceManager) handleQueryInstanceStatusInCell(poolName, cellNa
 	return nil
 }
 
+func (manager *ResourceManager) handleSearchGuests(condition SearchGuestsCondition, respChan chan ResourceResult) (err error){
+	var poolSpecified = "" == condition.Pool
+	var cellSpecifed = "" == condition.Cell
+	var keywordSpecified = "" == condition.Keyword
+	var targets []string
+	if cellSpecifed{
+		cell, exists := manager.cells[condition.Cell]
+		if !exists{
+			err = fmt.Errorf("invalid cell '%s'", condition.Cell)
+			respChan <- ResourceResult{Error: err}
+			return
+		}
+		for instanceID, _ := range cell.Instances{
+			targets = append(targets, instanceID)
+		}
+	} else if poolSpecified{
+		pool, exists := manager.pools[condition.Pool]
+		if !exists{
+			err = fmt.Errorf("invalid pool '%s'", condition.Pool)
+			respChan <- ResourceResult{Error: err}
+			return
+		}
+		for _, intancesID := range pool.InstanceNames{
+			targets = append(targets, intancesID)
+		}
+	}
+	var idMap = map[string]string{}//name to id
+	if keywordSpecified{
+		//filter
+		var filtered []string
+		var matched bool
+		var guestName string
+		if 0 != len(targets){
+			for _, instanceID := range targets{
+				if matched, guestName, err = manager.matchKeyword(instanceID, condition.Keyword); err != nil{
+					respChan <- ResourceResult{Error: err}
+					return
+				}else if matched{
+					idMap[guestName] = instanceID
+					filtered = append(filtered, instanceID)
+				}
+			}
+		}else{
+			for instanceID, _ := range manager.instances{
+				if matched, guestName, err = manager.matchKeyword(instanceID, condition.Keyword); err != nil{
+					respChan <- ResourceResult{Error: err}
+					return
+				}else if matched{
+					idMap[guestName] = instanceID
+					filtered = append(filtered, instanceID)
+				}
+			}
+		}
+		targets = filtered
+	}else if 0 == len(targets){
+		//fill all instances
+		for instanceID, instance := range manager.instances{
+			targets = append(targets, instanceID)
+			idMap[instance.Name] = instanceID
+		}
+	}else {
+		//collect name
+		for _, instanceID := range targets{
+			if instance, exists := manager.instances[instanceID]; !exists{
+				err = fmt.Errorf("invalid instance '%s'", instanceID)
+				respChan <- ResourceResult{Error: err}
+				return
+			}else{
+				idMap[instance.Name] = instanceID
+			}
+		}
+	}
+	var result ResourceResult
+	result.Total = len(targets)
+	if condition.Offset >= result.Total{
+		err = fmt.Errorf("unexpected offset %d / %d", condition.Offset, result.Total)
+		respChan <- ResourceResult{Error: err}
+		return
+	}
+	//sort
+	var names []string
+	for name, _ := range idMap{
+		names = append(names, name)
+	}
+	sort.Stable(sort.StringSlice(names))
+	//fetch
+	var offset = 0
+	var count = 0
+	var instance InstanceStatus
+	var instanceID string
+	var exists bool
+	for _, name := range names{
+		if offset < condition.Offset{
+			offset++
+			continue
+		}
+		if instanceID, exists = idMap[name]; !exists{
+			err = fmt.Errorf("can not find id for guest '%s'", name)
+			respChan <- ResourceResult{Error: err}
+			return
+		}else if instance, exists = manager.instances[instanceID]; !exists{
+			err = fmt.Errorf("find invalid id '%s' for guest '%s'", instanceID, name)
+			respChan <- ResourceResult{Error: err}
+			return
+		}else{
+			result.InstanceList = append(result.InstanceList, instance)
+			count++
+			offset++
+			if count >= condition.Limit{
+				break
+			}
+		}
+	}
+	result.Limit = condition.Limit
+	result.Offset = condition.Offset
+	respChan <- result
+	return
+}
+
+func (manager *ResourceManager) matchKeyword(instanceID, keyword string) (matched bool, name string, err error){
+	instance, exists := manager.instances[instanceID]
+	if !exists{
+		err = fmt.Errorf("invalid instance %s", instanceID)
+		return
+	}
+	if -1 != strings.Index(instance.Name, keyword) || -1 != strings.Index(instance.InternalNetwork.InstanceAddress, keyword) ||
+		-1 != strings.Index(instance.Cell, keyword) || -1 != strings.Index(instance.Host, keyword){
+		//matched
+		matched = true
+		name = instance.Name
+		return
+	}
+	matched = false
+	return
+}
+
+func (manager *ResourceManager) handleUpdateGuestAutoStart(guestID string, enabled bool, respChan chan error) (err error){
+	instance, exists := manager.instances[guestID]
+	if !exists{
+		err = fmt.Errorf("invaliad guest '%s'", guestID)
+		respChan <- err
+		return
+	}
+	if enabled == instance.AutoStart{
+		if enabled{
+			err = fmt.Errorf("auto start of guest '%s' already enabled", instance.Name)
+		}else{
+			err = fmt.Errorf("auto start of guest '%s' already disabled", instance.Name)
+		}
+		respChan <- err
+		return
+	}
+	instance.AutoStart = enabled
+	manager.instances[guestID] = instance
+	respChan <- nil
+	if enabled{
+		log.Printf("<resource_manager> guest '%s' enabled auto start", instance.Name)
+	}else{
+		log.Printf("<resource_manager> guest '%s' disabled auto start", instance.Name)
+	}
+	return
+}
+
 func (manager *ResourceManager) getSortedInstances(idList []string) (result []InstanceStatus, err error){
 	var names []string
 	var nameToID = map[string]string{}
@@ -2472,7 +2656,7 @@ func (manager *ResourceManager) getSortedInstances(idList []string) (result []In
 	return
 }
 
-func (manager *ResourceManager)  handleUpdateInstanceAddress(id, ip string, respChan chan error) error{
+func (manager *ResourceManager) handleUpdateInstanceAddress(id, ip string, respChan chan error) error{
 	instance, exists := manager.instances[id]
 	if !exists{
 		err := fmt.Errorf("invalid instance %s", id)
@@ -3683,6 +3867,7 @@ func (manager *ResourceManager) handleUpdateInstanceMonitorSecret(instanceID, se
 	log.Printf("<resource_manager> monitor secret of instance '%s' updated", instance.Name)
 	return
 }
+
 func (manager *ResourceManager) handleQuerySystemTemplates(respChan chan ResourceResult) (err error){
 	defer func() {
 		if err != nil{
@@ -3787,7 +3972,6 @@ func (manager *ResourceManager) handleDeleteSystemTemplate(id string, respChan c
 	err = manager.saveConfig()
 	return
 }
-
 //Security Policy Group
 func (manager *ResourceManager) handleQuerySecurityPolicyGroups(condition SecurityPolicyGroupQueryCondition, respChan chan ResourceResult) (err error){
 	var group managedSecurityPolicyGroup
@@ -4085,6 +4269,7 @@ func (manager *ResourceManager) transferInstances(sourceName, targetName string,
 		}
 		instance.Migrating = false
 		instance.Cell = targetName
+		instance.Host = targetCell.Address
 		instance.InternalNetwork.MonitorPort = uint(monitor)
 		instance.InternalNetwork.MonitorAddress = targetCell.Address
 		manager.instances[instanceID] = instance
@@ -4187,7 +4372,6 @@ func (manager *ResourceManager) deallocateNetworkAddress(pool ManagedComputePool
 	err = fmt.Errorf("'%s' not found in address pool '%s'", internalCIDR, pool.Network)
 	return err
 }
-
 
 func (manager *ResourceManager) selectCell(poolName string, required InstanceResource, mustFulfill bool) (selected string, err error) {
 	const (

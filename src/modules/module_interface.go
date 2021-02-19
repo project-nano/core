@@ -144,6 +144,17 @@ type ResourceResult struct {
 	PolicyGroup         SecurityPolicyGroupStatus
 	PolicyGroupList     []SecurityPolicyGroupStatus
 	PolicyRuleList      []SecurityPolicyRule
+	Total               int
+	Offset              int
+	Limit               int
+}
+
+type SearchGuestsCondition struct {
+	Limit   int
+	Offset  int
+	Pool    string
+	Cell    string
+	Keyword string
 }
 
 type DiskImageConfig struct {
@@ -373,8 +384,9 @@ type ResourceModule interface {
 	FinishPurgeCell(cellName string, respChan chan error)
 
 	//instances
-	SearchGuestConfig(condition GuestQueryCondition, respChan chan ResourceResult)
+	QueryGuestsByCondition(condition GuestQueryCondition, respChan chan ResourceResult)
 	BatchUpdateInstanceStatus(pool, cell string, instances []InstanceStatus, respChan chan error)
+	SearchGuests(condition SearchGuestsCondition, respChan chan ResourceResult)
 
 	AllocateInstance(pool string, status InstanceStatus, respChan chan ResourceResult)
 	//running/create/progress/media only
@@ -392,6 +404,7 @@ type ResourceModule interface {
 	UpdateInstanceDiskThreshold(id string, readSpeed, readIOPS, writeSpeed, writeIOPS uint64, respChan chan error)
 	UpdateInstanceNetworkThreshold(id string, receive, send uint64, respChan chan error)
 	UpdateInstanceMonitorSecret(id, secret string, respChan chan error)
+	UpdateGuestAutoStart(guestID string, enabled bool, respChan chan error)
 
 	//image server
 	AddImageServer(name, host string, port int)

@@ -75,7 +75,7 @@ func (executor *QueryGuestConfigExecutor)Execute(id framework.SessionID, request
 
 	{
 		var respChan = make(chan modules.ResourceResult)
-		executor.ResourceModule.SearchGuestConfig(condition, respChan)
+		executor.ResourceModule.QueryGuestsByCondition(condition, respChan)
 		result := <- respChan
 		if result.Error != nil{
 			err = result.Error

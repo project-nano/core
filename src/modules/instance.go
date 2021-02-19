@@ -1,8 +1,8 @@
 package modules
 
 import (
-	"github.com/project-nano/framework"
 	"fmt"
+	"github.com/project-nano/framework"
 )
 
 type InstanceResource struct {
@@ -33,6 +33,7 @@ type InstanceStatus struct {
 	ID              string
 	Pool            string
 	Cell            string
+	Host            string //hosting cell ip
 	User            string
 	Group           string
 	AutoStart       bool
@@ -92,13 +93,15 @@ const (
 func MarshalInstanceStatusListToMessage(list []InstanceStatus, msg framework.Message) error {
 	var count = uint(len(list))
 	msg.SetUInt(framework.ParamKeyCount, count)
-	var names, ids, pools, cells, users, monitors, addresses, groups, secrets, systems, createTime, internal, external, hardware []string
+	var names, ids, pools, cells, hosts, users, monitors, addresses, groups, secrets, systems,
+		createTime, internal, external, hardware []string
 	var cores, options, enables, progress, status, memories, disks, diskCounts, mediaAttached, cpuPriorities, ioLimits []uint64
 	for _, ins := range list {
 		names = append(names, ins.Name)
 		ids = append(ids, ins.ID)
 		pools = append(pools, ins.Pool)
 		cells = append(cells, ins.Cell)
+		hosts = append(hosts, ins.Host)
 		users = append(users, ins.User)
 		groups = append(groups, ins.Group)
 		cores = append(cores, uint64(ins.Cores))
@@ -160,6 +163,7 @@ func MarshalInstanceStatusListToMessage(list []InstanceStatus, msg framework.Mes
 	msg.SetStringArray(framework.ParamKeyInstance, ids)
 	msg.SetStringArray(framework.ParamKeyPool, pools)
 	msg.SetStringArray(framework.ParamKeyCell, cells)
+	msg.SetStringArray(framework.ParamKeyHost, hosts)
 	msg.SetStringArray(framework.ParamKeyUser, users)
 
 	msg.SetStringArray(framework.ParamKeyMonitor, monitors)
@@ -196,6 +200,7 @@ func (config *InstanceStatus) Marshal(msg framework.Message) error {
 	msg.SetString(framework.ParamKeyGroup, config.Group)
 	msg.SetString(framework.ParamKeyPool, config.Pool)
 	msg.SetString(framework.ParamKeyCell, config.Cell)
+	msg.SetString(framework.ParamKeyHost, config.Host)
 	if config.ID != "" {
 		msg.SetString(framework.ParamKeyInstance, config.ID)
 	}

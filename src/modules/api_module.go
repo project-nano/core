@@ -5803,6 +5803,11 @@ func (module *APIModule) searchGuests(w http.ResponseWriter, r *http.Request, pa
 		request.Limit = DefaultLimit
 	}
 
+	if "" != request.Keyword && strings.Contains(request.Keyword, " "){
+		ResponseFail(ResponseDefaultError, "only allow one keyword", w)
+		return
+	}
+
 	msg, _ := framework.CreateJsonMessage(framework.SearchGuestRequest)
 	msg.SetInt(framework.ParamKeyLimit, request.Limit)
 	msg.SetInt(framework.ParamKeyStart, request.Offset)

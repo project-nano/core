@@ -615,5 +615,21 @@ func CreateTransactionManager(sender framework.MessageSender, resourceModule mod
 		err = fmt.Errorf("register sync disk images fail: %s", err.Error())
 		return
 	}
+	if err = manager.RegisterExecutor(framework.SearchGuestRequest,
+		&task.SearchGuestsExecutor{
+			Sender:         sender,
+			ResourceModule: resourceModule,
+		}); err != nil{
+		err = fmt.Errorf("register search guests fail: %s", err.Error())
+		return
+	}
+	if err = manager.RegisterExecutor(framework.ModifyAutoStartRequest,
+		&task.ModifyGuestAutoStartExecutor{
+			Sender:         sender,
+			ResourceModule: resourceModule,
+		}); err != nil{
+		err = fmt.Errorf("register modify auto start fail: %s", err.Error())
+		return
+	}
 	return manager, nil
 }
