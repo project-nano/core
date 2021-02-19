@@ -2460,9 +2460,9 @@ func (manager *ResourceManager) handleQueryInstanceStatusInCell(poolName, cellNa
 }
 
 func (manager *ResourceManager) handleSearchGuests(condition SearchGuestsCondition, respChan chan ResourceResult) (err error){
-	var poolSpecified = "" == condition.Pool
-	var cellSpecifed = "" == condition.Cell
-	var keywordSpecified = "" == condition.Keyword
+	var poolSpecified = "" != condition.Pool
+	var cellSpecifed = "" != condition.Cell
+	var keywordSpecified = "" != condition.Keyword
 	var targets []string
 	if cellSpecifed{
 		cell, exists := manager.cells[condition.Cell]
@@ -2532,7 +2532,14 @@ func (manager *ResourceManager) handleSearchGuests(condition SearchGuestsConditi
 		}
 	}
 	var result ResourceResult
+	result.InstanceList = make([]InstanceStatus, 0)
 	result.Total = len(targets)
+	result.Limit = condition.Limit
+	result.Offset = condition.Offset
+	if 0 == result.Total{
+		respChan <- result
+		return
+	}
 	if condition.Offset >= result.Total{
 		err = fmt.Errorf("unexpected offset %d / %d", condition.Offset, result.Total)
 		respChan <- ResourceResult{Error: err}
@@ -2572,8 +2579,6 @@ func (manager *ResourceManager) handleSearchGuests(condition SearchGuestsConditi
 			}
 		}
 	}
-	result.Limit = condition.Limit
-	result.Offset = condition.Offset
 	respChan <- result
 	return
 }
