@@ -2491,7 +2491,7 @@ func (manager *ResourceManager) handleSearchGuests(condition SearchGuestsConditi
 		var filtered []string
 		var matched bool
 		var guestName string
-		if 0 != len(targets){
+		if cellSpecifed || poolSpecified {
 			for _, instanceID := range targets{
 				if matched, guestName, err = manager.matchKeyword(instanceID, condition.Keyword); err != nil{
 					respChan <- ResourceResult{Error: err}
@@ -2513,7 +2513,7 @@ func (manager *ResourceManager) handleSearchGuests(condition SearchGuestsConditi
 			}
 		}
 		targets = filtered
-	}else if 0 == len(targets){
+	}else if !cellSpecifed && !poolSpecified {
 		//fill all instances
 		for instanceID, instance := range manager.instances{
 			targets = append(targets, instanceID)
@@ -2589,8 +2589,9 @@ func (manager *ResourceManager) matchKeyword(instanceID, keyword string) (matche
 		err = fmt.Errorf("invalid instance %s", instanceID)
 		return
 	}
-	if -1 != strings.Index(instance.Name, keyword) || -1 != strings.Index(instance.InternalNetwork.InstanceAddress, keyword) ||
-		-1 != strings.Index(instance.Cell, keyword) || -1 != strings.Index(instance.Host, keyword){
+	if -1 != strings.Index(instance.Name, keyword) ||
+		-1 != strings.Index(instance.InternalNetwork.InstanceAddress, keyword) ||
+		-1 != strings.Index(instance.Host, keyword){
 		//matched
 		matched = true
 		name = instance.Name
