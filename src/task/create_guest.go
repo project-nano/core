@@ -260,6 +260,9 @@ func (executor *CreateGuestExecutor) Execute(id framework.SessionID, request fra
 	}
 
 	{
+		//set assigned cell
+		config.Cell, _ = request.GetString(framework.ParamKeyCell)
+
 		//set assigned address
 		config.InternalNetwork.AssignedAddress, _ = request.GetString(framework.ParamKeyInternal)
 

@@ -2150,6 +2150,7 @@ func (module *APIModule) handleCreateGuest(w http.ResponseWriter, r *http.Reques
 		Disks               []uint64         `json:"disks"`
 		Template            string           `json:"template"`
 		AutoStart           bool             `json:"auto_start,omitempty"`
+		Cell                string           `json:"cell,omitempty"`
 		NetworkAddress      string           `json:"network_address,omitempty"`
 		EthernetAddress     string           `json:"ethernet_address,omitempty"`
 		FromImage           string           `json:"from_image,omitempty"`
@@ -2267,6 +2268,11 @@ func (module *APIModule) handleCreateGuest(w http.ResponseWriter, r *http.Reques
 		msg.SetUIntArray(framework.ParamKeyLimit, []uint64{0, 0, 0, 0, 0, 0})
 	}
 	msg.SetUIntArray(framework.ParamKeyFlag, flags)
+
+	//set assigned cell
+	if cell := strings.TrimSpace(request.Cell); cell != "" {
+		msg.SetString(framework.ParamKeyCell, cell)
+	}
 
 	//set assigned address
 	if ipstr := strings.TrimSpace(request.NetworkAddress); ipstr != "" {

@@ -2185,12 +2185,20 @@ func (manager *ResourceManager) handleAllocateInstance(poolName string, config I
 	}
 	var newID = uuid.NewV4()
 	config.ID = newID.String()
-	cellName, err := manager.selectCell(poolName, config.InstanceResource, true)
-	if err != nil {
-		log.Printf("<resource_manager> select cell fail: %s", err.Error())
-		respChan <- ResourceResult{Error: err}
-		return err
+
+	// if config.Cell no set
+	var cellName string
+	if config.Cell == "" {
+		cellName, err = manager.selectCell(poolName, config.InstanceResource, true)
+		if err != nil {
+			log.Printf("<resource_manager> select cell fail: %s", err.Error())
+			respChan <- ResourceResult{Error: err}
+			return err
+		}
+	} else {
+		cellName = config.Cell
 	}
+
 	config.Cell = cellName
 	config.Pool = poolName
 	cell, exists := manager.cells[cellName]
