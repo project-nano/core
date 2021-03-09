@@ -2,6 +2,7 @@ package modules
 
 import (
 	"fmt"
+
 	"github.com/project-nano/framework"
 )
 
@@ -68,12 +69,12 @@ const (
 
 const (
 	//bit 0~1 for running/stopped
-	InstanceStatusLostBit    = 2;
-	InstanceStatusMigrateBit = 3;
+	InstanceStatusLostBit    = 2
+	InstanceStatusMigrateBit = 3
 )
 
 const (
-	InstanceMediaOptionNone    uint = iota
+	InstanceMediaOptionNone uint = iota
 	InstanceMediaOptionImage
 	InstanceMediaOptionNetwork
 )
