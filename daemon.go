@@ -82,6 +82,11 @@ func (service *MainService)Stop() (output string, err error){
 	return
 }
 
+func (service *MainService) Snapshot() (output string, err error){
+	output ="hello, this is stub for snapshot"
+	return
+}
+
 func createDaemon(workingPath string) (service framework.DaemonizedService, err error){
 	var configPath = filepath.Join(workingPath, ConfigPathName)
 	var configFile = filepath.Join(configPath, DomainConfigFileName)
