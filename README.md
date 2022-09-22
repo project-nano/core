@@ -29,8 +29,7 @@ Set environment variable GOPATH before compiling
 ```
 #git clone https://github.com/project-nano/core.git
 #cd core
-#export GOPATH="/home/develop/go:/home/develop/nano/core"
-#go build -o core -i -ldflags="-w -s"
+#go build -o core -ldflags="-w -s"
 ```
 
 
