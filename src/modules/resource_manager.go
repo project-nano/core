@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/project-nano/framework"
-	uuid "github.com/satori/go.uuid"
 	"io/ioutil"
 	"log"
 	"math"
@@ -19,6 +17,9 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/project-nano/framework"
+	uuid "github.com/satori/go.uuid"
 )
 
 //config file define
@@ -79,10 +80,10 @@ type ManagedComputePool struct {
 
 type ManagedComputeCell struct {
 	ComputeCellInfo
-	Pool           string
-	LatestUpdate   time.Time
-	Instances      map[string]bool
-	Pending        map[string]bool
+	Pool         string
+	LatestUpdate time.Time
+	Instances    map[string]bool
+	Pending      map[string]bool
 	InstanceStatistic
 	ResourceUsage
 }
@@ -242,7 +243,7 @@ const (
 )
 
 const (
-	cmdQueryAllComputePoolInfo     = iota
+	cmdQueryAllComputePoolInfo = iota
 	cmdGetComputePoolInfo
 	cmdCreateComputePool
 	cmdDeleteComputePool
@@ -305,7 +306,7 @@ const (
 	cmdMigrationInstance
 	cmdPurgeInstance
 	cmdBeginResetSystem
-	cmdFinishResetSystem	
+	cmdFinishResetSystem
 	cmdStartBatchCreateGuest
 	cmdSetBatchCreateGuestStart
 	cmdSetBatchCreateGuestFail
@@ -435,22 +436,21 @@ var commandNames = []string{
 }
 
 func (c commandType) toString() string {
-	if c >= cmdInvalid{
-		return  "invalid"
+	if c >= cmdInvalid {
+		return "invalid"
 	}
 	return commandNames[c]
 }
 
 const (
-	TimeFormatLayout = "2006-01-02 15:04:05"
-	StorageTypeNFS = "nfs"
+	TimeFormatLayout  = "2006-01-02 15:04:05"
+	StorageTypeNFS    = "nfs"
 	RangeTypeExternal = "external"
 	RangeTypeInternal = "internal"
 )
 
-
 func CreateResourceManager(dataPath string) (manager *ResourceManager, err error) {
-	if cmdInvalid != len(commandNames){
+	if cmdInvalid != len(commandNames) {
 		err = fmt.Errorf("insufficient command names %d/%d", len(commandNames), cmdInvalid)
 		return
 	}
@@ -500,12 +500,12 @@ func (manager *ResourceManager) UpdateCellStatus(report CellStatusReport) {
 }
 
 func (manager *ResourceManager) CreatePool(name, storage, address string, failover bool, resultChan chan error) {
-	req := resourceCommand{Type: cmdCreateComputePool, Pool: name, Storage:storage, Address: address, Failover: failover, ErrorChan: resultChan}
+	req := resourceCommand{Type: cmdCreateComputePool, Pool: name, Storage: storage, Address: address, Failover: failover, ErrorChan: resultChan}
 	manager.commands <- req
 }
 
-func (manager *ResourceManager) ModifyPool(name, storage, address string, failover bool, resultChan chan error){
-	manager.commands <- resourceCommand{Type:cmdModifyComputePool, Pool:name, Storage:storage, Address: address, Failover: failover, ErrorChan:resultChan}
+func (manager *ResourceManager) ModifyPool(name, storage, address string, failover bool, resultChan chan error) {
+	manager.commands <- resourceCommand{Type: cmdModifyComputePool, Pool: name, Storage: storage, Address: address, Failover: failover, ErrorChan: resultChan}
 }
 
 func (manager *ResourceManager) DeletePool(name string, resultChan chan error) {
@@ -514,25 +514,25 @@ func (manager *ResourceManager) DeletePool(name string, resultChan chan error) {
 }
 
 //storage pools
-func (manager *ResourceManager) CreateStoragePool(name, storageType, host, target string, respChan chan error){
-	manager.commands <- resourceCommand{Type: cmdCreateStoragePool, Storage:name, StorageType:storageType, Host:host, Target: target, ErrorChan:respChan}
+func (manager *ResourceManager) CreateStoragePool(name, storageType, host, target string, respChan chan error) {
+	manager.commands <- resourceCommand{Type: cmdCreateStoragePool, Storage: name, StorageType: storageType, Host: host, Target: target, ErrorChan: respChan}
 }
-func (manager *ResourceManager) ModifyStoragePool(name, storageType, host, target string, respChan chan error){
-	manager.commands <- resourceCommand{Type: cmdModifyStoragePool, Storage:name, StorageType:storageType, Host:host, Target: target, ErrorChan:respChan}
+func (manager *ResourceManager) ModifyStoragePool(name, storageType, host, target string, respChan chan error) {
+	manager.commands <- resourceCommand{Type: cmdModifyStoragePool, Storage: name, StorageType: storageType, Host: host, Target: target, ErrorChan: respChan}
 }
 
-func (manager *ResourceManager) DeleteStoragePool(name string, respChan chan error){
-	manager.commands <- resourceCommand{Type: cmdDeleteStoragePool, Storage:name, ErrorChan:respChan}
+func (manager *ResourceManager) DeleteStoragePool(name string, respChan chan error) {
+	manager.commands <- resourceCommand{Type: cmdDeleteStoragePool, Storage: name, ErrorChan: respChan}
 }
-func (manager *ResourceManager) GetStoragePool(name string, respChan chan ResourceResult){
-	manager.commands <- resourceCommand{Type: cmdGetStoragePool, Storage:name, ResultChan: respChan}
+func (manager *ResourceManager) GetStoragePool(name string, respChan chan ResourceResult) {
+	manager.commands <- resourceCommand{Type: cmdGetStoragePool, Storage: name, ResultChan: respChan}
 }
-func (manager *ResourceManager) QueryStoragePool(respChan chan ResourceResult){
+func (manager *ResourceManager) QueryStoragePool(respChan chan ResourceResult) {
 	manager.commands <- resourceCommand{Type: cmdQueryStoragePool, ResultChan: respChan}
 }
 
-func (manager *ResourceManager) QueryCellsInPool(pool string, resp chan ResourceResult){
-	cmd := resourceCommand{Type:cmdQueryComputeCells, Pool:pool, ResultChan:resp}
+func (manager *ResourceManager) QueryCellsInPool(pool string, resp chan ResourceResult) {
+	cmd := resourceCommand{Type: cmdQueryComputeCells, Pool: pool, ResultChan: resp}
 	manager.commands <- cmd
 }
 func (manager *ResourceManager) AddCell(pool, cell string, resultChan chan error) {
@@ -545,19 +545,19 @@ func (manager *ResourceManager) RemoveCell(pool, cell string, resultChan chan er
 	manager.commands <- req
 }
 
-func (manager *ResourceManager) EnableCell(poolName, cellName string, respChan chan error){
-	manager.commands <- resourceCommand{Type:cmdEnableComputeCell, Pool:poolName, Cell:cellName, ErrorChan:respChan}
+func (manager *ResourceManager) EnableCell(poolName, cellName string, respChan chan error) {
+	manager.commands <- resourceCommand{Type: cmdEnableComputeCell, Pool: poolName, Cell: cellName, ErrorChan: respChan}
 }
-func (manager *ResourceManager) DisableCell(poolName, cellName string, purge bool, respChan chan error){
-	manager.commands <- resourceCommand{Type:cmdDisableComputeCell, Pool:poolName, Cell:cellName, ErrorChan:respChan}
+func (manager *ResourceManager) DisableCell(poolName, cellName string, purge bool, respChan chan error) {
+	manager.commands <- resourceCommand{Type: cmdDisableComputeCell, Pool: poolName, Cell: cellName, ErrorChan: respChan}
 }
 
-func (manager *ResourceManager) FinishPurgeCell(cellName string, respChan chan error){
-	manager.commands <- resourceCommand{Type:cmdFinishPurgeCell, Cell:cellName, ErrorChan:respChan}
+func (manager *ResourceManager) FinishPurgeCell(cellName string, respChan chan error) {
+	manager.commands <- resourceCommand{Type: cmdFinishPurgeCell, Cell: cellName, ErrorChan: respChan}
 }
 
 func (manager *ResourceManager) GetUnallocatedCells(resp chan ResourceResult) {
-	req := resourceCommand{Type: cmdQueryUnallocatedComputeCell, ResultChan:resp}
+	req := resourceCommand{Type: cmdQueryUnallocatedComputeCell, ResultChan: resp}
 	manager.commands <- req
 }
 
@@ -581,7 +581,7 @@ func (manager *ResourceManager) QueryComputeCellStatus(pool string, resp chan Re
 }
 
 func (manager *ResourceManager) GetComputeCellStatus(pool, cell string, resp chan ResourceResult) {
-	req := resourceCommand{Type: cmdGetComputeCellStatus, Pool: pool, Cell:cell, ResultChan: resp}
+	req := resourceCommand{Type: cmdGetComputeCellStatus, Pool: pool, Cell: cell, ResultChan: resp}
 	manager.commands <- req
 }
 
@@ -590,15 +590,13 @@ func (manager *ResourceManager) GetAllComputePool(resp chan ResourceResult) {
 	manager.commands <- req
 }
 
-
-func (manager *ResourceManager) GetComputePool(pool string, resp chan ResourceResult){
-	cmd := resourceCommand{Type: cmdGetComputePoolInfo, Pool:pool, ResultChan:resp}
+func (manager *ResourceManager) GetComputePool(pool string, resp chan ResourceResult) {
+	cmd := resourceCommand{Type: cmdGetComputePoolInfo, Pool: pool, ResultChan: resp}
 	manager.commands <- cmd
 }
 
-
-func (manager *ResourceManager) UpdateCellInfo(name, address string, respChan chan error){
-	manager.commands <- resourceCommand{Type: cmdUpdateCellInfo, Cell:name, Address:address, ErrorChan:respChan}
+func (manager *ResourceManager) UpdateCellInfo(name, address string, respChan chan error) {
+	manager.commands <- resourceCommand{Type: cmdUpdateCellInfo, Cell: name, Address: address, ErrorChan: respChan}
 }
 
 func (manager *ResourceManager) GetCellStatus(cell string, respChan chan ResourceResult) {
@@ -606,8 +604,8 @@ func (manager *ResourceManager) GetCellStatus(cell string, respChan chan Resourc
 	manager.commands <- req
 }
 
-func (manager *ResourceManager) SetCellDead(cellName string, respChan chan error){
-	manager.commands <- resourceCommand{Type: cmdSetCellDead, Cell:cellName, ErrorChan:respChan}
+func (manager *ResourceManager) SetCellDead(cellName string, respChan chan error) {
+	manager.commands <- resourceCommand{Type: cmdSetCellDead, Cell: cellName, ErrorChan: respChan}
 }
 
 func (manager *ResourceManager) QueryGuestsByCondition(condition GuestQueryCondition, respChan chan ResourceResult) {
@@ -615,7 +613,7 @@ func (manager *ResourceManager) QueryGuestsByCondition(condition GuestQueryCondi
 	manager.commands <- cmd
 }
 
-func (manager *ResourceManager) SearchGuests(condition SearchGuestsCondition, respChan chan ResourceResult){
+func (manager *ResourceManager) SearchGuests(condition SearchGuestsCondition, respChan chan ResourceResult) {
 	manager.commands <- resourceCommand{Type: cmdSearchGuests, SearchCondition: condition, ResultChan: respChan}
 }
 
@@ -633,7 +631,7 @@ func (manager *ResourceManager) UpdateInstanceStatus(status InstanceStatus, resp
 	manager.commands <- cmd
 }
 func (manager *ResourceManager) ConfirmInstance(id string, monitor uint, secret, ethernetAddress string, respChan chan error) {
-	cmd := resourceCommand{Type: cmdConfirmInstance, InstanceID: id, MonitorPort: monitor, Secret:secret, Hardware: ethernetAddress, ErrorChan: respChan}
+	cmd := resourceCommand{Type: cmdConfirmInstance, InstanceID: id, MonitorPort: monitor, Secret: secret, Hardware: ethernetAddress, ErrorChan: respChan}
 	manager.commands <- cmd
 }
 
@@ -647,45 +645,45 @@ func (manager *ResourceManager) GetInstanceStatus(id string, respChan chan Resou
 	manager.commands <- cmd
 }
 
-func (manager *ResourceManager) QueryInstanceStatusInPool(poolName string, respChan chan ResourceResult){
+func (manager *ResourceManager) QueryInstanceStatusInPool(poolName string, respChan chan ResourceResult) {
 	cmd := resourceCommand{Type: cmdQueryInstanceStatusInPool, Pool: poolName, ResultChan: respChan}
 	manager.commands <- cmd
 }
-func (manager *ResourceManager) QueryInstanceStatusInCell(poolName, cellName string, respChan chan ResourceResult){
-	cmd := resourceCommand{Type: cmdQueryInstanceStatusInCell, Pool: poolName, Cell:cellName, ResultChan: respChan}
+func (manager *ResourceManager) QueryInstanceStatusInCell(poolName, cellName string, respChan chan ResourceResult) {
+	cmd := resourceCommand{Type: cmdQueryInstanceStatusInCell, Pool: poolName, Cell: cellName, ResultChan: respChan}
 	manager.commands <- cmd
 }
 
-func (manager *ResourceManager) UpdateInstanceAddress(id, ip string, respChan chan error){
-	manager.commands <- resourceCommand{Type:cmdUpdateInstanceAddress, InstanceID:id, Address:ip, ErrorChan:respChan}
+func (manager *ResourceManager) UpdateInstanceAddress(id, ip string, respChan chan error) {
+	manager.commands <- resourceCommand{Type: cmdUpdateInstanceAddress, InstanceID: id, Address: ip, ErrorChan: respChan}
 }
 
 func (manager *ResourceManager) UpdateInstancePriority(id string, priority PriorityEnum, respChan chan error) {
-	manager.commands <- resourceCommand{Type: cmdUpdateInstancePriority, InstanceID: id, Priority: priority, ErrorChan:respChan}
+	manager.commands <- resourceCommand{Type: cmdUpdateInstancePriority, InstanceID: id, Priority: priority, ErrorChan: respChan}
 }
 
-func (manager *ResourceManager) UpdateInstanceMonitorSecret(id, secret string, respChan chan error){
+func (manager *ResourceManager) UpdateInstanceMonitorSecret(id, secret string, respChan chan error) {
 	manager.commands <- resourceCommand{Type: cmdUpdateInstanceMonitorSecret, InstanceID: id, Secret: secret, ErrorChan: respChan}
 }
 
 func (manager *ResourceManager) UpdateInstanceDiskThreshold(id string, readSpeed, readIOPS, writeSpeed, writeIOPS uint64, respChan chan error) {
-	manager.commands <- resourceCommand{Type: cmdUpdateInstanceDiskThreshold, InstanceID: id, ReadSpeed: readSpeed, ReadIOPS: readIOPS, WriteSpeed:writeSpeed, WriteIOPS: writeIOPS, ErrorChan: respChan}
+	manager.commands <- resourceCommand{Type: cmdUpdateInstanceDiskThreshold, InstanceID: id, ReadSpeed: readSpeed, ReadIOPS: readIOPS, WriteSpeed: writeSpeed, WriteIOPS: writeIOPS, ErrorChan: respChan}
 }
 
 func (manager *ResourceManager) UpdateInstanceNetworkThreshold(id string, receive, send uint64, respChan chan error) {
-	manager.commands <- resourceCommand{Type: cmdUpdateInstanceNetworkThreshold, InstanceID: id, ReceiveSpeed:receive, SendSpeed: send, ErrorChan: respChan}
+	manager.commands <- resourceCommand{Type: cmdUpdateInstanceNetworkThreshold, InstanceID: id, ReceiveSpeed: receive, SendSpeed: send, ErrorChan: respChan}
 }
 
-func (manager *ResourceManager) UpdateGuestAutoStart(guestID string, enabled bool, respChan chan error){
+func (manager *ResourceManager) UpdateGuestAutoStart(guestID string, enabled bool, respChan chan error) {
 	manager.commands <- resourceCommand{Type: cmdUpdateAutoStart, InstanceID: guestID, Flag: enabled, ErrorChan: respChan}
 }
 
-func (manager *ResourceManager) RenameInstance(id, name string, respChan chan error){
-	manager.commands <- resourceCommand{Type:cmdRenameInstance, InstanceID:id, Name:name, ErrorChan:respChan}
+func (manager *ResourceManager) RenameInstance(id, name string, respChan chan error) {
+	manager.commands <- resourceCommand{Type: cmdRenameInstance, InstanceID: id, Name: name, ErrorChan: respChan}
 }
 
-func (manager *ResourceManager) GetInstanceByName(poolName, instanceName string, respChan chan ResourceResult){
-	manager.commands <- resourceCommand{Type:cmdGetInstanceByName, Pool:poolName, Name:instanceName, ResultChan:respChan}
+func (manager *ResourceManager) GetInstanceByName(poolName, instanceName string, respChan chan ResourceResult) {
+	manager.commands <- resourceCommand{Type: cmdGetInstanceByName, Pool: poolName, Name: instanceName, ResultChan: respChan}
 }
 
 func (manager *ResourceManager) AddImageServer(name, host string, port int) {
@@ -704,179 +702,179 @@ func (manager *ResourceManager) GetImageServer(respChan chan ResourceResult) {
 }
 
 //migration
-func (manager *ResourceManager) QueryMigration(respChan chan ResourceResult){
-	manager.commands <- resourceCommand{Type:cmdQueryMigration, ResultChan:respChan}
+func (manager *ResourceManager) QueryMigration(respChan chan ResourceResult) {
+	manager.commands <- resourceCommand{Type: cmdQueryMigration, ResultChan: respChan}
 }
 
-func (manager *ResourceManager) GetMigration(id string, respChan chan ResourceResult){
-	manager.commands <- resourceCommand{Type:cmdGetMigration, MigrationID:id, ResultChan:respChan}
+func (manager *ResourceManager) GetMigration(id string, respChan chan ResourceResult) {
+	manager.commands <- resourceCommand{Type: cmdGetMigration, MigrationID: id, ResultChan: respChan}
 }
 
-func (manager *ResourceManager) CreateMigration(params MigrationParameter, respChan chan ResourceResult){
-	manager.commands <- resourceCommand{Type:cmdCreateMigration, Migration: params,  ResultChan:respChan}
+func (manager *ResourceManager) CreateMigration(params MigrationParameter, respChan chan ResourceResult) {
+	manager.commands <- resourceCommand{Type: cmdCreateMigration, Migration: params, ResultChan: respChan}
 }
 
-func (manager *ResourceManager) FinishMigration(migration string, instances []string, ports []uint64, respChan chan error){
-	manager.commands <- resourceCommand{Type:cmdFinishMigration, MigrationID:migration, IDList:instances, PortList:ports, ErrorChan:respChan}
+func (manager *ResourceManager) FinishMigration(migration string, instances []string, ports []uint64, respChan chan error) {
+	manager.commands <- resourceCommand{Type: cmdFinishMigration, MigrationID: migration, IDList: instances, PortList: ports, ErrorChan: respChan}
 }
 
-func (manager *ResourceManager) CancelMigration(migration string, err error, respChan chan error){
-	manager.commands <- resourceCommand{Type:cmdCancelMigration, MigrationID:migration, Error: err, ErrorChan:respChan}
+func (manager *ResourceManager) CancelMigration(migration string, err error, respChan chan error) {
+	manager.commands <- resourceCommand{Type: cmdCancelMigration, MigrationID: migration, Error: err, ErrorChan: respChan}
 }
-func (manager *ResourceManager) UpdateMigration(migration string, progress uint, respChan chan error){
-	manager.commands <- resourceCommand{Type:cmdUpdateMigration, MigrationID:migration, Progress:progress, ErrorChan:respChan}
-}
-
-func (manager *ResourceManager) BuildFailoverPlan(cellName string, respChan chan ResourceResult){
-	manager.commands <- resourceCommand{Type: cmdBuildFailoverPlan, Cell:cellName, ResultChan:respChan}
+func (manager *ResourceManager) UpdateMigration(migration string, progress uint, respChan chan error) {
+	manager.commands <- resourceCommand{Type: cmdUpdateMigration, MigrationID: migration, Progress: progress, ErrorChan: respChan}
 }
 
-func (manager *ResourceManager) MigrateInstance(oldCell, newCell string, instances []string, ports []uint64, respChan chan error){
-	manager.commands <- resourceCommand{Type: cmdMigrationInstance, Cell:oldCell, Target:newCell, IDList:instances, PortList:ports, ErrorChan:respChan}
+func (manager *ResourceManager) BuildFailoverPlan(cellName string, respChan chan ResourceResult) {
+	manager.commands <- resourceCommand{Type: cmdBuildFailoverPlan, Cell: cellName, ResultChan: respChan}
 }
 
-func (manager *ResourceManager) PurgeInstance(cellName string, respChan chan error){
-	manager.commands <- resourceCommand{Type: cmdPurgeInstance, Cell:cellName, ErrorChan:respChan}
+func (manager *ResourceManager) MigrateInstance(oldCell, newCell string, instances []string, ports []uint64, respChan chan error) {
+	manager.commands <- resourceCommand{Type: cmdMigrationInstance, Cell: oldCell, Target: newCell, IDList: instances, PortList: ports, ErrorChan: respChan}
 }
 
-func (manager *ResourceManager) QueryAddressPool(respChan chan ResourceResult){
-	manager.commands <- resourceCommand{Type: cmdQueryAddressPool, ResultChan:respChan}
-}
-func (manager *ResourceManager) GetAddressPool(name string, respChan chan ResourceResult){
-	manager.commands <- resourceCommand{Type: cmdGetAddressPool, Address:name, ResultChan:respChan}
-}
-func (manager *ResourceManager) CreateAddressPool(config AddressPoolConfig, respChan chan error){
-	manager.commands <- resourceCommand{Type:cmdCreateAddressPool, AddressPool:config, ErrorChan:respChan}
-}
-func (manager *ResourceManager) ModifyAddressPool(config AddressPoolConfig, respChan chan ResourceResult){
-	manager.commands <- resourceCommand{Type:cmdModifyAddressPool, AddressPool: config, ResultChan:respChan}
-}
-func (manager *ResourceManager) DeleteAddressPool(name string, respChan chan error){
-	manager.commands <- resourceCommand{Type:cmdDeleteAddressPool, Address:name, ErrorChan:respChan}
+func (manager *ResourceManager) PurgeInstance(cellName string, respChan chan error) {
+	manager.commands <- resourceCommand{Type: cmdPurgeInstance, Cell: cellName, ErrorChan: respChan}
 }
 
-func (manager *ResourceManager) QueryAddressRange(poolName, rangeType string, respChan chan ResourceResult){
-	manager.commands <- resourceCommand{Type:cmdQueryAddressRange, Address:poolName, Range:rangeType, ResultChan:respChan}
+func (manager *ResourceManager) QueryAddressPool(respChan chan ResourceResult) {
+	manager.commands <- resourceCommand{Type: cmdQueryAddressPool, ResultChan: respChan}
 }
-func (manager *ResourceManager) GetAddressRange(poolName, rangeType, startAddress string, respChan chan ResourceResult){
-	manager.commands <- resourceCommand{Type:cmdGetAddressRange, Address:poolName, Range:rangeType, Start:startAddress, ResultChan:respChan}
+func (manager *ResourceManager) GetAddressPool(name string, respChan chan ResourceResult) {
+	manager.commands <- resourceCommand{Type: cmdGetAddressPool, Address: name, ResultChan: respChan}
 }
-func (manager *ResourceManager) AddAddressRange(poolName, rangeType string, config AddressRangeConfig, respChan chan error){
-	manager.commands <- resourceCommand{Type:cmdAddAddressRange, Address:poolName, Range:rangeType, AddressRange: config, ErrorChan:respChan}
+func (manager *ResourceManager) CreateAddressPool(config AddressPoolConfig, respChan chan error) {
+	manager.commands <- resourceCommand{Type: cmdCreateAddressPool, AddressPool: config, ErrorChan: respChan}
 }
-func (manager *ResourceManager) RemoveAddressRange(poolName, rangeType, startAddress string, respChan chan error){
-	manager.commands <- resourceCommand{Type:cmdRemoveAddressRange, Address:poolName, Range:rangeType, Start:startAddress, ErrorChan:respChan}
+func (manager *ResourceManager) ModifyAddressPool(config AddressPoolConfig, respChan chan ResourceResult) {
+	manager.commands <- resourceCommand{Type: cmdModifyAddressPool, AddressPool: config, ResultChan: respChan}
+}
+func (manager *ResourceManager) DeleteAddressPool(name string, respChan chan error) {
+	manager.commands <- resourceCommand{Type: cmdDeleteAddressPool, Address: name, ErrorChan: respChan}
 }
 
-func (manager *ResourceManager) BeginResetSystem(instanceID string, respChan chan error){
-	manager.commands <- resourceCommand{Type: cmdBeginResetSystem, InstanceID: instanceID, ErrorChan:respChan}
+func (manager *ResourceManager) QueryAddressRange(poolName, rangeType string, respChan chan ResourceResult) {
+	manager.commands <- resourceCommand{Type: cmdQueryAddressRange, Address: poolName, Range: rangeType, ResultChan: respChan}
+}
+func (manager *ResourceManager) GetAddressRange(poolName, rangeType, startAddress string, respChan chan ResourceResult) {
+	manager.commands <- resourceCommand{Type: cmdGetAddressRange, Address: poolName, Range: rangeType, Start: startAddress, ResultChan: respChan}
+}
+func (manager *ResourceManager) AddAddressRange(poolName, rangeType string, config AddressRangeConfig, respChan chan error) {
+	manager.commands <- resourceCommand{Type: cmdAddAddressRange, Address: poolName, Range: rangeType, AddressRange: config, ErrorChan: respChan}
+}
+func (manager *ResourceManager) RemoveAddressRange(poolName, rangeType, startAddress string, respChan chan error) {
+	manager.commands <- resourceCommand{Type: cmdRemoveAddressRange, Address: poolName, Range: rangeType, Start: startAddress, ErrorChan: respChan}
 }
 
-func (manager *ResourceManager) FinishResetSystem(instanceID string, err error,  respChan chan error){
-	manager.commands <- resourceCommand{Type: cmdFinishResetSystem, InstanceID: instanceID, Error:err, ErrorChan:respChan}
+func (manager *ResourceManager) BeginResetSystem(instanceID string, respChan chan error) {
+	manager.commands <- resourceCommand{Type: cmdBeginResetSystem, InstanceID: instanceID, ErrorChan: respChan}
+}
+
+func (manager *ResourceManager) FinishResetSystem(instanceID string, err error, respChan chan error) {
+	manager.commands <- resourceCommand{Type: cmdFinishResetSystem, InstanceID: instanceID, Error: err, ErrorChan: respChan}
 }
 
 //batch
-func (manager *ResourceManager) StartBatchCreateGuest(request BatchCreateRequest, respChan chan ResourceResult){
-	manager.commands <- resourceCommand{Type: cmdStartBatchCreateGuest, BatchCreating: request, ResultChan:respChan}
+func (manager *ResourceManager) StartBatchCreateGuest(request BatchCreateRequest, respChan chan ResourceResult) {
+	manager.commands <- resourceCommand{Type: cmdStartBatchCreateGuest, BatchCreating: request, ResultChan: respChan}
 }
-func (manager *ResourceManager) SetBatchCreateGuestStart(batchID, guestName, guestID string, respChan chan error){
-	manager.commands <- resourceCommand{Type: cmdSetBatchCreateGuestStart, BatchID: batchID, Name: guestName, InstanceID: guestID, ErrorChan:respChan}
-}
-
-func (manager *ResourceManager) SetBatchCreateGuestFail(batchID, guestName string, err error, respChan chan error){
-	manager.commands <- resourceCommand{Type: cmdSetBatchCreateGuestFail, BatchID: batchID, Name: guestName, Error:err, ErrorChan:respChan}
+func (manager *ResourceManager) SetBatchCreateGuestStart(batchID, guestName, guestID string, respChan chan error) {
+	manager.commands <- resourceCommand{Type: cmdSetBatchCreateGuestStart, BatchID: batchID, Name: guestName, InstanceID: guestID, ErrorChan: respChan}
 }
 
-func (manager *ResourceManager) GetBatchCreateGuestStatus(batchID string, respChan chan ResourceResult){
-	manager.commands <- resourceCommand{Type: cmdGetBatchCreateGuest, BatchID: batchID, ResultChan:respChan}
+func (manager *ResourceManager) SetBatchCreateGuestFail(batchID, guestName string, err error, respChan chan error) {
+	manager.commands <- resourceCommand{Type: cmdSetBatchCreateGuestFail, BatchID: batchID, Name: guestName, Error: err, ErrorChan: respChan}
 }
 
-func (manager *ResourceManager) StartBatchDeleteGuest(id []string, respChan chan ResourceResult){
-	manager.commands <- resourceCommand{Type: cmdStartBatchDeleteGuest, IDList: id, ResultChan:respChan}
+func (manager *ResourceManager) GetBatchCreateGuestStatus(batchID string, respChan chan ResourceResult) {
+	manager.commands <- resourceCommand{Type: cmdGetBatchCreateGuest, BatchID: batchID, ResultChan: respChan}
 }
 
-func (manager *ResourceManager) SetBatchDeleteGuestSuccess(batchID, guestID string, respChan chan error){
-	manager.commands <- resourceCommand{Type: cmdSetBatchDeleteGuestSuccess, BatchID:batchID, InstanceID:guestID, ErrorChan:respChan}
+func (manager *ResourceManager) StartBatchDeleteGuest(id []string, respChan chan ResourceResult) {
+	manager.commands <- resourceCommand{Type: cmdStartBatchDeleteGuest, IDList: id, ResultChan: respChan}
 }
 
-func (manager *ResourceManager) SetBatchDeleteGuestFail(batchID, guestID string, err error, respChan chan error){
-	manager.commands <- resourceCommand{Type: cmdSetBatchDeleteGuestFail, BatchID:batchID, InstanceID: guestID, Error:err, ErrorChan:respChan}
+func (manager *ResourceManager) SetBatchDeleteGuestSuccess(batchID, guestID string, respChan chan error) {
+	manager.commands <- resourceCommand{Type: cmdSetBatchDeleteGuestSuccess, BatchID: batchID, InstanceID: guestID, ErrorChan: respChan}
 }
 
-func (manager *ResourceManager) GetBatchDeleteGuestStatus(batchID string, respChan chan ResourceResult){
-	manager.commands <- resourceCommand{Type: cmdGetBatchDeleteGuest, BatchID:batchID, ResultChan:respChan}
+func (manager *ResourceManager) SetBatchDeleteGuestFail(batchID, guestID string, err error, respChan chan error) {
+	manager.commands <- resourceCommand{Type: cmdSetBatchDeleteGuestFail, BatchID: batchID, InstanceID: guestID, Error: err, ErrorChan: respChan}
 }
 
-func (manager *ResourceManager) StartBatchStopGuest(id []string, respChan chan ResourceResult){
-	manager.commands <- resourceCommand{Type: cmdStartBatchStopGuest, IDList: id, ResultChan:respChan}
+func (manager *ResourceManager) GetBatchDeleteGuestStatus(batchID string, respChan chan ResourceResult) {
+	manager.commands <- resourceCommand{Type: cmdGetBatchDeleteGuest, BatchID: batchID, ResultChan: respChan}
 }
 
-func (manager *ResourceManager) SetBatchStopGuestSuccess(batchID, guestID string, respChan chan error){
-	manager.commands <- resourceCommand{Type: cmdSetBatchStopGuestSuccess, BatchID:batchID, InstanceID:guestID, ErrorChan:respChan}
+func (manager *ResourceManager) StartBatchStopGuest(id []string, respChan chan ResourceResult) {
+	manager.commands <- resourceCommand{Type: cmdStartBatchStopGuest, IDList: id, ResultChan: respChan}
 }
 
-func (manager *ResourceManager) SetBatchStopGuestFail(batchID, guestID string, err error, respChan chan error){
-	manager.commands <- resourceCommand{Type: cmdSetBatchStopGuestFail, BatchID:batchID, InstanceID: guestID, Error:err, ErrorChan:respChan}
+func (manager *ResourceManager) SetBatchStopGuestSuccess(batchID, guestID string, respChan chan error) {
+	manager.commands <- resourceCommand{Type: cmdSetBatchStopGuestSuccess, BatchID: batchID, InstanceID: guestID, ErrorChan: respChan}
 }
 
-func (manager *ResourceManager) GetBatchStopGuestStatus(batchID string, respChan chan ResourceResult){
-	manager.commands <- resourceCommand{Type: cmdGetBatchStopGuest, BatchID:batchID, ResultChan:respChan}
+func (manager *ResourceManager) SetBatchStopGuestFail(batchID, guestID string, err error, respChan chan error) {
+	manager.commands <- resourceCommand{Type: cmdSetBatchStopGuestFail, BatchID: batchID, InstanceID: guestID, Error: err, ErrorChan: respChan}
 }
 
-func (manager *ResourceManager) QuerySystemTemplates(respChan chan ResourceResult){
+func (manager *ResourceManager) GetBatchStopGuestStatus(batchID string, respChan chan ResourceResult) {
+	manager.commands <- resourceCommand{Type: cmdGetBatchStopGuest, BatchID: batchID, ResultChan: respChan}
+}
+
+func (manager *ResourceManager) QuerySystemTemplates(respChan chan ResourceResult) {
 	manager.commands <- resourceCommand{Type: cmdQuerySystemTemplates, ResultChan: respChan}
 }
 
-func (manager *ResourceManager) GetSystemTemplate(id string, respChan chan ResourceResult){
+func (manager *ResourceManager) GetSystemTemplate(id string, respChan chan ResourceResult) {
 	manager.commands <- resourceCommand{Type: cmdGetSystemTemplate, TemplateID: id, ResultChan: respChan}
 }
 
-func (manager *ResourceManager) CreateSystemTemplate(config SystemTemplateConfig, respChan chan ResourceResult){
+func (manager *ResourceManager) CreateSystemTemplate(config SystemTemplateConfig, respChan chan ResourceResult) {
 	manager.commands <- resourceCommand{Type: cmdCreateSystemTemplate, TemplateConfig: config, ResultChan: respChan}
 }
 
-func (manager *ResourceManager) ModifySystemTemplate(id string, config SystemTemplateConfig, respChan chan error){
+func (manager *ResourceManager) ModifySystemTemplate(id string, config SystemTemplateConfig, respChan chan error) {
 	manager.commands <- resourceCommand{Type: cmdModifySystemTemplate, TemplateID: id, TemplateConfig: config, ErrorChan: respChan}
 }
 
-func (manager *ResourceManager) DeleteSystemTemplate(id string, respChan chan error){
+func (manager *ResourceManager) DeleteSystemTemplate(id string, respChan chan error) {
 	manager.commands <- resourceCommand{Type: cmdDeleteSystemTemplate, TemplateID: id, ErrorChan: respChan}
 }
 
 //Security Policy Group
-func (manager *ResourceManager) QuerySecurityPolicyGroups(condition SecurityPolicyGroupQueryCondition, respChan chan ResourceResult){
+func (manager *ResourceManager) QuerySecurityPolicyGroups(condition SecurityPolicyGroupQueryCondition, respChan chan ResourceResult) {
 	manager.commands <- resourceCommand{Type: cmdQuerySecurityPolicyGroups, PolicyGroupQuery: condition, ResultChan: respChan}
 }
-func (manager *ResourceManager) GetSecurityPolicyGroup(groupID string, respChan chan ResourceResult){
+func (manager *ResourceManager) GetSecurityPolicyGroup(groupID string, respChan chan ResourceResult) {
 	manager.commands <- resourceCommand{Type: cmdGetSecurityPolicyGroup, Group: groupID, ResultChan: respChan}
 }
 
-func (manager *ResourceManager) CreateSecurityPolicyGroup(config SecurityPolicyGroup, respChan chan ResourceResult){
+func (manager *ResourceManager) CreateSecurityPolicyGroup(config SecurityPolicyGroup, respChan chan ResourceResult) {
 	manager.commands <- resourceCommand{Type: cmdCreateSecurityPolicyGroup, PolicyGroup: config, ResultChan: respChan}
 }
 
-func (manager *ResourceManager) ModifySecurityPolicyGroup(groupID string, config SecurityPolicyGroup, respChan chan error){
+func (manager *ResourceManager) ModifySecurityPolicyGroup(groupID string, config SecurityPolicyGroup, respChan chan error) {
 	manager.commands <- resourceCommand{Type: cmdModifySecurityPolicyGroup, Group: groupID, PolicyGroup: config, ErrorChan: respChan}
 }
 
-func (manager *ResourceManager) DeleteSecurityPolicyGroup(groupID string, respChan chan error){
+func (manager *ResourceManager) DeleteSecurityPolicyGroup(groupID string, respChan chan error) {
 	manager.commands <- resourceCommand{Type: cmdDeleteSecurityPolicyGroup, Group: groupID, ErrorChan: respChan}
 }
 
-func (manager *ResourceManager) GetSecurityPolicyRules(groupID string, respChan chan ResourceResult){
+func (manager *ResourceManager) GetSecurityPolicyRules(groupID string, respChan chan ResourceResult) {
 	manager.commands <- resourceCommand{Type: cmdGetSecurityPolicyRules, Group: groupID, ResultChan: respChan}
 }
-func (manager *ResourceManager) AddSecurityPolicyRule(groupID string, rule SecurityPolicyRule, respChan chan error){
+func (manager *ResourceManager) AddSecurityPolicyRule(groupID string, rule SecurityPolicyRule, respChan chan error) {
 	manager.commands <- resourceCommand{Type: cmdAddSecurityPolicyRule, Group: groupID, PolicyRule: rule, ErrorChan: respChan}
 }
-func (manager *ResourceManager) ModifySecurityPolicyRule(groupID string, index int, rule SecurityPolicyRule, respChan chan error){
+func (manager *ResourceManager) ModifySecurityPolicyRule(groupID string, index int, rule SecurityPolicyRule, respChan chan error) {
 	manager.commands <- resourceCommand{Type: cmdModifySecurityPolicyRule, Group: groupID, Index: index, PolicyRule: rule, ErrorChan: respChan}
 }
-func (manager *ResourceManager) RemoveSecurityPolicyRule(groupID string, index int, respChan chan error){
+func (manager *ResourceManager) RemoveSecurityPolicyRule(groupID string, index int, respChan chan error) {
 	manager.commands <- resourceCommand{Type: cmdRemoveSecurityPolicyRule, Group: groupID, Index: index, ErrorChan: respChan}
 }
-func (manager *ResourceManager) MoveSecurityPolicyRule(groupID string, index int, up bool, respChan chan error){
+func (manager *ResourceManager) MoveSecurityPolicyRule(groupID string, index int, up bool, respChan chan error) {
 	manager.commands <- resourceCommand{Type: cmdMoveSecurityPolicyRule, Group: groupID, Index: index, Flag: up, ErrorChan: respChan}
 }
 
@@ -889,13 +887,13 @@ func (manager *ResourceManager) mainRoutine(c framework.RoutineController) {
 	var batchUpdateTicker = time.NewTicker(batchUpdateInterval)
 	for !c.IsStopping() {
 		select {
-		case <- c.GetNotifyChannel():
+		case <-c.GetNotifyChannel():
 			c.SetStopping()
 		case report := <-manager.reportChan:
 			manager.onCellStatusUpdate(report)
 		case <-summaryTicker.C:
 			manager.onUpdateSystemStatus()
-		case <- batchUpdateTicker.C:
+		case <-batchUpdateTicker.C:
 			manager.updateBatchStatus()
 		case cmd := <-manager.commands:
 			manager.handleCommand(cmd)
@@ -904,23 +902,23 @@ func (manager *ResourceManager) mainRoutine(c framework.RoutineController) {
 	c.NotifyExit()
 }
 
-func (manager *ResourceManager) updateBatchStatus(){
+func (manager *ResourceManager) updateBatchStatus() {
 	const (
 		TaskExpire = time.Second * 30
 	)
 	var expireTime = time.Now().Add(-TaskExpire)
-	if 0 != len(manager.batchCreateTasks){
+	if 0 != len(manager.batchCreateTasks) {
 		//create batch
 		var expired []string
-		for taskID, task := range manager.batchCreateTasks{
+		for taskID, task := range manager.batchCreateTasks {
 			if task.Finished {
-				if task.LatestUpdate.Before(expireTime){
+				if task.LatestUpdate.Before(expireTime) {
 					//expired
 					expired = append(expired, taskID)
 				}
-			}else{
+			} else {
 				//unfinished
-				if task.LatestUpdate.Before(expireTime){
+				if task.LatestUpdate.Before(expireTime) {
 					//expired
 					task.Finished = true
 					manager.batchCreateTasks[taskID] = task
@@ -930,28 +928,28 @@ func (manager *ResourceManager) updateBatchStatus(){
 				//check all guest
 				var unfinishedGuestCount = 0
 				var taskUpdated = false
-				for guestIndex, guest := range task.Guests{
-					if guest.Status == BatchTaskStatusProcess{
-						if createError, exists := manager.pendingError[guest.ID]; exists{
+				for guestIndex, guest := range task.Guests {
+					if guest.Status == BatchTaskStatusProcess {
+						if createError, exists := manager.pendingError[guest.ID]; exists {
 							//create fail
 							guest.Status = BatchTaskStatusFail
 							guest.Error = createError.Error()
 							log.Printf("<resource_manager> batch create guest '%s' fail: %s", guest.Name, createError.Error())
-						}else if 0 == len(guest.ID){
+						} else if 0 == len(guest.ID) {
 							//not id allocated
 							unfinishedGuestCount++
 							continue
-						}else{
+						} else {
 							ins, exists := manager.instances[guest.ID]
-							if !exists{
+							if !exists {
 								unfinishedGuestCount++
 								log.Printf("<resource_manager> warning: invalid guest '%s' in batch '%s'", guest.ID, taskID)
 								continue
 							}
-							if ins.Created{
+							if ins.Created {
 								guest.Status = BatchTaskStatusSuccess
 								log.Printf("<resource_manager> update guest '%s' as created in batch '%s'", guest.Name, taskID)
-							}else{
+							} else {
 								guest.Progress = ins.Progress
 								unfinishedGuestCount++
 							}
@@ -960,11 +958,11 @@ func (manager *ResourceManager) updateBatchStatus(){
 						taskUpdated = true
 					}
 				}
-				if taskUpdated{
+				if taskUpdated {
 					task.LatestUpdate = time.Now()
 					manager.batchCreateTasks[taskID] = task
 				}
-				if 0 == unfinishedGuestCount{
+				if 0 == unfinishedGuestCount {
 					//all guest processed
 					task.Finished = true
 					manager.batchCreateTasks[taskID] = task
@@ -972,25 +970,25 @@ func (manager *ResourceManager) updateBatchStatus(){
 				}
 			}
 		}
-		if 0 != len(expired){
-			for _, taskID := range expired{
+		if 0 != len(expired) {
+			for _, taskID := range expired {
 				delete(manager.batchCreateTasks, taskID)
 				log.Printf("<resource_manager> release expired batch create task '%s'", taskID)
 			}
 		}
 	}
-	if 0 != len(manager.batchDeleteTasks){
+	if 0 != len(manager.batchDeleteTasks) {
 		//delete batch
 		var expired []string
-		for taskID, task := range manager.batchDeleteTasks{
+		for taskID, task := range manager.batchDeleteTasks {
 			if task.Finished {
-				if task.LatestUpdate.Before(expireTime){
+				if task.LatestUpdate.Before(expireTime) {
 					//expired
 					expired = append(expired, taskID)
 				}
-			}else{
+			} else {
 				//unfinished
-				if task.LatestUpdate.Before(expireTime){
+				if task.LatestUpdate.Before(expireTime) {
 					//expired
 					task.Finished = true
 					manager.batchDeleteTasks[taskID] = task
@@ -999,19 +997,19 @@ func (manager *ResourceManager) updateBatchStatus(){
 				}
 				//check all guest
 				var unfinishedGuestCount = 0
-				for guestIndex, guest := range task.Guests{
-					if guest.Status == BatchTaskStatusProcess{
-						if _, exists := manager.instances[guest.ID];!exists{
+				for guestIndex, guest := range task.Guests {
+					if guest.Status == BatchTaskStatusProcess {
+						if _, exists := manager.instances[guest.ID]; !exists {
 							//already deleted
 							guest.Status = BatchTaskStatusSuccess
 							task.Guests[guestIndex] = guest
 							log.Printf("<resource_manager> update guest '%s' as deleted in batch '%s'", guest.Name, taskID)
-						}else{
+						} else {
 							unfinishedGuestCount++
 						}
 					}
 				}
-				if 0 == unfinishedGuestCount{
+				if 0 == unfinishedGuestCount {
 					//all guest processed
 					task.Finished = true
 					manager.batchDeleteTasks[taskID] = task
@@ -1019,26 +1017,26 @@ func (manager *ResourceManager) updateBatchStatus(){
 				}
 			}
 		}
-		if 0 != len(expired){
-			for _, taskID := range expired{
+		if 0 != len(expired) {
+			for _, taskID := range expired {
 				delete(manager.batchDeleteTasks, taskID)
 				log.Printf("<resource_manager> release expired batch delete task '%s'", taskID)
 			}
 		}
 	}
 
-	if 0 != len(manager.batchStopTasks){
+	if 0 != len(manager.batchStopTasks) {
 		//stop batch
 		var expired []string
-		for taskID, task := range manager.batchStopTasks{
+		for taskID, task := range manager.batchStopTasks {
 			if task.Finished {
-				if task.LatestUpdate.Before(expireTime){
+				if task.LatestUpdate.Before(expireTime) {
 					//expired
 					expired = append(expired, taskID)
 				}
-			}else{
+			} else {
 				//unfinished
-				if task.LatestUpdate.Before(expireTime){
+				if task.LatestUpdate.Before(expireTime) {
 					//expired
 					task.Finished = true
 					manager.batchStopTasks[taskID] = task
@@ -1047,19 +1045,19 @@ func (manager *ResourceManager) updateBatchStatus(){
 				}
 				//check all guest
 				var unfinishedGuestCount = 0
-				for guestIndex, guest := range task.Guests{
-					if guest.Status == BatchTaskStatusProcess{
-						if _, exists := manager.instances[guest.ID];!exists{
+				for guestIndex, guest := range task.Guests {
+					if guest.Status == BatchTaskStatusProcess {
+						if _, exists := manager.instances[guest.ID]; !exists {
 							//already stopd
 							guest.Status = BatchTaskStatusSuccess
 							task.Guests[guestIndex] = guest
 							log.Printf("<resource_manager> update guest '%s' as stopped in batch '%s'", guest.Name, taskID)
-						}else{
+						} else {
 							unfinishedGuestCount++
 						}
 					}
 				}
-				if 0 == unfinishedGuestCount{
+				if 0 == unfinishedGuestCount {
 					//all guest processed
 					task.Finished = true
 					manager.batchStopTasks[taskID] = task
@@ -1067,8 +1065,8 @@ func (manager *ResourceManager) updateBatchStatus(){
 				}
 			}
 		}
-		if 0 != len(expired){
-			for _, taskID := range expired{
+		if 0 != len(expired) {
+			for _, taskID := range expired {
 				delete(manager.batchStopTasks, taskID)
 				log.Printf("<resource_manager> release expired batch stop task '%s'", taskID)
 			}
@@ -1099,7 +1097,7 @@ func (manager *ResourceManager) handleCommand(cmd resourceCommand) {
 		err = manager.handleModifyStoragePool(cmd.Storage, cmd.StorageType, cmd.Host, cmd.Target, cmd.ErrorChan)
 	case cmdDeleteStoragePool:
 		err = manager.handleDeleteStoragePool(cmd.Storage, cmd.ErrorChan)
-		
+
 	case cmdQueryComputeCells:
 		err = manager.handleQueryCellsInPool(cmd.Pool, cmd.ResultChan)
 	case cmdAddComputeCell:
@@ -1319,8 +1317,8 @@ func (manager *ResourceManager) onUpdateSystemStatus() {
 				continue
 			}
 			pool.ResourceUsage.Accumulate(cell.ResourceUsage)
-			if !cell.isInstanceConsistent(){
-				if err = manager.syncInstanceStatistic(cell.Name); err != nil{
+			if !cell.isInstanceConsistent() {
+				if err = manager.syncInstanceStatistic(cell.Name); err != nil {
 					log.Printf("<resource_manager> warning: sync instance statistic on cell '%s' fail: %s", cell.Name, err.Error())
 					continue
 				}
@@ -1356,7 +1354,7 @@ func (manager *ResourceManager) onUpdateSystemStatus() {
 func (manager *ResourceManager) handleQueryAllPools(resp chan ResourceResult) error {
 	var result []ComputePoolInfo
 	var names []string
-	for name, _ := range manager.pools{
+	for name, _ := range manager.pools {
 		names = append(names, name)
 	}
 	sort.Stable(sort.StringSlice(names))
@@ -1365,15 +1363,15 @@ func (manager *ResourceManager) handleQueryAllPools(resp chan ResourceResult) er
 		var info = ComputePoolInfo{poolName, pool.Enabled, pool.Network, pool.Storage, pool.Failover, uint64(len(pool.Cells))}
 		result = append(result, info)
 	}
-	resp <- ResourceResult{ComputePoolInfoList:result}
+	resp <- ResourceResult{ComputePoolInfoList: result}
 	return nil
 }
 
-func (manager *ResourceManager) handleGetComputePool(poolName string, resp chan ResourceResult) error{
+func (manager *ResourceManager) handleGetComputePool(poolName string, resp chan ResourceResult) error {
 	pool, exists := manager.pools[poolName]
-	if !exists{
+	if !exists {
 		err := fmt.Errorf("invalid pool '%s'", poolName)
-		resp <- ResourceResult{Error:err}
+		resp <- ResourceResult{Error: err}
 		return err
 	}
 	resp <- ResourceResult{ComputePoolConfig: pool.ComputePoolInfo}
@@ -1391,24 +1389,24 @@ func (manager *ResourceManager) handleCreatePool(name, storage, addressPool stri
 	newPool.Name = name
 	newPool.Cells = map[string]bool{}
 	newPool.InstanceNames = map[string]string{}
-	if "" != storage{
-		if _, exists := manager.storagePools[storage]; !exists{
+	if "" != storage {
+		if _, exists := manager.storagePools[storage]; !exists {
 			err = fmt.Errorf("invalid storage pool '%s'", storage)
 			resp <- err
 			return err
 		}
 		newPool.Storage = storage
 		log.Printf("<resource_manager> new compute pool '%s' using storage '%s' created", name, storage)
-	}else{
-		if failover{
+	} else {
+		if failover {
 			err = errors.New("using shared storage to enable Failover feature")
 			resp <- err
 			return err
 		}
 		log.Printf("<resource_manager> new compute pool '%s' using local storage created", name)
 	}
-	if "" != addressPool{
-		if _, exists := manager.addressPools[addressPool]; !exists{
+	if "" != addressPool {
+		if _, exists := manager.addressPools[addressPool]; !exists {
 			err = fmt.Errorf("invalid address pool '%s'", addressPool)
 			resp <- err
 			return err
@@ -1429,74 +1427,74 @@ func (manager *ResourceManager) handleModifyPool(poolName, storage, addressPool 
 		resp <- err
 		return err
 	}
-	if (pool.Storage == storage) && (pool.Failover == failover) && (pool.Network == addressPool){
+	if (pool.Storage == storage) && (pool.Failover == failover) && (pool.Network == addressPool) {
 		err = errors.New("no need to change")
 		resp <- err
 		return err
 	}
 	var sharedStorage = "" != storage
-	if pool.Failover != failover{
+	if pool.Failover != failover {
 		//change failover
-		if failover{
+		if failover {
 			//enable
-			if !sharedStorage{
+			if !sharedStorage {
 				err = errors.New("using shared storage to enable Failover feature")
 				resp <- err
 				return err
 			}
 			log.Printf("<resource_manager> failover enabled on pool '%s'", poolName)
-		}else{
+		} else {
 			log.Printf("<resource_manager> failover disabled on pool '%s'", poolName)
 		}
 		pool.Failover = failover
 	}
 
-	if pool.Storage != storage{
+	if pool.Storage != storage {
 		if 0 != len(pool.Cells) {
 			err = errors.New("must remove all cells before change storage")
 			resp <- err
 			return err
 		}
-		if sharedStorage{
-			if _, exists = manager.storagePools[storage]; !exists{
+		if sharedStorage {
+			if _, exists = manager.storagePools[storage]; !exists {
 				err = fmt.Errorf("invalid storage pool '%s'", storage)
 				resp <- err
 				return err
 			}
 			log.Printf("<resource_manager> compute pool '%s' change to storage pool '%s'", poolName, storage)
-		}else if pool.Failover{
+		} else if pool.Failover {
 			err = errors.New("can not using local storage when failover enabled")
 			resp <- err
 			return err
-		}else{
+		} else {
 			log.Printf("<resource_manager> compute pool '%s' change to local storage", poolName)
 		}
 		pool.Storage = storage
 	}
-	if addressPool != pool.Network{
-		if "" != pool.Network{
+	if addressPool != pool.Network {
+		if "" != pool.Network {
 			//check previous addresses
-			if current, exists := manager.addressPools[pool.Network]; !exists{
+			if current, exists := manager.addressPools[pool.Network]; !exists {
 				err = fmt.Errorf("invalid current address pool '%s'", pool.Network)
 				resp <- err
 				return err
-			}else{
+			} else {
 				var allocated = 0
-				for _, addressRange := range current.ranges{
-					for allocatedAddress, instanceID := range addressRange.allocated{
+				for _, addressRange := range current.ranges {
+					for allocatedAddress, instanceID := range addressRange.allocated {
 						ins, exists := manager.instances[instanceID]
-						if !exists{
+						if !exists {
 							err = fmt.Errorf("can't find instance '%s' allocated with address '%s' in current pool '%s'",
 								instanceID, allocatedAddress, pool.Network)
 							resp <- err
 							return err
 						}
-						if ins.Pool == poolName{
+						if ins.Pool == poolName {
 							allocated++
 						}
 					}
 				}
-				if 0 != allocated{
+				if 0 != allocated {
 					err = fmt.Errorf("%d instance address(es) allocated in current pool '%s', remove or detach all address before change address pool",
 						allocated, current.name)
 					resp <- err
@@ -1504,14 +1502,14 @@ func (manager *ResourceManager) handleModifyPool(poolName, storage, addressPool 
 				}
 			}
 		}
-		if "" != addressPool{
-			if _, exists := manager.addressPools[addressPool]; !exists{
+		if "" != addressPool {
+			if _, exists := manager.addressPools[addressPool]; !exists {
 				err = fmt.Errorf("invalid address pool '%s'", addressPool)
 				resp <- err
 				return err
 			}
 			log.Printf("<resource_manager> address pool of '%s' changed to '%s'", poolName, addressPool)
-		}else{
+		} else {
 			log.Printf("<resource_manager> address pool '%s' detached from '%s'", pool.Network, poolName)
 		}
 
@@ -1543,8 +1541,8 @@ func (manager *ResourceManager) handleDeletePool(name string, resp chan error) e
 }
 
 //storage pools
-func (manager *ResourceManager) handleCreateStoragePool(name, storageType, host, target string, respChan chan error) (err error){
-	if _, exists := manager.storagePools[name]; exists{
+func (manager *ResourceManager) handleCreateStoragePool(name, storageType, host, target string, respChan chan error) (err error) {
+	if _, exists := manager.storagePools[name]; exists {
 		err = fmt.Errorf("storage pool '%s' already exists", name)
 		respChan <- err
 		return err
@@ -1565,16 +1563,16 @@ func (manager *ResourceManager) handleCreateStoragePool(name, storageType, host,
 	return manager.saveConfig()
 }
 
-func (manager *ResourceManager) handleModifyStoragePool(name, storageType, host, target string, respChan chan error) (err error){
+func (manager *ResourceManager) handleModifyStoragePool(name, storageType, host, target string, respChan chan error) (err error) {
 	currentStorage, exists := manager.storagePools[name]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid storage pool '%s'", name)
 		respChan <- err
 		return err
 	}
 	//check attached compute pool
-	for poolName, pool := range manager.pools{
-		if pool.Storage == name{
+	for poolName, pool := range manager.pools {
+		if pool.Storage == name {
 			err = fmt.Errorf("compute pool '%s' still attached to storage '%s'", poolName, name)
 			respChan <- err
 			return err
@@ -1589,20 +1587,20 @@ func (manager *ResourceManager) handleModifyStoragePool(name, storageType, host,
 		respChan <- err
 		return err
 	}
-	var isEqual = func(source, target StoragePoolInfo) bool{
-		if source.Type != target.Type{
+	var isEqual = func(source, target StoragePoolInfo) bool {
+		if source.Type != target.Type {
 			return false
 		}
-		if source.Host != target.Host{
+		if source.Host != target.Host {
 			return false
 		}
-		if source.Target != target.Target{
+		if source.Target != target.Target {
 			return false
 		}
 		return true
 	}
 	var newStorage = StoragePoolInfo{name, storageType, host, target}
-	if isEqual(currentStorage, newStorage){
+	if isEqual(currentStorage, newStorage) {
 		err = errors.New("no need to change")
 		respChan <- err
 		return err
@@ -1614,15 +1612,15 @@ func (manager *ResourceManager) handleModifyStoragePool(name, storageType, host,
 	return manager.saveConfig()
 }
 
-func (manager *ResourceManager) handleDeleteStoragePool(name string, respChan chan error) (err error){
-	if _, exists := manager.storagePools[name]; !exists{
+func (manager *ResourceManager) handleDeleteStoragePool(name string, respChan chan error) (err error) {
+	if _, exists := manager.storagePools[name]; !exists {
 		err = fmt.Errorf("invalid storage pool '%s'", name)
 		respChan <- err
 		return err
 	}
 	//check attached compute pool
-	for poolName, pool := range manager.pools{
-		if pool.Storage == name{
+	for poolName, pool := range manager.pools {
+		if pool.Storage == name {
 			err = fmt.Errorf("compute pool '%s' still attached to storage '%s'", poolName, name)
 			respChan <- err
 			return err
@@ -1634,32 +1632,32 @@ func (manager *ResourceManager) handleDeleteStoragePool(name string, respChan ch
 	return manager.saveConfig()
 }
 
-func (manager *ResourceManager) handleGetStoragePool(name string, respChan chan ResourceResult) (err error){
+func (manager *ResourceManager) handleGetStoragePool(name string, respChan chan ResourceResult) (err error) {
 	pool, exists := manager.storagePools[name]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid storage pool '%s'", name)
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
 	respChan <- ResourceResult{StoragePool: pool}
 	return nil
 }
 
-func (manager *ResourceManager) handleQueryStoragePool(respChan chan ResourceResult) (err error){
+func (manager *ResourceManager) handleQueryStoragePool(respChan chan ResourceResult) (err error) {
 	var result []StoragePoolInfo
 	var keys = make([]string, len(manager.storagePools))
 	var keyIndex = 0
-	for name, _ := range manager.storagePools{
+	for name, _ := range manager.storagePools {
 		keys[keyIndex] = name
 		keyIndex++
 	}
 
 	sort.Stable(sort.StringSlice(keys))
-	for _, poolName := range keys{
+	for _, poolName := range keys {
 		storage, exists := manager.storagePools[poolName]
-		if !exists{
+		if !exists {
 			err = fmt.Errorf("invalid storage pool '%s'", poolName)
-			respChan <- ResourceResult{Error:err}
+			respChan <- ResourceResult{Error: err}
 			return err
 		}
 		result = append(result, storage)
@@ -1668,31 +1666,31 @@ func (manager *ResourceManager) handleQueryStoragePool(respChan chan ResourceRes
 	return nil
 }
 
-func (manager *ResourceManager) handleQueryCellsInPool(poolName string, resp chan ResourceResult) error{
+func (manager *ResourceManager) handleQueryCellsInPool(poolName string, resp chan ResourceResult) error {
 	pool, exists := manager.pools[poolName]
 	if !exists {
 		err := fmt.Errorf("invalid compute pool '%s'", poolName)
-		resp <- ResourceResult{Error:err}
+		resp <- ResourceResult{Error: err}
 		return err
 	}
 	var names []string
-	for name, _ := range pool.Cells{
+	for name, _ := range pool.Cells {
 		names = append(names, name)
 	}
 	sort.Stable(sort.StringSlice(names))
 
 	var cells []ComputeCellInfo
-	for _, cellName:= range names{
-		if cell, exists := manager.cells[cellName];!exists{
+	for _, cellName := range names {
+		if cell, exists := manager.cells[cellName]; !exists {
 			err := fmt.Errorf("invalid compute cell '%s'", cellName)
-			resp <- ResourceResult{Error:err}
+			resp <- ResourceResult{Error: err}
 			return err
-		}else {
+		} else {
 			var info = ComputeCellInfo{cell.Name, cell.Address, cell.Enabled, cell.Alive, cell.PurgeAppending}
 			cells = append(cells, info)
 		}
 	}
-	resp <- ResourceResult{ComputeCellInfoList:cells}
+	resp <- ResourceResult{ComputeCellInfoList: cells}
 	return nil
 }
 
@@ -1750,8 +1748,8 @@ func (manager *ResourceManager) handleRemoveCell(poolName, cellName string, resp
 		return err
 	}
 	var left = len(cell.Instances) + len(cell.Pending)
-	if 0 != left{
-		err := fmt.Errorf("%d instance(s) left in cell '%s', migrate or delete all instance(s) before remove cell", left, cellName,)
+	if 0 != left {
+		err := fmt.Errorf("%d instance(s) left in cell '%s', migrate or delete all instance(s) before remove cell", left, cellName)
 		resp <- err
 		return err
 	}
@@ -1769,7 +1767,7 @@ func (manager *ResourceManager) handleRemoveCell(poolName, cellName string, resp
 	return manager.saveConfig()
 }
 
-func (manager *ResourceManager) handleEnableCell(poolName, cellName string, respChan chan error) (err error){
+func (manager *ResourceManager) handleEnableCell(poolName, cellName string, respChan chan error) (err error) {
 	_, exists := manager.pools[poolName]
 	if !exists {
 		err = fmt.Errorf("invalid compute pool '%s'", poolName)
@@ -1787,14 +1785,14 @@ func (manager *ResourceManager) handleEnableCell(poolName, cellName string, resp
 		respChan <- err
 		return err
 	}
-	if cell.Enabled{
+	if cell.Enabled {
 		err = fmt.Errorf("cell '%s' already enabled", cellName)
 		respChan <- err
 		return err
 	}
-	if cell.PurgeAppending{
+	if cell.PurgeAppending {
 		log.Printf("<resource_manager> warning: appending purge canceled when cell '%s' in pool '%s' enabled", cellName, poolName)
-	}else{
+	} else {
 		log.Printf("<resource_manager> cell '%s' in pool '%s' enabled", cellName, poolName)
 	}
 	cell.PurgeAppending = false
@@ -1804,7 +1802,7 @@ func (manager *ResourceManager) handleEnableCell(poolName, cellName string, resp
 	return manager.saveConfig()
 }
 
-func (manager *ResourceManager) handleDisableCell(poolName, cellName string, purge bool, respChan chan error) (err error){
+func (manager *ResourceManager) handleDisableCell(poolName, cellName string, purge bool, respChan chan error) (err error) {
 	_, exists := manager.pools[poolName]
 	if !exists {
 		err = fmt.Errorf("invalid compute pool '%s'", poolName)
@@ -1822,14 +1820,14 @@ func (manager *ResourceManager) handleDisableCell(poolName, cellName string, pur
 		respChan <- err
 		return err
 	}
-	if !cell.Enabled{
+	if !cell.Enabled {
 		err = fmt.Errorf("cell '%s' already disabled", cellName)
 		respChan <- err
 		return err
 	}
-	if purge{
+	if purge {
 		log.Printf("<resource_manager> cell '%s' in pool '%s' disabled with purge appending", cellName, poolName)
-	}else{
+	} else {
 		log.Printf("<resource_manager> cell '%s' in pool '%s' disabled", cellName, poolName)
 	}
 	cell.PurgeAppending = purge
@@ -1839,14 +1837,14 @@ func (manager *ResourceManager) handleDisableCell(poolName, cellName string, pur
 	return manager.saveConfig()
 }
 
-func (manager *ResourceManager) handleFinishPurgeCell(cellName string, respChan chan error) (err error){
+func (manager *ResourceManager) handleFinishPurgeCell(cellName string, respChan chan error) (err error) {
 	cell, exists := manager.cells[cellName]
 	if !exists {
 		err = fmt.Errorf("invalid compute cell '%s'", cellName)
 		respChan <- err
 		return err
 	}
-	if !cell.PurgeAppending{
+	if !cell.PurgeAppending {
 		err = fmt.Errorf("cell '%s' doesn't have purge appending", cellName)
 		respChan <- err
 		return err
@@ -1861,21 +1859,21 @@ func (manager *ResourceManager) handleFinishPurgeCell(cellName string, respChan 
 func (manager *ResourceManager) handleGetUnallocatedCells(resp chan ResourceResult) error {
 	var cells []ComputeCellInfo
 	for name, _ := range manager.unallocatedCells {
-		if cell, exists := manager.cells[name];!exists{
+		if cell, exists := manager.cells[name]; !exists {
 			err := fmt.Errorf("invalid cell '%s'", name)
-			resp <- ResourceResult{Error:err}
+			resp <- ResourceResult{Error: err}
 			return err
-		}else{
+		} else {
 			var info = ComputeCellInfo{cell.Name, cell.Address, cell.Enabled, cell.Alive, cell.PurgeAppending}
 			cells = append(cells, info)
 		}
 	}
-	resp <- ResourceResult{ComputeCellInfoList:cells}
+	resp <- ResourceResult{ComputeCellInfoList: cells}
 	return nil
 }
 
 func (manager *ResourceManager) handleQueryZoneStatus(resp chan ResourceResult) error {
-	var s = ZoneStatus{Name:manager.zone.Name,
+	var s = ZoneStatus{Name: manager.zone.Name,
 		PoolStatistic: manager.zone.PoolStatistic, CellStatistic: manager.zone.CellStatistic,
 		InstanceStatistic: manager.zone.InstanceStatistic, ResourceUsage: manager.zone.ResourceUsage,
 		StartTime: manager.startTime}
@@ -1887,15 +1885,15 @@ func (manager *ResourceManager) handleQueryZoneStatus(resp chan ResourceResult) 
 func (manager *ResourceManager) handleQueryComputePoolStatus(resp chan ResourceResult) error {
 	var pools []ComputePoolStatus
 	var names []string
-	for name, _ := range manager.pools{
+	for name, _ := range manager.pools {
 		names = append(names, name)
 	}
 	sort.Stable(sort.StringSlice(names))
 	for _, poolName := range names {
 		pool, _ := manager.pools[poolName]
 		var s = ComputePoolStatus{
-			Name:pool.Name, Enabled:pool.Enabled,
-			CellStatistic:pool.CellStatistic, InstanceStatistic: pool.InstanceStatistic, ResourceUsage: pool.ResourceUsage}
+			Name: pool.Name, Enabled: pool.Enabled,
+			CellStatistic: pool.CellStatistic, InstanceStatistic: pool.InstanceStatistic, ResourceUsage: pool.ResourceUsage}
 		pools = append(pools, s)
 	}
 	resp <- ResourceResult{ComputePoolList: pools}
@@ -1910,36 +1908,35 @@ func (manager *ResourceManager) handleGetComputePoolStatus(name string, resp cha
 		return err
 	}
 	var s = ComputePoolStatus{
-		Name:pool.Name, Enabled:pool.Enabled,
-		CellStatistic:pool.CellStatistic, InstanceStatistic: pool.InstanceStatistic, ResourceUsage: pool.ResourceUsage}
+		Name: pool.Name, Enabled: pool.Enabled,
+		CellStatistic: pool.CellStatistic, InstanceStatistic: pool.InstanceStatistic, ResourceUsage: pool.ResourceUsage}
 
 	resp <- ResourceResult{ComputePool: s}
 	return nil
 }
 
-
 func (manager *ResourceManager) handleQueryComputeCellStatus(poolName string, resp chan ResourceResult) error {
 	pool, exists := manager.pools[poolName]
-	if !exists{
+	if !exists {
 		err := fmt.Errorf("invalid pool '%s'", poolName)
-		resp <- ResourceResult{Error:err}
+		resp <- ResourceResult{Error: err}
 		return err
 	}
 	var result []ComputeCellStatus
 	var names []string
-	for name, _ := range pool.Cells{
+	for name, _ := range pool.Cells {
 		names = append(names, name)
 	}
 	sort.Stable(sort.StringSlice(names))
 
-	for _, cellName:= range names{
+	for _, cellName := range names {
 		cell, exists := manager.cells[cellName]
 		if !exists {
 			err := fmt.Errorf("invalid cell '%s' in pool %s", cellName, poolName)
 			resp <- ResourceResult{Error: err}
 			return err
 		}
-		var s = ComputeCellStatus{ComputeCellInfo:cell.ComputeCellInfo,
+		var s = ComputeCellStatus{ComputeCellInfo: cell.ComputeCellInfo,
 			InstanceStatistic: cell.InstanceStatistic, ResourceUsage: cell.ResourceUsage}
 		result = append(result, s)
 	}
@@ -1947,26 +1944,26 @@ func (manager *ResourceManager) handleQueryComputeCellStatus(poolName string, re
 	return nil
 }
 
-func (manager *ResourceManager) handleGetComputeCellStatus(poolName, cellName string, resp chan ResourceResult) error{
+func (manager *ResourceManager) handleGetComputeCellStatus(poolName, cellName string, resp chan ResourceResult) error {
 	cell, exists := manager.cells[cellName]
 	if !exists {
 		err := fmt.Errorf("invalid cell '%s'", cellName)
-		resp <- ResourceResult{Error:err}
+		resp <- ResourceResult{Error: err}
 		return err
 	}
-	if cell.Pool != poolName{
+	if cell.Pool != poolName {
 		err := fmt.Errorf("cell '%s' not in pool '%s'", cellName, poolName)
-		resp <- ResourceResult{Error:err}
+		resp <- ResourceResult{Error: err}
 		return err
 	}
-	var s = ComputeCellStatus{ComputeCellInfo:cell.ComputeCellInfo, InstanceStatistic: cell.InstanceStatistic, ResourceUsage: cell.ResourceUsage}
+	var s = ComputeCellStatus{ComputeCellInfo: cell.ComputeCellInfo, InstanceStatistic: cell.InstanceStatistic, ResourceUsage: cell.ResourceUsage}
 	resp <- ResourceResult{ComputeCell: s}
 	return nil
 }
 
-func (manager *ResourceManager) handleUpdateCellInfo(cellName, cellAddress string, respChan chan error) (err error){
+func (manager *ResourceManager) handleUpdateCellInfo(cellName, cellAddress string, respChan chan error) (err error) {
 	cell, exists := manager.cells[cellName]
-	if !exists{
+	if !exists {
 		var cellStatus = ManagedComputeCell{}
 		cellStatus.LatestUpdate = time.Now()
 		cellStatus.Name = cellName
@@ -1978,10 +1975,10 @@ func (manager *ResourceManager) handleUpdateCellInfo(cellName, cellAddress strin
 		manager.unallocatedCells[cellName] = true
 		manager.cells[cellName] = cellStatus
 		log.Printf("<resource_manager> new unallocated cell '%s' (address %s) available", cellName, cellAddress)
-	}else{
+	} else {
 		cell.Alive = true
 		cell.LatestUpdate = time.Now()
-		if cell.Address != cellAddress{
+		if cell.Address != cellAddress {
 			log.Printf("<resource_manager> cell '%s' address changed to %s", cellName, cellAddress)
 			cell.Address = cellAddress
 		}
@@ -2004,7 +2001,7 @@ func (manager *ResourceManager) handleGetCellStatus(cellName string, respChan ch
 	return nil
 }
 
-func (manager *ResourceManager) handleSetCellStopped(cellName string, respChan chan error) (err error){
+func (manager *ResourceManager) handleSetCellStopped(cellName string, respChan chan error) (err error) {
 	cell, exists := manager.cells[cellName]
 	if !exists {
 		err = fmt.Errorf("invalid cell '%s'", cellName)
@@ -2013,20 +2010,20 @@ func (manager *ResourceManager) handleSetCellStopped(cellName string, respChan c
 	}
 	cell.Alive = false
 	log.Printf("<resource_manager> remote cell '%s' stopped", cellName)
-	if "" != cell.Pool{
+	if "" != cell.Pool {
 		//update resource statistic
 		cell.LostInstances = 0
-		for instanceID, _ := range cell.Instances{
-			if ins, exists := manager.instances[instanceID];exists{
-				if ins.Running{
+		for instanceID, _ := range cell.Instances {
+			if ins, exists := manager.instances[instanceID]; exists {
+				if ins.Running {
 					cell.RunningInstances--
-				}else{
+				} else {
 					cell.StoppedInstances--
 				}
 				cell.LostInstances++
 				ins.Lost = true
 				manager.instances[instanceID] = ins
-			}else{
+			} else {
 				err = fmt.Errorf("invalid instance '%s' in cell '%s'", instanceID, cellName)
 				respChan <- err
 				return err
@@ -2045,7 +2042,7 @@ func (manager *ResourceManager) handleQueryGuestsByCondition(condition GuestQuer
 		if condition.InCell {
 			if cell, exists := manager.cells[condition.Cell]; !exists {
 				err := fmt.Errorf("invalid cell '%s'", condition.Cell)
-				respChan <- ResourceResult{Error:err}
+				respChan <- ResourceResult{Error: err}
 				return err
 			} else {
 				for id, _ := range cell.Instances {
@@ -2054,13 +2051,13 @@ func (manager *ResourceManager) handleQueryGuestsByCondition(condition GuestQuer
 			}
 		} else if pool, exists := manager.pools[condition.Pool]; !exists {
 			err := fmt.Errorf("invalid pool '%s'", condition.Pool)
-			respChan <- ResourceResult{Error:err}
+			respChan <- ResourceResult{Error: err}
 			return err
 		} else {
 			for cellName, _ := range pool.Cells {
 				if cell, exists := manager.cells[cellName]; !exists {
 					err := fmt.Errorf("invalid cell '%s' in pool '%s'", condition.Cell, condition.Pool)
-					respChan <- ResourceResult{Error:err}
+					respChan <- ResourceResult{Error: err}
 					return err
 				} else {
 					for id, _ := range cell.Instances {
@@ -2078,7 +2075,7 @@ func (manager *ResourceManager) handleQueryGuestsByCondition(condition GuestQuer
 		for _, id := range idList {
 			if instance, exists := manager.instances[id]; !exists {
 				err := fmt.Errorf("invalid instance '%s'", id)
-				respChan <- ResourceResult{Error:err}
+				respChan <- ResourceResult{Error: err}
 				return err
 			} else {
 				if !(condition.WithOwner && instance.User == condition.Owner) && !(condition.WithGroup && instance.Group == condition.Group) {
@@ -2091,9 +2088,9 @@ func (manager *ResourceManager) handleQueryGuestsByCondition(condition GuestQuer
 					continue
 				}
 
-				if _, exists := nameToID[instance.Name];exists{
+				if _, exists := nameToID[instance.Name]; exists {
 					err = fmt.Errorf("encounter duplicate instance name '%s'", instance.Name)
-					respChan <- ResourceResult{Error:err}
+					respChan <- ResourceResult{Error: err}
 					return
 				}
 
@@ -2104,17 +2101,17 @@ func (manager *ResourceManager) handleQueryGuestsByCondition(condition GuestQuer
 	}
 	sort.Stable(sort.StringSlice(names))
 	var result []InstanceStatus
-	for _, name := range names{
+	for _, name := range names {
 		id, exists := nameToID[name]
-		if !exists{
+		if !exists {
 			err = fmt.Errorf("no instance mapped with name '%s'", name)
-			respChan <- ResourceResult{Error:err}
+			respChan <- ResourceResult{Error: err}
 			return err
 		}
 		ins, exists := manager.instances[id]
-		if !exists{
+		if !exists {
 			err = fmt.Errorf("invalid instance '%s' with name '%s'", id, name)
-			respChan <- ResourceResult{Error:err}
+			respChan <- ResourceResult{Error: err}
 			return err
 		}
 		result = append(result, ins)
@@ -2125,7 +2122,7 @@ func (manager *ResourceManager) handleQueryGuestsByCondition(condition GuestQuer
 
 func (manager *ResourceManager) handleBatchUpdateInstanceStatus(poolName, cellName string, instances []InstanceStatus, respChan chan error) error {
 	pool, exists := manager.pools[poolName]
-	if !exists{
+	if !exists {
 		err := fmt.Errorf("invalid pool '%s'", poolName)
 		respChan <- err
 		return err
@@ -2144,7 +2141,7 @@ func (manager *ResourceManager) handleBatchUpdateInstanceStatus(poolName, cellNa
 	if 0 != len(cell.Instances) {
 		for id, _ := range cell.Instances {
 			log.Printf("<resource_manager> clear expired instance status, id '%s'", id)
-			if ins, exists := manager.instances[id];exists{
+			if ins, exists := manager.instances[id]; exists {
 				delete(pool.InstanceNames, ins.Name)
 			}
 			delete(manager.instances, id)
@@ -2159,9 +2156,9 @@ func (manager *ResourceManager) handleBatchUpdateInstanceStatus(poolName, cellNa
 		manager.instances[config.ID] = config
 		cell.Instances[config.ID] = true
 		//todo: migrating
-		if config.Running{
+		if config.Running {
 			cell.RunningInstances++
-		}else{
+		} else {
 			cell.StoppedInstances++
 		}
 		pool.InstanceNames[config.Name] = config.ID
@@ -2176,24 +2173,32 @@ func (manager *ResourceManager) handleBatchUpdateInstanceStatus(poolName, cellNa
 
 func (manager *ResourceManager) handleAllocateInstance(poolName string, config InstanceStatus, respChan chan ResourceResult) (err error) {
 	pool, exists := manager.pools[poolName]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid compute pool '%s'", poolName)
 		respChan <- ResourceResult{Error: err}
 		return err
 	}
-	if _, exists = pool.InstanceNames[config.Name];exists{
+	if _, exists = pool.InstanceNames[config.Name]; exists {
 		err = fmt.Errorf("instance '%s' already exists in pool '%s'", config.Name, poolName)
 		respChan <- ResourceResult{Error: err}
 		return err
 	}
 	var newID = uuid.NewV4()
 	config.ID = newID.String()
-	cellName, err := manager.selectCell(poolName, config.InstanceResource, true)
-	if err != nil {
-		log.Printf("<resource_manager> select cell fail: %s", err.Error())
-		respChan <- ResourceResult{Error: err}
-		return err
+
+	// if config.Cell no set
+	var cellName string
+	if config.Cell == "" {
+		cellName, err = manager.selectCell(poolName, config.InstanceResource, true)
+		if err != nil {
+			log.Printf("<resource_manager> select cell fail: %s", err.Error())
+			respChan <- ResourceResult{Error: err}
+			return err
+		}
+	} else {
+		cellName = config.Cell
 	}
+
 	config.Cell = cellName
 	config.Pool = poolName
 	cell, exists := manager.cells[cellName]
@@ -2202,19 +2207,28 @@ func (manager *ResourceManager) handleAllocateInstance(poolName string, config I
 		respChan <- ResourceResult{Error: err}
 		return err
 	}
-	if "" != pool.Network{
-		//select address
-		internal, external, err := manager.allocateNetworkAddress(pool, config.ID)
-		if err != nil{
+	if "" != pool.Network {
+		var internal, external string
+		var err error
+		if "" == config.InternalNetwork.AssignedAddress {
+			//select address
+			internal, external, err = manager.allocateNetworkAddress(pool, config.ID)
+		} else {
+			//assigned address
+			internal, external, err = manager.allocateAssignedNetworkAddress(pool, config.ID, config.InternalNetwork.AssignedAddress)
+		}
+
+		if err != nil {
 			respChan <- ResourceResult{Error: err}
 			return err
 		}
-		if "" != external{
+		if "" != external {
 			config.ExternalNetwork.AssignedAddress = external
 			log.Printf("<resource_manager> address '%s/%s' assigned for instance '%s'", internal, external, config.Name)
-		}else{
+		} else {
 			log.Printf("<resource_manager> internal address '%s' assigned for instance '%s'", internal, config.Name)
 		}
+
 		config.InternalNetwork.AssignedAddress = internal
 	}
 	config.InternalNetwork.MonitorAddress = cell.Address
@@ -2240,16 +2254,16 @@ func (manager *ResourceManager) handleUpdateInstanceStatus(status InstanceStatus
 	}
 	if ins.Running != status.Running {
 		cell, exists := manager.cells[ins.Cell]
-		if !exists{
+		if !exists {
 			err := fmt.Errorf("invalid cell '%s' for instance '%s'", ins.Cell, status.ID)
 			respChan <- err
 			return err
 		}
-		if ins.Running{
+		if ins.Running {
 			//running => stopped
 			cell.StoppedInstances++
 			cell.RunningInstances--
-		}else{
+		} else {
 			//stopped => running
 			cell.StoppedInstances--
 			cell.RunningInstances++
@@ -2261,20 +2275,20 @@ func (manager *ResourceManager) handleUpdateInstanceStatus(status InstanceStatus
 		ins.Progress = status.Progress
 		ins.Created = status.Created
 	}
-	if ins.Cores != status.Cores{
+	if ins.Cores != status.Cores {
 		ins.Cores = status.Cores
 	}
-	if ins.Memory != status.Memory{
+	if ins.Memory != status.Memory {
 		ins.Memory = status.Memory
 	}
-	if len(ins.Disks) == len(status.Disks){
-		for index := 0; index < len(ins.Disks); index++{
-			if ins.Disks[index] != status.Disks[index]{
+	if len(ins.Disks) == len(status.Disks) {
+		for index := 0; index < len(ins.Disks); index++ {
+			if ins.Disks[index] != status.Disks[index] {
 				ins.Disks[index] = status.Disks[index]
 			}
 		}
 	}
-	if ins.MediaAttached != status.MediaAttached{
+	if ins.MediaAttached != status.MediaAttached {
 		ins.MediaAttached = status.MediaAttached
 		ins.MediaSource = status.MediaSource
 	}
@@ -2347,14 +2361,14 @@ func (manager *ResourceManager) handleDeallocateInstance(id string, err error, r
 		delete(cell.Instances, id)
 		log.Printf("<resource_manager> instance '%s' deallocated in cell '%s'", id, cellName)
 	}
-	if ins.Running{
+	if ins.Running {
 		cell.RunningInstances--
-	}else{
+	} else {
 		cell.StoppedInstances--
 	}
 
-	if pool, exists := manager.pools[ins.Pool];exists{
-		if "" != pool.Network{
+	if pool, exists := manager.pools[ins.Pool]; exists {
+		if "" != pool.Network {
 			manager.deallocateNetworkAddress(pool, ins.InternalNetwork.AssignedAddress, ins.ExternalNetwork.AssignedAddress)
 		}
 		delete(pool.InstanceNames, ins.Name)
@@ -2364,7 +2378,7 @@ func (manager *ResourceManager) handleDeallocateInstance(id string, err error, r
 	//update instance statistic
 	manager.cells[cellName] = cell
 	delete(manager.instances, id)
-	if err != nil{
+	if err != nil {
 		manager.pendingError[id] = err
 	}
 	respChan <- nil
@@ -2374,84 +2388,83 @@ func (manager *ResourceManager) handleDeallocateInstance(id string, err error, r
 func (manager *ResourceManager) handleGetInstanceStatus(id string, respChan chan ResourceResult) (err error) {
 	var exists bool
 	var status InstanceStatus
-	if err, exists = manager.pendingError[id]; exists{
+	if err, exists = manager.pendingError[id]; exists {
 		//fetch pending error
 		delete(manager.pendingError, id)
 		respChan <- ResourceResult{Error: err}
 		log.Printf("<resource_manager> pending error of instance '%s' fetched", id)
 		return nil
-	}else if status, exists = manager.instances[id]; exists{
+	} else if status, exists = manager.instances[id]; exists {
 		respChan <- ResourceResult{Instance: status}
 		return nil
-	}else{
+	} else {
 		err = fmt.Errorf("invalid instance '%s'", id)
 		respChan <- ResourceResult{Error: err}
 		return err
 	}
 }
 
-
-func (manager *ResourceManager) handleQueryInstanceStatusInPool(poolName string, respChan chan ResourceResult) (err error){
+func (manager *ResourceManager) handleQueryInstanceStatusInPool(poolName string, respChan chan ResourceResult) (err error) {
 
 	pool, exists := manager.pools[poolName]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid pool '%s'", poolName)
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
 	var idList []string
-	for cellName, _ := range pool.Cells{
-		if cell, exists := manager.cells[cellName]; !exists{
+	for cellName, _ := range pool.Cells {
+		if cell, exists := manager.cells[cellName]; !exists {
 			err = fmt.Errorf("invalid cell '%s'", cellName)
-			respChan <- ResourceResult{Error:err}
+			respChan <- ResourceResult{Error: err}
 			return err
-		}else{
-			for instanceID, _ := range cell.Instances{
+		} else {
+			for instanceID, _ := range cell.Instances {
 				idList = append(idList, instanceID)
 			}
-			for instanceID, _ := range cell.Pending{
+			for instanceID, _ := range cell.Pending {
 				idList = append(idList, instanceID)
 			}
 		}
 	}
 	result, err := manager.getSortedInstances(idList)
-	if err != nil{
-		respChan <- ResourceResult{Error:err}
+	if err != nil {
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
 	respChan <- ResourceResult{InstanceList: result}
 	return nil
 }
 
-func (manager *ResourceManager) handleQueryInstanceStatusInCell(poolName, cellName string, respChan chan ResourceResult) (err error){
+func (manager *ResourceManager) handleQueryInstanceStatusInCell(poolName, cellName string, respChan chan ResourceResult) (err error) {
 	pool, exists := manager.pools[poolName]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid pool '%s'", poolName)
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
-	if _, exists := pool.Cells[cellName];!exists{
+	if _, exists := pool.Cells[cellName]; !exists {
 		err = fmt.Errorf("cell '%s' not in pool '%s'", cellName, poolName)
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
 	cell, exists := manager.cells[cellName]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid cell '%s'", cellName)
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
 	var idList []string
-	for instanceID, _ := range cell.Instances{
+	for instanceID, _ := range cell.Instances {
 		idList = append(idList, instanceID)
 	}
-	for instanceID, _ := range cell.Pending{
+	for instanceID, _ := range cell.Pending {
 		idList = append(idList, instanceID)
 	}
 
 	result, err := manager.getSortedInstances(idList)
-	if err != nil{
-		respChan <- ResourceResult{Error:err}
+	if err != nil {
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
 
@@ -2459,74 +2472,74 @@ func (manager *ResourceManager) handleQueryInstanceStatusInCell(poolName, cellNa
 	return nil
 }
 
-func (manager *ResourceManager) handleSearchGuests(condition SearchGuestsCondition, respChan chan ResourceResult) (err error){
+func (manager *ResourceManager) handleSearchGuests(condition SearchGuestsCondition, respChan chan ResourceResult) (err error) {
 	var poolSpecified = "" != condition.Pool
 	var cellSpecifed = "" != condition.Cell
 	var keywordSpecified = "" != condition.Keyword
 	var targets []string
-	if cellSpecifed{
+	if cellSpecifed {
 		cell, exists := manager.cells[condition.Cell]
-		if !exists{
+		if !exists {
 			err = fmt.Errorf("invalid cell '%s'", condition.Cell)
 			respChan <- ResourceResult{Error: err}
 			return
 		}
-		for instanceID, _ := range cell.Instances{
+		for instanceID, _ := range cell.Instances {
 			targets = append(targets, instanceID)
 		}
-	} else if poolSpecified{
+	} else if poolSpecified {
 		pool, exists := manager.pools[condition.Pool]
-		if !exists{
+		if !exists {
 			err = fmt.Errorf("invalid pool '%s'", condition.Pool)
 			respChan <- ResourceResult{Error: err}
 			return
 		}
-		for _, intancesID := range pool.InstanceNames{
+		for _, intancesID := range pool.InstanceNames {
 			targets = append(targets, intancesID)
 		}
 	}
-	var idMap = map[string]string{}//name to id
-	if keywordSpecified{
+	var idMap = map[string]string{} //name to id
+	if keywordSpecified {
 		//filter
 		var filtered []string
 		var matched bool
 		var guestName string
 		if cellSpecifed || poolSpecified {
-			for _, instanceID := range targets{
-				if matched, guestName, err = manager.matchKeyword(instanceID, condition.Keyword); err != nil{
+			for _, instanceID := range targets {
+				if matched, guestName, err = manager.matchKeyword(instanceID, condition.Keyword); err != nil {
 					respChan <- ResourceResult{Error: err}
 					return
-				}else if matched{
+				} else if matched {
 					idMap[guestName] = instanceID
 					filtered = append(filtered, instanceID)
 				}
 			}
-		}else{
-			for instanceID, _ := range manager.instances{
-				if matched, guestName, err = manager.matchKeyword(instanceID, condition.Keyword); err != nil{
+		} else {
+			for instanceID, _ := range manager.instances {
+				if matched, guestName, err = manager.matchKeyword(instanceID, condition.Keyword); err != nil {
 					respChan <- ResourceResult{Error: err}
 					return
-				}else if matched{
+				} else if matched {
 					idMap[guestName] = instanceID
 					filtered = append(filtered, instanceID)
 				}
 			}
 		}
 		targets = filtered
-	}else if !cellSpecifed && !poolSpecified {
+	} else if !cellSpecifed && !poolSpecified {
 		//fill all instances
-		for instanceID, instance := range manager.instances{
+		for instanceID, instance := range manager.instances {
 			targets = append(targets, instanceID)
 			idMap[instance.Name] = instanceID
 		}
-	}else {
+	} else {
 		//collect name
-		for _, instanceID := range targets{
-			if instance, exists := manager.instances[instanceID]; !exists{
+		for _, instanceID := range targets {
+			if instance, exists := manager.instances[instanceID]; !exists {
 				err = fmt.Errorf("invalid instance '%s'", instanceID)
 				respChan <- ResourceResult{Error: err}
 				return
-			}else{
+			} else {
 				idMap[instance.Name] = instanceID
 			}
 		}
@@ -2536,18 +2549,18 @@ func (manager *ResourceManager) handleSearchGuests(condition SearchGuestsConditi
 	result.Total = len(targets)
 	result.Limit = condition.Limit
 	result.Offset = condition.Offset
-	if 0 == result.Total{
+	if 0 == result.Total {
 		respChan <- result
 		return
 	}
-	if condition.Offset >= result.Total{
+	if condition.Offset >= result.Total {
 		err = fmt.Errorf("unexpected offset %d / %d", condition.Offset, result.Total)
 		respChan <- ResourceResult{Error: err}
 		return
 	}
 	//sort
 	var names []string
-	for name, _ := range idMap{
+	for name, _ := range idMap {
 		names = append(names, name)
 	}
 	sort.Stable(sort.StringSlice(names))
@@ -2557,24 +2570,24 @@ func (manager *ResourceManager) handleSearchGuests(condition SearchGuestsConditi
 	var instance InstanceStatus
 	var instanceID string
 	var exists bool
-	for _, name := range names{
-		if offset < condition.Offset{
+	for _, name := range names {
+		if offset < condition.Offset {
 			offset++
 			continue
 		}
-		if instanceID, exists = idMap[name]; !exists{
+		if instanceID, exists = idMap[name]; !exists {
 			err = fmt.Errorf("can not find id for guest '%s'", name)
 			respChan <- ResourceResult{Error: err}
 			return
-		}else if instance, exists = manager.instances[instanceID]; !exists{
+		} else if instance, exists = manager.instances[instanceID]; !exists {
 			err = fmt.Errorf("find invalid id '%s' for guest '%s'", instanceID, name)
 			respChan <- ResourceResult{Error: err}
 			return
-		}else{
+		} else {
 			result.InstanceList = append(result.InstanceList, instance)
 			count++
 			offset++
-			if count >= condition.Limit{
+			if count >= condition.Limit {
 				break
 			}
 		}
@@ -2583,15 +2596,15 @@ func (manager *ResourceManager) handleSearchGuests(condition SearchGuestsConditi
 	return
 }
 
-func (manager *ResourceManager) matchKeyword(instanceID, keyword string) (matched bool, name string, err error){
+func (manager *ResourceManager) matchKeyword(instanceID, keyword string) (matched bool, name string, err error) {
 	instance, exists := manager.instances[instanceID]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid instance %s", instanceID)
 		return
 	}
 	if -1 != strings.Index(instance.Name, keyword) ||
 		-1 != strings.Index(instance.InternalNetwork.InstanceAddress, keyword) ||
-		-1 != strings.Index(instance.Host, keyword){
+		-1 != strings.Index(instance.Host, keyword) {
 		//matched
 		matched = true
 		name = instance.Name
@@ -2601,17 +2614,17 @@ func (manager *ResourceManager) matchKeyword(instanceID, keyword string) (matche
 	return
 }
 
-func (manager *ResourceManager) handleUpdateGuestAutoStart(guestID string, enabled bool, respChan chan error) (err error){
+func (manager *ResourceManager) handleUpdateGuestAutoStart(guestID string, enabled bool, respChan chan error) (err error) {
 	instance, exists := manager.instances[guestID]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invaliad guest '%s'", guestID)
 		respChan <- err
 		return
 	}
-	if enabled == instance.AutoStart{
-		if enabled{
+	if enabled == instance.AutoStart {
+		if enabled {
 			err = fmt.Errorf("auto start of guest '%s' already enabled", instance.Name)
-		}else{
+		} else {
 			err = fmt.Errorf("auto start of guest '%s' already disabled", instance.Name)
 		}
 		respChan <- err
@@ -2620,25 +2633,25 @@ func (manager *ResourceManager) handleUpdateGuestAutoStart(guestID string, enabl
 	instance.AutoStart = enabled
 	manager.instances[guestID] = instance
 	respChan <- nil
-	if enabled{
+	if enabled {
 		log.Printf("<resource_manager> guest '%s' enabled auto start", instance.Name)
-	}else{
+	} else {
 		log.Printf("<resource_manager> guest '%s' disabled auto start", instance.Name)
 	}
 	return
 }
 
-func (manager *ResourceManager) getSortedInstances(idList []string) (result []InstanceStatus, err error){
+func (manager *ResourceManager) getSortedInstances(idList []string) (result []InstanceStatus, err error) {
 	var names []string
 	var nameToID = map[string]string{}
-	for _, id := range idList{
+	for _, id := range idList {
 		ins, exists := manager.instances[id]
-		if !exists{
+		if !exists {
 			err = fmt.Errorf("invalid instance '%s", id)
 			return
 		}
 
-		if _, exists := nameToID[ins.Name];exists{
+		if _, exists := nameToID[ins.Name]; exists {
 			err = fmt.Errorf("encounter duplicate instance name '%s'", ins.Name)
 			return
 		}
@@ -2646,14 +2659,14 @@ func (manager *ResourceManager) getSortedInstances(idList []string) (result []In
 		names = append(names, ins.Name)
 	}
 	sort.Stable(sort.StringSlice(names))
-	for _, name := range names{
+	for _, name := range names {
 		id, exists := nameToID[name]
-		if !exists{
+		if !exists {
 			err = fmt.Errorf("no instance mapped with name '%s'", name)
 			return
 		}
 		ins, exists := manager.instances[id]
-		if !exists{
+		if !exists {
 			err = fmt.Errorf("invalid instance '%s' with name '%s'", id, name)
 			return
 		}
@@ -2662,14 +2675,14 @@ func (manager *ResourceManager) getSortedInstances(idList []string) (result []In
 	return
 }
 
-func (manager *ResourceManager) handleUpdateInstanceAddress(id, ip string, respChan chan error) error{
+func (manager *ResourceManager) handleUpdateInstanceAddress(id, ip string, respChan chan error) error {
 	instance, exists := manager.instances[id]
-	if !exists{
+	if !exists {
 		err := fmt.Errorf("invalid instance %s", id)
 		respChan <- err
 		return err
 	}
-	if instance.InternalNetwork.InstanceAddress != ip{
+	if instance.InternalNetwork.InstanceAddress != ip {
 		instance.InternalNetwork.InstanceAddress = ip
 		log.Printf("<resource_manager> update address of instance '%s' to %s", instance.Name, ip)
 		manager.instances[id] = instance
@@ -2678,21 +2691,21 @@ func (manager *ResourceManager) handleUpdateInstanceAddress(id, ip string, respC
 	return nil
 }
 
-func (manager *ResourceManager) handleRenameInstance(id, name string, respChan chan error) (err error){
+func (manager *ResourceManager) handleRenameInstance(id, name string, respChan chan error) (err error) {
 	instance, exists := manager.instances[id]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid instance %s", id)
 		respChan <- err
 		return err
 	}
-	if instance.Name == name{
+	if instance.Name == name {
 		err = errors.New("no need to change")
 		respChan <- err
 		return err
 	}
 	var previousName = instance.Name
 	pool, exists := manager.pools[instance.Pool]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid pool '%s' attached with instance '%s'", instance.Pool, previousName)
 		respChan <- err
 		return err
@@ -2708,9 +2721,9 @@ func (manager *ResourceManager) handleRenameInstance(id, name string, respChan c
 	return nil
 }
 
-func (manager *ResourceManager) handleUpdateInstancePriority(instanceID string, priority PriorityEnum, respChan chan error) (err error){
+func (manager *ResourceManager) handleUpdateInstancePriority(instanceID string, priority PriorityEnum, respChan chan error) (err error) {
 	instance, exists := manager.instances[instanceID]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid instance %s", instanceID)
 		respChan <- err
 		return err
@@ -2722,9 +2735,9 @@ func (manager *ResourceManager) handleUpdateInstancePriority(instanceID string, 
 	return nil
 }
 
-func (manager *ResourceManager) handleUpdateInstanceDiskThreshold(instanceID string, readSpeed, readIOPS, writeSpeed, writeIOPS uint64, respChan chan error)  (err error){
+func (manager *ResourceManager) handleUpdateInstanceDiskThreshold(instanceID string, readSpeed, readIOPS, writeSpeed, writeIOPS uint64, respChan chan error) (err error) {
 	instance, exists := manager.instances[instanceID]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid instance %s", instanceID)
 		respChan <- err
 		return err
@@ -2735,14 +2748,14 @@ func (manager *ResourceManager) handleUpdateInstanceDiskThreshold(instanceID str
 	instance.WriteIOPS = writeIOPS
 	manager.instances[instanceID] = instance
 	log.Printf("<resource_manager> disk threshold of instance '%s' changed to read: %d MB/s, %d ops, write: %d MB/s, %d ops",
-		instanceID, readSpeed >> 20, readIOPS, writeSpeed >> 20, writeIOPS)
+		instanceID, readSpeed>>20, readIOPS, writeSpeed>>20, writeIOPS)
 	respChan <- nil
 	return nil
 }
 
-func (manager *ResourceManager) handleUpdateInstanceNetworkThreshold(instanceID string, receive, send uint64, respChan chan error) (err error){
+func (manager *ResourceManager) handleUpdateInstanceNetworkThreshold(instanceID string, receive, send uint64, respChan chan error) (err error) {
 	instance, exists := manager.instances[instanceID]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid instance %s", instanceID)
 		respChan <- err
 		return err
@@ -2751,28 +2764,28 @@ func (manager *ResourceManager) handleUpdateInstanceNetworkThreshold(instanceID 
 	instance.SendSpeed = send
 	manager.instances[instanceID] = instance
 	log.Printf("<resource_manager> network threshold of instance '%s' changed to receive %d KB/s, send: %d KB/s",
-		instanceID, receive >> 10, send >> 10)
+		instanceID, receive>>10, send>>10)
 	respChan <- nil
 	return nil
 }
 
-func (manager *ResourceManager) handleGetInstanceByName(poolName, instanceName string, respChan chan ResourceResult) (err error){
+func (manager *ResourceManager) handleGetInstanceByName(poolName, instanceName string, respChan chan ResourceResult) (err error) {
 	pool, exists := manager.pools[poolName]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid pool '%s'", poolName)
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
 	instanceID, exists := pool.InstanceNames[instanceName]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("no instance named '%s' in pool '%s'", instanceName, poolName)
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
 	instance, exists := manager.instances[instanceID]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid instance '%s' with name '%s'", instanceID, instanceName)
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
 	respChan <- ResourceResult{Instance: instance}
@@ -2810,18 +2823,18 @@ func (manager *ResourceManager) handleGetImageServer(respChan chan ResourceResul
 	return nil
 }
 
-func (manager *ResourceManager) handleQueryMigration(respChan chan ResourceResult) (err error){
+func (manager *ResourceManager) handleQueryMigration(respChan chan ResourceResult) (err error) {
 	var result []MigrationStatus
 	var releaseList []string
-	for _, m := range manager.migrations{
+	for _, m := range manager.migrations {
 		result = append(result, m)
-		if (m.Finished) || (m.Error != nil){
+		if (m.Finished) || (m.Error != nil) {
 			releaseList = append(releaseList, m.ID)
 		}
 	}
 	respChan <- ResourceResult{MigrationList: result}
-	if 0 != len(releaseList){
-		for _, id := range releaseList{
+	if 0 != len(releaseList) {
+		for _, id := range releaseList {
 			delete(manager.migrations, id)
 		}
 		log.Printf("<resource_manager> %d migration(s) released", len(releaseList))
@@ -2829,90 +2842,90 @@ func (manager *ResourceManager) handleQueryMigration(respChan chan ResourceResul
 	return nil
 }
 
-func (manager *ResourceManager) handleGetMigration(id string, respChan chan ResourceResult) (err error){
+func (manager *ResourceManager) handleGetMigration(id string, respChan chan ResourceResult) (err error) {
 	migration, exists := manager.migrations[id]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid migration '%s'", id)
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
 	respChan <- ResourceResult{Migration: migration}
-	if (migration.Error != nil) || migration.Finished{
+	if (migration.Error != nil) || migration.Finished {
 		delete(manager.migrations, id)
 	}
 	return nil
 }
 
-func (manager *ResourceManager) handleCreateMigration(params MigrationParameter, respChan chan ResourceResult) (err error){
+func (manager *ResourceManager) handleCreateMigration(params MigrationParameter, respChan chan ResourceResult) (err error) {
 
-	if params.TargetPool != params.SourcePool{
+	if params.TargetPool != params.SourcePool {
 		err = errors.New("migrate between pool not support")
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
-	if params.TargetCell == params.SourceCell{
+	if params.TargetCell == params.SourceCell {
 		err = errors.New("migrate in same cell")
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
 	pool, exists := manager.pools[params.SourcePool]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid pool '%s'", params.SourcePool)
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
-	if "" == pool.Storage{
+	if "" == pool.Storage {
 		err = errors.New("migrate only work on shared storage")
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
 	storage, exists := manager.storagePools[pool.Storage]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid storage '%s' attached to pool '%s'", pool.Storage, params.SourcePool)
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
-	if storage.Type != StorageTypeNFS{
+	if storage.Type != StorageTypeNFS {
 		err = fmt.Errorf("migrate not work on storage type '%s'(storage '%s' attached to pool '%s')",
 			storage.Type, pool.Storage, params.SourcePool)
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
-	if _, exists = pool.Cells[params.SourceCell];!exists{
+	if _, exists = pool.Cells[params.SourceCell]; !exists {
 		err = fmt.Errorf("source cell '%s' not in pool '%s'", params.SourceCell, params.SourcePool)
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
-	if _, exists = pool.Cells[params.TargetCell];!exists{
+	if _, exists = pool.Cells[params.TargetCell]; !exists {
 		err = fmt.Errorf("target cell '%s' not in pool '%s'", params.TargetCell, params.TargetPool)
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
 	targetCell, exists := manager.cells[params.TargetCell]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid target cell '%s'", params.TargetCell)
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
-	if !targetCell.Alive{
+	if !targetCell.Alive {
 		err = fmt.Errorf("target cell '%s' already lost", params.TargetCell)
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
-	if !targetCell.Enabled{
+	if !targetCell.Enabled {
 		err = fmt.Errorf("target cell '%s' already disabled", params.TargetCell)
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
 	sourceCell, exists := manager.cells[params.SourceCell]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid source cell '%s'", params.SourceCell)
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
-	if !sourceCell.Alive{
+	if !sourceCell.Alive {
 		err = fmt.Errorf("source cell '%s' already lost", params.SourceCell)
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
 	var newID = uuid.NewV4()
@@ -2924,52 +2937,52 @@ func (manager *ResourceManager) handleCreateMigration(params MigrationParameter,
 	M.TargetCell = params.TargetCell
 	M.Finished = false
 	M.Progress = 0
-	if _, exists = manager.migrations[M.ID];exists{
+	if _, exists = manager.migrations[M.ID]; exists {
 		err = fmt.Errorf("migration '%s' already exists", M.ID)
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
 
-	if 0 == len(params.Instances){
+	if 0 == len(params.Instances) {
 		//migrate all instance in source
-		if 0 == len(sourceCell.Instances){
+		if 0 == len(sourceCell.Instances) {
 			err = fmt.Errorf("no instance need migrate in cell '%s.%s'", params.SourcePool, params.SourceCell)
-			respChan <- ResourceResult{Error:err}
+			respChan <- ResourceResult{Error: err}
 			return err
 		}
-		for instanceID, _ := range sourceCell.Instances{
+		for instanceID, _ := range sourceCell.Instances {
 			M.Instances = append(M.Instances, instanceID)
 		}
-	}else{
+	} else {
 		M.Instances = params.Instances
 	}
 	//verify instance status
-	for _, instanceID := range M.Instances{
+	for _, instanceID := range M.Instances {
 		ins, exists := manager.instances[instanceID]
-		if !exists{
+		if !exists {
 			err = fmt.Errorf("invalid instance '%s'", instanceID)
-			respChan <- ResourceResult{Error:err}
+			respChan <- ResourceResult{Error: err}
 			return err
 		}
-		if ins.Running{
+		if ins.Running {
 			err = fmt.Errorf("instance '%s'('%s') is still running", instanceID, ins.Name)
-			respChan <- ResourceResult{Error:err}
+			respChan <- ResourceResult{Error: err}
 			return err
 		}
-		if ins.Migrating{
+		if ins.Migrating {
 			err = fmt.Errorf("instance '%s'('%s') already in migrating", instanceID, ins.Name)
-			respChan <- ResourceResult{Error:err}
+			respChan <- ResourceResult{Error: err}
 			return err
 		}
-		if ins.Cell == targetCell.Name{
+		if ins.Cell == targetCell.Name {
 			err = fmt.Errorf("instance '%s'('%s') already in cell '%s'", instanceID, ins.Name, targetCell.Name)
-			respChan <- ResourceResult{Error:err}
+			respChan <- ResourceResult{Error: err}
 			return err
 		}
 	}
 	//batch update
-	for _, instanceID := range M.Instances{
-		if ins, exists := manager.instances[instanceID];exists{
+	for _, instanceID := range M.Instances {
+		if ins, exists := manager.instances[instanceID]; exists {
 			ins.Migrating = true
 			manager.instances[instanceID] = ins
 		}
@@ -2981,14 +2994,14 @@ func (manager *ResourceManager) handleCreateMigration(params MigrationParameter,
 	return nil
 }
 
-func (manager *ResourceManager) handleFinishMigration(migrationID string, instances []string, monitorPorts []uint64, respChan chan error) (err error){
+func (manager *ResourceManager) handleFinishMigration(migrationID string, instances []string, monitorPorts []uint64, respChan chan error) (err error) {
 	migration, exists := manager.migrations[migrationID]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid migration '%s'", migrationID)
 		respChan <- err
 		return err
 	}
-	if err = manager.transferInstances(migration.SourceCell, migration.TargetCell, instances, monitorPorts); err != nil{
+	if err = manager.transferInstances(migration.SourceCell, migration.TargetCell, instances, monitorPorts); err != nil {
 		log.Printf("<resource_manager> migrate instance(s) for migration '%s' fail: %s", migrationID, err.Error())
 		respChan <- err
 		return err
@@ -2997,32 +3010,32 @@ func (manager *ResourceManager) handleFinishMigration(migrationID string, instan
 	manager.migrations[migrationID] = migration
 	log.Printf("<resource_manager> migration '%s' finished", migrationID)
 	respChan <- nil
-	return nil	
+	return nil
 }
 
-func (manager *ResourceManager) handleCancelMigration(migrationID string, reason error, respChan chan error)(err error){
+func (manager *ResourceManager) handleCancelMigration(migrationID string, reason error, respChan chan error) (err error) {
 	migration, exists := manager.migrations[migrationID]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid migration '%s'", migrationID)
 		respChan <- err
 		return err
 	}
-	for _, instanceID := range migration.Instances{
+	for _, instanceID := range migration.Instances {
 		instance, exists := manager.instances[instanceID]
-		if !exists{
+		if !exists {
 			log.Printf("<resource_manager> warning: invalid migrating instance '%s'", instanceID)
 			continue
 		}
-		if instance.Migrating{
+		if instance.Migrating {
 			instance.Migrating = false
 			log.Printf("<resource_manager> cancel migrating instance '%s'(%s)", instance.Name, instanceID)
 			manager.instances[instanceID] = instance
 		}
 	}
-	if reason != nil{
+	if reason != nil {
 		migration.Error = reason
 		log.Printf("<resource_manager> migration '%s' canceled due to %s", migrationID, reason.Error())
-	}else{
+	} else {
 		migration.Finished = true
 		log.Printf("<resource_manager> migration '%s' canceled without reason", migrationID)
 	}
@@ -3031,35 +3044,35 @@ func (manager *ResourceManager) handleCancelMigration(migrationID string, reason
 	return nil
 }
 
-func (manager *ResourceManager) handleBuildFailoverPlan(cellName string, respChan chan ResourceResult)(err error){
+func (manager *ResourceManager) handleBuildFailoverPlan(cellName string, respChan chan ResourceResult) (err error) {
 	cell, exists := manager.cells[cellName]
 	if !exists {
 		err = fmt.Errorf("invalid cell '%s'", cellName)
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
 	cell.Alive = false
 	log.Printf("<resource_manager> cell '%s' lost", cellName)
-	if "" == cell.Pool{
+	if "" == cell.Pool {
 		//unallocated
 		manager.cells[cellName] = cell
 		respChan <- ResourceResult{}
 		return nil
 	}
 	pool, exists := manager.pools[cell.Pool]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid pool '%s'", cell.Pool)
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
 	cell.InstanceStatistic.Reset()
-	if !pool.Failover{
+	if !pool.Failover {
 		//mark lost
-		for instanceID, _ := range cell.Instances{
+		for instanceID, _ := range cell.Instances {
 			ins, exists := manager.instances[instanceID]
-			if !exists{
+			if !exists {
 				err = fmt.Errorf("invalid instance '%s' in cell '%s'", instanceID, cellName)
-				respChan <- ResourceResult{Error:err}
+				respChan <- ResourceResult{Error: err}
 				return err
 			}
 			ins.Lost = true
@@ -3070,37 +3083,37 @@ func (manager *ResourceManager) handleBuildFailoverPlan(cellName string, respCha
 		respChan <- ResourceResult{}
 		manager.cells[cellName] = cell
 		return nil
-	}else{
+	} else {
 		cell.Enabled = false
 		cell.PurgeAppending = true
 		manager.cells[cellName] = cell
 		//build plan and migrate
 		var plan = map[string][]string{}
-		for instanceID, _ := range cell.Instances{
+		for instanceID, _ := range cell.Instances {
 			ins, exists := manager.instances[instanceID]
-			if !exists{
+			if !exists {
 				err = fmt.Errorf("invalid instance '%s' in cell '%s'", instanceID, cellName)
-				respChan <- ResourceResult{Error:err}
+				respChan <- ResourceResult{Error: err}
 				return err
 			}
 			targetName, err := manager.selectCell(pool.Name, ins.InstanceResource, false)
-			if err != nil{
-				respChan <- ResourceResult{Error:err}
+			if err != nil {
+				respChan <- ResourceResult{Error: err}
 				return err
 			}
 			targetCell, exists := manager.cells[targetName]
-			if !exists{
+			if !exists {
 				err = fmt.Errorf("invalid target cell '%s'", targetName)
-				respChan <- ResourceResult{Error:err}
+				respChan <- ResourceResult{Error: err}
 				return err
 			}
 			//mark
 			targetCell.Instances[instanceID] = false
 			ins.Migrating = true
-			if insList, exists := plan[targetName]; exists{
+			if insList, exists := plan[targetName]; exists {
 				insList = append(insList, instanceID)
 				plan[targetName] = insList
-			}else{
+			} else {
 				plan[targetName] = []string{instanceID}
 			}
 			manager.instances[instanceID] = ins
@@ -3109,16 +3122,16 @@ func (manager *ResourceManager) handleBuildFailoverPlan(cellName string, respCha
 		cell.MigratingInstances = uint64(len(cell.Instances))
 		log.Printf("<resource_manager> schedule migrate %d instance(s) in cell '%s' to %d new cells",
 			cell.MigratingInstances, cellName, len(plan))
-		respChan <- ResourceResult{FailoverPlan:plan}
+		respChan <- ResourceResult{FailoverPlan: plan}
 		manager.cells[cellName] = cell
 		return nil
 	}
 
 }
 
-func (manager *ResourceManager) handleMigrateInstance(sourceCell, targetCell string, instances []string, monitorPorts []uint64, respChan chan error)(err error){
+func (manager *ResourceManager) handleMigrateInstance(sourceCell, targetCell string, instances []string, monitorPorts []uint64, respChan chan error) (err error) {
 	err = manager.transferInstances(sourceCell, targetCell, instances, monitorPorts)
-	if err != nil{
+	if err != nil {
 		log.Printf("<resource_manager> migrate instance fail: %s", err.Error())
 		respChan <- err
 		return
@@ -3128,9 +3141,9 @@ func (manager *ResourceManager) handleMigrateInstance(sourceCell, targetCell str
 	return nil
 }
 
-func (manager *ResourceManager) handlePurgeInstance(cellName string, respChan chan error) (err error){
+func (manager *ResourceManager) handlePurgeInstance(cellName string, respChan chan error) (err error) {
 	cell, exists := manager.cells[cellName]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid cell '%s'", cellName)
 		respChan <- err
 		return err
@@ -3147,9 +3160,9 @@ func (manager *ResourceManager) handlePurgeInstance(cellName string, respChan ch
 }
 
 //address pool&range
-func (manager *ResourceManager) handleQueryAddressPool(respChan chan ResourceResult) (err error){
+func (manager *ResourceManager) handleQueryAddressPool(respChan chan ResourceResult) (err error) {
 	var result = make([]AddressPoolStatus, 0)
-	for poolName, pool := range manager.addressPools{
+	for poolName, pool := range manager.addressPools {
 		var status AddressPoolStatus
 		status.Name = poolName
 		status.Gateway = pool.gateway
@@ -3158,13 +3171,13 @@ func (manager *ResourceManager) handleQueryAddressPool(respChan chan ResourceRes
 		status.Mode = pool.mode
 		status.Allocated = make([]AllocatedAddress, 0)
 		status.Ranges = make([]AddressRangeConfig, 0)
-		for _, addressRange := range pool.ranges{
+		for _, addressRange := range pool.ranges {
 			var rangeConfig AddressRangeConfig
 			rangeConfig.Start = addressRange.startAddress.String()
 			rangeConfig.End = addressRange.endAddress.String()
 			rangeConfig.Netmask = IPv4MaskToString(addressRange.netmask)
 			rangeConfig.Capacity = addressRange.capacity
-			for allocatedAddress, allocatedInstance := range addressRange.allocated{
+			for allocatedAddress, allocatedInstance := range addressRange.allocated {
 				status.Allocated = append(status.Allocated, AllocatedAddress{allocatedAddress, allocatedInstance})
 			}
 			status.Ranges = append(status.Ranges, rangeConfig)
@@ -3176,11 +3189,11 @@ func (manager *ResourceManager) handleQueryAddressPool(respChan chan ResourceRes
 	return nil
 }
 
-func (manager *ResourceManager) handleGetAddressPool(poolName string, respChan chan ResourceResult) (err error){
+func (manager *ResourceManager) handleGetAddressPool(poolName string, respChan chan ResourceResult) (err error) {
 	pool, exists := manager.addressPools[poolName]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid address pool '%s", poolName)
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
 	var status AddressPoolStatus
@@ -3191,13 +3204,13 @@ func (manager *ResourceManager) handleGetAddressPool(poolName string, respChan c
 	status.Mode = pool.mode
 	status.Allocated = make([]AllocatedAddress, 0)
 	status.Ranges = make([]AddressRangeConfig, 0)
-	for _, addressRange := range pool.ranges{
+	for _, addressRange := range pool.ranges {
 		var rangeConfig AddressRangeConfig
 		rangeConfig.Start = addressRange.startAddress.String()
 		rangeConfig.End = addressRange.endAddress.String()
 		rangeConfig.Netmask = IPv4MaskToString(addressRange.netmask)
 		rangeConfig.Capacity = addressRange.capacity
-		for allocatedAddress, allocatedInstance := range addressRange.allocated{
+		for allocatedAddress, allocatedInstance := range addressRange.allocated {
 			status.Allocated = append(status.Allocated, AllocatedAddress{allocatedAddress, allocatedInstance})
 		}
 		status.Ranges = append(status.Ranges, rangeConfig)
@@ -3206,9 +3219,9 @@ func (manager *ResourceManager) handleGetAddressPool(poolName string, respChan c
 	return nil
 }
 
-func (manager *ResourceManager) handleCreateAddressPool(config AddressPoolConfig, respChan chan error) (err error){
+func (manager *ResourceManager) handleCreateAddressPool(config AddressPoolConfig, respChan chan error) (err error) {
 	_, exists := manager.addressPools[config.Name]
-	if exists{
+	if exists {
 		err = fmt.Errorf("address pool '%s' already exists", config.Name)
 		respChan <- err
 		return err
@@ -3216,14 +3229,14 @@ func (manager *ResourceManager) handleCreateAddressPool(config AddressPoolConfig
 	var pool ManagedAddressPool
 	pool.name = config.Name
 	//verify params
-	if nil == net.ParseIP(config.Gateway){
+	if nil == net.ParseIP(config.Gateway) {
 		err = fmt.Errorf("invalid gateway '%s'", config.Gateway)
 		respChan <- err
 		return err
 	}
 	pool.gateway = config.Gateway
-	for _, dns := range config.DNS{
-		if nil == net.ParseIP(dns){
+	for _, dns := range config.DNS {
+		if nil == net.ParseIP(dns) {
 			err = fmt.Errorf("invalid DNS '%s'", dns)
 			respChan <- err
 			return err
@@ -3241,23 +3254,23 @@ func (manager *ResourceManager) handleCreateAddressPool(config AddressPoolConfig
 	return manager.saveConfig()
 }
 
-func (manager *ResourceManager) handleModifyAddressPool(config AddressPoolConfig, respChan chan ResourceResult) (err error){
+func (manager *ResourceManager) handleModifyAddressPool(config AddressPoolConfig, respChan chan ResourceResult) (err error) {
 	pool, exists := manager.addressPools[config.Name]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("address pool '%s' not exists", config.Name)
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
 	//verify params
-	if nil == net.ParseIP(config.Gateway){
+	if nil == net.ParseIP(config.Gateway) {
 		err = fmt.Errorf("invalid gateway '%s'", config.Gateway)
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
-	for _, dns := range config.DNS{
-		if nil == net.ParseIP(dns){
+	for _, dns := range config.DNS {
+		if nil == net.ParseIP(dns) {
 			err = fmt.Errorf("invalid DNS '%s'", dns)
-			respChan <- ResourceResult{Error:err}
+			respChan <- ResourceResult{Error: err}
 			return err
 		}
 	}
@@ -3268,18 +3281,18 @@ func (manager *ResourceManager) handleModifyAddressPool(config AddressPoolConfig
 	manager.addressPools[pool.name] = pool
 	//check affected cells
 	var affected = make([]ComputeCellInfo, 0)
-	for _, pool := range manager.pools{
-		if pool.Network != config.Name{
+	for _, pool := range manager.pools {
+		if pool.Network != config.Name {
 			continue
 		}
-		for cellName, _ := range pool.Cells{
+		for cellName, _ := range pool.Cells {
 			cell, exists := manager.cells[cellName]
-			if !exists{
+			if !exists {
 				err = fmt.Errorf("invalid cell '%s' in pool '%s'", cellName, pool.Name)
-				respChan <- ResourceResult{Error:err}
+				respChan <- ResourceResult{Error: err}
 				return err
 			}
-			if !cell.Alive{
+			if !cell.Alive {
 				continue
 			}
 			affected = append(affected, cell.ComputeCellInfo)
@@ -3287,27 +3300,27 @@ func (manager *ResourceManager) handleModifyAddressPool(config AddressPoolConfig
 	}
 	log.Printf("<resource_manager> address pool '%s' modified with gateway '%s' and %d DNS server, %d cell(s) affected",
 		pool.name, pool.gateway, len(pool.dns), len(affected))
-	respChan <- ResourceResult{ComputeCellInfoList:affected}
+	respChan <- ResourceResult{ComputeCellInfoList: affected}
 	return manager.saveConfig()
 }
 
-func (manager *ResourceManager) handleDeleteAddressPool(poolName string, respChan chan error) (err error){
+func (manager *ResourceManager) handleDeleteAddressPool(poolName string, respChan chan error) (err error) {
 	pool, exists := manager.addressPools[poolName]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("address pool '%s' not exists", poolName)
 		respChan <- err
 		return err
 	}
 	//check attached compute pool
-	for computeName, pool := range manager.pools{
-		if pool.Network == poolName{
+	for computeName, pool := range manager.pools {
+		if pool.Network == poolName {
 			err = fmt.Errorf("compute pool '%s' still attached to address pool '%s'", computeName, poolName)
 			respChan <- err
 			return err
 		}
 	}
-	for _, addressRange := range pool.ranges{
-		if 0 != len(addressRange.allocated){
+	for _, addressRange := range pool.ranges {
+		if 0 != len(addressRange.allocated) {
 			err = fmt.Errorf("%d address(es) of range '%s' allocated in pool '%s'",
 				len(addressRange.allocated), addressRange.startAddress.String(), poolName)
 			respChan <- err
@@ -3320,28 +3333,28 @@ func (manager *ResourceManager) handleDeleteAddressPool(poolName string, respCha
 	return manager.saveConfig()
 }
 
-func (manager *ResourceManager) handleQueryAddressRange(poolName, rangeType string, respChan chan ResourceResult) (err error){
+func (manager *ResourceManager) handleQueryAddressRange(poolName, rangeType string, respChan chan ResourceResult) (err error) {
 	pool, exists := manager.addressPools[poolName]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("address pool '%s' not exists", poolName)
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
-	if rangeType != RangeTypeInternal{
+	if rangeType != RangeTypeInternal {
 		err = fmt.Errorf("unsupported range type '%s'", rangeType)
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
 	var result ResourceResult
 	result.AddressRangeList = make([]AddressRangeStatus, 0)
-	for _, addressRange := range pool.ranges{
+	for _, addressRange := range pool.ranges {
 		var status AddressRangeStatus
 		status.Start = addressRange.startAddress.String()
 		status.End = addressRange.endAddress.String()
 		status.Netmask = IPv4MaskToString(addressRange.netmask)
 		status.Capacity = addressRange.capacity
 		status.Allocated = make([]AllocatedAddress, 0)
-		for address, instance := range addressRange.allocated{
+		for address, instance := range addressRange.allocated {
 			status.Allocated = append(status.Allocated, AllocatedAddress{address, instance})
 		}
 		result.AddressRangeList = append(result.AddressRangeList, status)
@@ -3351,22 +3364,22 @@ func (manager *ResourceManager) handleQueryAddressRange(poolName, rangeType stri
 	return nil
 }
 
-func (manager *ResourceManager) handleGetAddressRange(poolName, rangeType, startAddress string, respChan chan ResourceResult) (err error){
+func (manager *ResourceManager) handleGetAddressRange(poolName, rangeType, startAddress string, respChan chan ResourceResult) (err error) {
 	pool, exists := manager.addressPools[poolName]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("address pool '%s' not exists", poolName)
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
-	if rangeType != RangeTypeInternal{
+	if rangeType != RangeTypeInternal {
 		err = fmt.Errorf("unsupported range type '%s'", rangeType)
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
 	addressRange, exists := pool.ranges[startAddress]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("range '%s' not exists in pool '%s'", startAddress, poolName)
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
 	var status AddressRangeStatus
@@ -3375,68 +3388,68 @@ func (manager *ResourceManager) handleGetAddressRange(poolName, rangeType, start
 	status.Netmask = IPv4MaskToString(addressRange.netmask)
 	status.Capacity = addressRange.capacity
 	status.Allocated = make([]AllocatedAddress, 0)
-	for address, instance := range addressRange.allocated{
+	for address, instance := range addressRange.allocated {
 		status.Allocated = append(status.Allocated, AllocatedAddress{address, instance})
 	}
 	respChan <- ResourceResult{AddressRange: status}
 	return nil
 }
 
-func (manager *ResourceManager) handleAddAddressRange(poolName, rangeType string, config AddressRangeConfig, respChan chan error) (err error){
+func (manager *ResourceManager) handleAddAddressRange(poolName, rangeType string, config AddressRangeConfig, respChan chan error) (err error) {
 	pool, exists := manager.addressPools[poolName]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("address pool '%s' not exists", poolName)
 		respChan <- err
 		return err
 	}
-	if rangeType != RangeTypeInternal{
+	if rangeType != RangeTypeInternal {
 		err = fmt.Errorf("unsupported range type '%s'", rangeType)
 		respChan <- err
 		return err
 	}
 	_, exists = pool.ranges[config.Start]
-	if exists{
+	if exists {
 		err = fmt.Errorf("range '%s' already exists in pool '%s'", config.Start, poolName)
 		respChan <- err
 		return err
 	}
 	var addressRange ManagedIPV4AddressRange
-	if addressRange.startAddress = net.ParseIP(config.Start); nil == addressRange.startAddress{
+	if addressRange.startAddress = net.ParseIP(config.Start); nil == addressRange.startAddress {
 		err = fmt.Errorf("invalid start address '%s'", config.Start)
 		respChan <- err
 		return err
 	}
-	if addressRange.endAddress = net.ParseIP(config.End); nil == addressRange.endAddress{
+	if addressRange.endAddress = net.ParseIP(config.End); nil == addressRange.endAddress {
 		err = fmt.Errorf("invalid end address '%s'", config.End)
 		respChan <- err
 		return err
 	}
 	addressRange.netmask, err = IPv4ToMask(config.Netmask)
-	if err != nil{
+	if err != nil {
 		respChan <- err
 		return
 	}
 	//check end range
 	{
-		if bytes.Compare(addressRange.endAddress, addressRange.startAddress) < 0{
+		if bytes.Compare(addressRange.endAddress, addressRange.startAddress) < 0 {
 			err = fmt.Errorf("end address '%s' must greater than start address '%s'", config.End, config.Start)
 			respChan <- err
 			return err
 		}
 		var rangeNet = net.IPNet{addressRange.startAddress, addressRange.netmask}
-		if !rangeNet.Contains(addressRange.endAddress){
+		if !rangeNet.Contains(addressRange.endAddress) {
 			err = fmt.Errorf("end address '%s' not in net '%s/%s'",
 				addressRange.endAddress.String(), addressRange.startAddress.String(), IPv4MaskToString(addressRange.netmask))
 			respChan <- err
 			return err
 		}
-		addressRange.capacity = IPv4ToNumber(addressRange.endAddress) - IPv4ToNumber(addressRange.startAddress) +1
+		addressRange.capacity = IPv4ToNumber(addressRange.endAddress) - IPv4ToNumber(addressRange.startAddress) + 1
 	}
 	//range conflict
-	for startAddress, currentRange := range pool.ranges{
-		if bytes.Compare(addressRange.endAddress, currentRange.startAddress) < 0 || bytes.Compare(addressRange.startAddress, currentRange.endAddress) > 0{
+	for startAddress, currentRange := range pool.ranges {
+		if bytes.Compare(addressRange.endAddress, currentRange.startAddress) < 0 || bytes.Compare(addressRange.startAddress, currentRange.endAddress) > 0 {
 			continue
-		}else{
+		} else {
 			err = fmt.Errorf("address range '%s~%s' conflict with exists range '%s~%s'",
 				config.Start, config.End, startAddress, currentRange.endAddress.String())
 			respChan <- err
@@ -3452,32 +3465,32 @@ func (manager *ResourceManager) handleAddAddressRange(poolName, rangeType string
 	return manager.saveConfig()
 }
 
-func (manager *ResourceManager) handleRemoveAddressRange(poolName, rangeType, startAddress string, respChan chan error) (err error){
+func (manager *ResourceManager) handleRemoveAddressRange(poolName, rangeType, startAddress string, respChan chan error) (err error) {
 	pool, exists := manager.addressPools[poolName]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("address pool '%s' not exists", poolName)
 		respChan <- err
 		return err
 	}
-	if rangeType != RangeTypeInternal{
+	if rangeType != RangeTypeInternal {
 		err = fmt.Errorf("unsupported range type '%s'", rangeType)
 		respChan <- err
 		return err
 	}
 	addressRange, exists := pool.ranges[startAddress]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("range '%s' not exists in pool '%s'", startAddress, poolName)
 		respChan <- err
 		return err
 	}
-	if 0 != len(addressRange.allocated){
+	if 0 != len(addressRange.allocated) {
 		err = fmt.Errorf("%d address(es) of range '%s' allocated, release before delete",
 			len(addressRange.allocated), addressRange.startAddress.String())
 		respChan <- err
 		return
 	}
-	for index, address := range pool.rangeStartAddressed{
-		if address == startAddress{
+	for index, address := range pool.rangeStartAddressed {
+		if address == startAddress {
 			pool.rangeStartAddressed = append(pool.rangeStartAddressed[:index], pool.rangeStartAddressed[index+1:]...)
 			break
 		}
@@ -3489,19 +3502,19 @@ func (manager *ResourceManager) handleRemoveAddressRange(poolName, rangeType, st
 	return manager.saveConfig()
 }
 
-func (manager *ResourceManager) handleBeginResetSystem(instanceID string, respChan chan error) (err error){
+func (manager *ResourceManager) handleBeginResetSystem(instanceID string, respChan chan error) (err error) {
 	ins, exists := manager.instances[instanceID]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid guest '%s'", instanceID)
 		respChan <- err
 		return
 	}
-	if !ins.Created{
+	if !ins.Created {
 		err = fmt.Errorf("guest '%s' not created yet", instanceID)
 		respChan <- err
 		return
 	}
-	if ins.Running{
+	if ins.Running {
 		err = fmt.Errorf("guest '%s' is still running", instanceID)
 		respChan <- err
 		return
@@ -3514,23 +3527,23 @@ func (manager *ResourceManager) handleBeginResetSystem(instanceID string, respCh
 	return nil
 }
 
-func (manager *ResourceManager) handleFinishResetSystem(instanceID string, resetError error,  respChan chan error) (err error){
+func (manager *ResourceManager) handleFinishResetSystem(instanceID string, resetError error, respChan chan error) (err error) {
 	ins, exists := manager.instances[instanceID]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid guest '%s'", instanceID)
 		respChan <- err
 		return
 	}
-	if ins.Created{
+	if ins.Created {
 		err = fmt.Errorf("guest '%s' already created", instanceID)
 		respChan <- err
 		return
 	}
-	if resetError != nil{
+	if resetError != nil {
 		err = resetError
 		manager.pendingError[instanceID] = resetError
 		log.Printf("<resource_manager> reset system fail: %s", err.Error())
-	}else{
+	} else {
 		ins.Created = true
 		ins.Progress = 0
 		manager.instances[instanceID] = ins
@@ -3541,24 +3554,24 @@ func (manager *ResourceManager) handleFinishResetSystem(instanceID string, reset
 }
 
 //batch
-func (manager *ResourceManager) handleStartBatchCreateGuest(request BatchCreateRequest, respChan chan ResourceResult) (err error){
-	if len(request.Prefix) == 0{
+func (manager *ResourceManager) handleStartBatchCreateGuest(request BatchCreateRequest, respChan chan ResourceResult) (err error) {
+	if len(request.Prefix) == 0 {
 		err = errors.New("name prefix required")
 		respChan <- ResourceResult{Error: err}
 		return err
 	}
 	var r = regexp.MustCompile("[^\\w-]")
-	if r.MatchString(request.Prefix){
+	if r.MatchString(request.Prefix) {
 		err = errors.New("only '0~9a~Z_-' allowed in prefix")
 		respChan <- ResourceResult{Error: err}
 		return err
 	}
-	if request.Count == 0{
+	if request.Count == 0 {
 		err = errors.New("guest count required")
 		respChan <- ResourceResult{Error: err}
 		return err
 	}
-	if _, exists := manager.pools[request.Pool]; !exists{
+	if _, exists := manager.pools[request.Pool]; !exists {
 		err = fmt.Errorf("invalid compute pool '%s'", request.Pool)
 		respChan <- ResourceResult{Error: err}
 		return err
@@ -3572,7 +3585,7 @@ func (manager *ResourceManager) handleStartBatchCreateGuest(request BatchCreateR
 
 	switch request.Rule {
 	case NameRuleByOrder:
-		for index := 0 ; index < request.Count ; index++{
+		for index := 0; index < request.Count; index++ {
 			var guestName = fmt.Sprintf("%s_%d", request.Prefix, index)
 			task.GuestName[guestName] = index
 			var status = CreateGuestStatus{guestName, "", 0, BatchTaskStatusProcess, ""}
@@ -3585,26 +3598,26 @@ func (manager *ResourceManager) handleStartBatchCreateGuest(request BatchCreateR
 	}
 	var taskID = newID.String()
 	manager.batchCreateTasks[taskID] = task
-	respChan <- ResourceResult{Batch:taskID, BatchCreate:task.Guests}
+	respChan <- ResourceResult{Batch: taskID, BatchCreate: task.Guests}
 	log.Printf("<resource_manager> new create guest batch allocated, task id '%s'", taskID)
 	return nil
 }
 
-func (manager *ResourceManager) handleSetBatchCreateGuestStart(batchID, guestName, guestID string, respChan chan error) (err error){
+func (manager *ResourceManager) handleSetBatchCreateGuestStart(batchID, guestName, guestID string, respChan chan error) (err error) {
 	task, exists := manager.batchCreateTasks[batchID]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid batch task '%s", batchID)
 		respChan <- err
 		return err
 	}
 	guestIndex, exists := task.GuestName[guestName]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("no guest named '%s' in batch '%s'", guestName, batchID)
 		respChan <- err
 		return err
 	}
-	if guestIndex > len(task.Guests){
-		err = fmt.Errorf("invalid index %d with name '%s'", guestIndex,  guestName)
+	if guestIndex > len(task.Guests) {
+		err = fmt.Errorf("invalid index %d with name '%s'", guestIndex, guestName)
 		respChan <- err
 		return err
 	}
@@ -3618,21 +3631,21 @@ func (manager *ResourceManager) handleSetBatchCreateGuestStart(batchID, guestNam
 	return nil
 }
 
-func (manager *ResourceManager) handleSetBatchCreateGuestFail(batchID, guestName string, createError error, respChan chan error) (err error){
+func (manager *ResourceManager) handleSetBatchCreateGuestFail(batchID, guestName string, createError error, respChan chan error) (err error) {
 	task, exists := manager.batchCreateTasks[batchID]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid batch task '%s", batchID)
 		respChan <- err
 		return err
 	}
 	guestIndex, exists := task.GuestName[guestName]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("no guest named '%s' in batch '%s'", guestName, batchID)
 		respChan <- err
 		return err
 	}
-	if guestIndex > len(task.Guests){
-		err = fmt.Errorf("invalid index %d with name '%s'", guestIndex,  guestName)
+	if guestIndex > len(task.Guests) {
+		err = fmt.Errorf("invalid index %d with name '%s'", guestIndex, guestName)
 		respChan <- err
 		return err
 	}
@@ -3647,21 +3660,21 @@ func (manager *ResourceManager) handleSetBatchCreateGuestFail(batchID, guestName
 	return nil
 }
 
-func (manager *ResourceManager) handleGetBatchCreateGuestStatus(batchID string, respChan chan ResourceResult) (err error){
+func (manager *ResourceManager) handleGetBatchCreateGuestStatus(batchID string, respChan chan ResourceResult) (err error) {
 	task, exists := manager.batchCreateTasks[batchID]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid batch task '%s", batchID)
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
 	respChan <- ResourceResult{BatchCreate: task.Guests}
 	return nil
 }
 
-func (manager *ResourceManager) handleStartBatchDeleteGuest(id []string, respChan chan ResourceResult) (err error){
-	if 0 == len(id){
+func (manager *ResourceManager) handleStartBatchDeleteGuest(id []string, respChan chan ResourceResult) (err error) {
+	if 0 == len(id) {
 		err = errors.New("guest id required")
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
 	var newID = uuid.NewV4()
@@ -3671,10 +3684,9 @@ func (manager *ResourceManager) handleStartBatchDeleteGuest(id []string, respCha
 	task.LatestUpdate = time.Now()
 	task.GuestID = map[string]int{}
 
-
-	for taskIndex, guestID := range id{
+	for taskIndex, guestID := range id {
 		guest, exists := manager.instances[guestID]
-		if !exists{
+		if !exists {
 			err = fmt.Errorf("invalid guest '%s'", guestID)
 			respChan <- ResourceResult{Error: err}
 			return err
@@ -3685,26 +3697,26 @@ func (manager *ResourceManager) handleStartBatchDeleteGuest(id []string, respCha
 	}
 	var taskID = newID.String()
 	manager.batchDeleteTasks[taskID] = task
-	respChan <- ResourceResult{Batch:taskID, BatchDelete:task.Guests}
+	respChan <- ResourceResult{Batch: taskID, BatchDelete: task.Guests}
 	log.Printf("<resource_manager> new delete guest batch allocated, task id '%s'", taskID)
 	return nil
 }
 
-func (manager *ResourceManager) handleSetBatchDeleteGuestSuccess(batchID, guestID string, respChan chan error) (err error){
+func (manager *ResourceManager) handleSetBatchDeleteGuestSuccess(batchID, guestID string, respChan chan error) (err error) {
 	task, exists := manager.batchDeleteTasks[batchID]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid batch task '%s", batchID)
 		respChan <- err
 		return err
 	}
 	guestIndex, exists := task.GuestID[guestID]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("no guest with id '%s' in batch '%s'", guestID, batchID)
 		respChan <- err
 		return err
 	}
-	if guestIndex > len(task.Guests){
-		err = fmt.Errorf("invalid index %d with id '%s'", guestIndex,  guestID)
+	if guestIndex > len(task.Guests) {
+		err = fmt.Errorf("invalid index %d with id '%s'", guestIndex, guestID)
 		respChan <- err
 		return err
 	}
@@ -3718,21 +3730,21 @@ func (manager *ResourceManager) handleSetBatchDeleteGuestSuccess(batchID, guestI
 	return nil
 }
 
-func (manager *ResourceManager) handleSetBatchDeleteGuestFail(batchID, guestID string, deleteError error, respChan chan error) (err error){
+func (manager *ResourceManager) handleSetBatchDeleteGuestFail(batchID, guestID string, deleteError error, respChan chan error) (err error) {
 	task, exists := manager.batchDeleteTasks[batchID]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid batch task '%s", batchID)
 		respChan <- err
 		return err
 	}
 	guestIndex, exists := task.GuestID[guestID]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("no guest with id '%s' in batch '%s'", guestID, batchID)
 		respChan <- err
 		return err
 	}
-	if guestIndex > len(task.Guests){
-		err = fmt.Errorf("invalid index %d with id '%s'", guestIndex,  guestID)
+	if guestIndex > len(task.Guests) {
+		err = fmt.Errorf("invalid index %d with id '%s'", guestIndex, guestID)
 		respChan <- err
 		return err
 	}
@@ -3747,21 +3759,21 @@ func (manager *ResourceManager) handleSetBatchDeleteGuestFail(batchID, guestID s
 	return nil
 }
 
-func (manager *ResourceManager) handleGetBatchDeleteGuestStatus(batchID string, respChan chan ResourceResult) (err error){
+func (manager *ResourceManager) handleGetBatchDeleteGuestStatus(batchID string, respChan chan ResourceResult) (err error) {
 	task, exists := manager.batchDeleteTasks[batchID]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid batch task '%s", batchID)
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
 	respChan <- ResourceResult{BatchDelete: task.Guests}
 	return nil
 }
 
-func (manager *ResourceManager) handleStartBatchStopGuest(id []string, respChan chan ResourceResult) (err error){
-	if 0 == len(id){
+func (manager *ResourceManager) handleStartBatchStopGuest(id []string, respChan chan ResourceResult) (err error) {
+	if 0 == len(id) {
 		err = errors.New("guest id required")
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
 	var newID = uuid.NewV4()
@@ -3771,10 +3783,9 @@ func (manager *ResourceManager) handleStartBatchStopGuest(id []string, respChan 
 	task.LatestUpdate = time.Now()
 	task.GuestID = map[string]int{}
 
-
-	for taskIndex, guestID := range id{
+	for taskIndex, guestID := range id {
 		guest, exists := manager.instances[guestID]
-		if !exists{
+		if !exists {
 			err = fmt.Errorf("invalid guest '%s'", guestID)
 			respChan <- ResourceResult{Error: err}
 			return err
@@ -3785,26 +3796,26 @@ func (manager *ResourceManager) handleStartBatchStopGuest(id []string, respChan 
 	}
 	var taskID = newID.String()
 	manager.batchStopTasks[taskID] = task
-	respChan <- ResourceResult{Batch:taskID, BatchStop:task.Guests}
+	respChan <- ResourceResult{Batch: taskID, BatchStop: task.Guests}
 	log.Printf("<resource_manager> new stop guest batch allocated, task id '%s'", taskID)
 	return nil
 }
 
-func (manager *ResourceManager) handleSetBatchStopGuestSuccess(batchID, guestID string, respChan chan error) (err error){
+func (manager *ResourceManager) handleSetBatchStopGuestSuccess(batchID, guestID string, respChan chan error) (err error) {
 	task, exists := manager.batchStopTasks[batchID]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid batch task '%s", batchID)
 		respChan <- err
 		return err
 	}
 	guestIndex, exists := task.GuestID[guestID]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("no guest with id '%s' in batch '%s'", guestID, batchID)
 		respChan <- err
 		return err
 	}
-	if guestIndex > len(task.Guests){
-		err = fmt.Errorf("invalid index %d with id '%s'", guestIndex,  guestID)
+	if guestIndex > len(task.Guests) {
+		err = fmt.Errorf("invalid index %d with id '%s'", guestIndex, guestID)
 		respChan <- err
 		return err
 	}
@@ -3818,21 +3829,21 @@ func (manager *ResourceManager) handleSetBatchStopGuestSuccess(batchID, guestID 
 	return nil
 }
 
-func (manager *ResourceManager) handleSetBatchStopGuestFail(batchID, guestID string, deleteError error, respChan chan error) (err error){
+func (manager *ResourceManager) handleSetBatchStopGuestFail(batchID, guestID string, deleteError error, respChan chan error) (err error) {
 	task, exists := manager.batchStopTasks[batchID]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid batch task '%s", batchID)
 		respChan <- err
 		return err
 	}
 	guestIndex, exists := task.GuestID[guestID]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("no guest with id '%s' in batch '%s'", guestID, batchID)
 		respChan <- err
 		return err
 	}
-	if guestIndex > len(task.Guests){
-		err = fmt.Errorf("invalid index %d with id '%s'", guestIndex,  guestID)
+	if guestIndex > len(task.Guests) {
+		err = fmt.Errorf("invalid index %d with id '%s'", guestIndex, guestID)
 		respChan <- err
 		return err
 	}
@@ -3847,24 +3858,24 @@ func (manager *ResourceManager) handleSetBatchStopGuestFail(batchID, guestID str
 	return nil
 }
 
-func (manager *ResourceManager) handleGetBatchStopGuestStatus(batchID string, respChan chan ResourceResult) (err error){
+func (manager *ResourceManager) handleGetBatchStopGuestStatus(batchID string, respChan chan ResourceResult) (err error) {
 	task, exists := manager.batchStopTasks[batchID]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid batch task '%s", batchID)
-		respChan <- ResourceResult{Error:err}
+		respChan <- ResourceResult{Error: err}
 		return err
 	}
 	respChan <- ResourceResult{BatchStop: task.Guests}
 	return nil
 }
 
-func (manager *ResourceManager) handleUpdateInstanceMonitorSecret(instanceID, secret string, respChan chan error) (err error){
+func (manager *ResourceManager) handleUpdateInstanceMonitorSecret(instanceID, secret string, respChan chan error) (err error) {
 	defer func() {
 		respChan <- err
 	}()
 	var instance InstanceStatus
 	var exists bool
-	if instance, exists = manager.instances[instanceID]; !exists{
+	if instance, exists = manager.instances[instanceID]; !exists {
 		err = fmt.Errorf("invalid instance '%s'", instanceID)
 		return
 	}
@@ -3874,16 +3885,16 @@ func (manager *ResourceManager) handleUpdateInstanceMonitorSecret(instanceID, se
 	return
 }
 
-func (manager *ResourceManager) handleQuerySystemTemplates(respChan chan ResourceResult) (err error){
+func (manager *ResourceManager) handleQuerySystemTemplates(respChan chan ResourceResult) (err error) {
 	defer func() {
-		if err != nil{
+		if err != nil {
 			respChan <- ResourceResult{Error: err}
 		}
 	}()
 	var result = make([]SystemTemplate, 0)
-	for _, id := range manager.allTemplateID{
+	for _, id := range manager.allTemplateID {
 		template, exists := manager.templates[id]
-		if !exists{
+		if !exists {
 			err = fmt.Errorf("invalid template '%s'", id)
 			return
 		}
@@ -3893,14 +3904,14 @@ func (manager *ResourceManager) handleQuerySystemTemplates(respChan chan Resourc
 	return nil
 }
 
-func (manager *ResourceManager) handleGetSystemTemplate(id string, respChan chan ResourceResult) (err error){
+func (manager *ResourceManager) handleGetSystemTemplate(id string, respChan chan ResourceResult) (err error) {
 	defer func() {
-		if err != nil{
+		if err != nil {
 			respChan <- ResourceResult{Error: err}
 		}
 	}()
 	template, exists := manager.templates[id]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid template '%s'", id)
 		return
 	}
@@ -3908,26 +3919,26 @@ func (manager *ResourceManager) handleGetSystemTemplate(id string, respChan chan
 	return nil
 }
 
-func (manager *ResourceManager) handleCreateSystemTemplate(config SystemTemplateConfig, respChan chan ResourceResult) (err error){
+func (manager *ResourceManager) handleCreateSystemTemplate(config SystemTemplateConfig, respChan chan ResourceResult) (err error) {
 	defer func() {
-		if err != nil{
+		if err != nil {
 			respChan <- ResourceResult{Error: err}
 		}
 	}()
-	for _, t := range manager.templates{
-		if t.Name == config.Name{
+	for _, t := range manager.templates {
+		if t.Name == config.Name {
 			err = fmt.Errorf("system template '%s' already exists", t.Name)
 			return
 		}
 	}
-	if _, err = config.ToOptions(); err != nil{
+	if _, err = config.ToOptions(); err != nil {
 		err = fmt.Errorf("invalid template config: %s", err.Error())
 		return
 	}
 	var template = CreateSystemTemplate(config)
 	manager.templates[template.ID] = template
 	manager.allTemplateID = append(manager.allTemplateID, template.ID)
-	if err = manager.saveConfig(); err != nil{
+	if err = manager.saveConfig(); err != nil {
 		err = fmt.Errorf("add new template fail: %s", err.Error())
 		return
 	}
@@ -3936,16 +3947,16 @@ func (manager *ResourceManager) handleCreateSystemTemplate(config SystemTemplate
 	return nil
 }
 
-func (manager *ResourceManager) handleModifySystemTemplate(id string, config SystemTemplateConfig, respChan chan error) (err error){
+func (manager *ResourceManager) handleModifySystemTemplate(id string, config SystemTemplateConfig, respChan chan error) (err error) {
 	defer func() {
 		respChan <- err
 	}()
-	if _, err = config.ToOptions(); err != nil{
+	if _, err = config.ToOptions(); err != nil {
 		err = fmt.Errorf("invalid template config: %s", err.Error())
 		return
 	}
 	template, exists := manager.templates[id]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid template '%s'", id)
 		return
 	}
@@ -3957,19 +3968,19 @@ func (manager *ResourceManager) handleModifySystemTemplate(id string, config Sys
 	return
 }
 
-func (manager *ResourceManager) handleDeleteSystemTemplate(id string, respChan chan error) (err error){
+func (manager *ResourceManager) handleDeleteSystemTemplate(id string, respChan chan error) (err error) {
 	defer func() {
 		respChan <- err
 	}()
 	template, exists := manager.templates[id]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid template '%s'", id)
 		return
 	}
 	delete(manager.templates, id)
 	var newArray []string
-	for _, templateID := range manager.allTemplateID{
-		if id != templateID{
+	for _, templateID := range manager.allTemplateID {
+		if id != templateID {
 			newArray = append(newArray, templateID)
 		}
 	}
@@ -3978,28 +3989,29 @@ func (manager *ResourceManager) handleDeleteSystemTemplate(id string, respChan c
 	err = manager.saveConfig()
 	return
 }
+
 //Security Policy Group
-func (manager *ResourceManager) handleQuerySecurityPolicyGroups(condition SecurityPolicyGroupQueryCondition, respChan chan ResourceResult) (err error){
+func (manager *ResourceManager) handleQuerySecurityPolicyGroups(condition SecurityPolicyGroupQueryCondition, respChan chan ResourceResult) (err error) {
 	var group managedSecurityPolicyGroup
 	var exists bool
 	var groupID string
 	var result ResourceResult
-	for _, groupID = range manager.sortedPolicyGroupID{
-		if group, exists = manager.policyGroups[groupID]; !exists{
+	for _, groupID = range manager.sortedPolicyGroupID {
+		if group, exists = manager.policyGroups[groupID]; !exists {
 			err = fmt.Errorf("invalid security policy group '%s' in index", groupID)
 			respChan <- ResourceResult{Error: err}
 			return
 		}
-		if "" != condition.User && condition.User != group.User{
+		if "" != condition.User && condition.User != group.User {
 			continue
 		}
-		if "" != condition.Group && condition.Group != group.Group{
+		if "" != condition.Group && condition.Group != group.Group {
 			continue
 		}
-		if condition.EnabledOnly && !group.Enabled{
+		if condition.EnabledOnly && !group.Enabled {
 			continue
 		}
-		if condition.GlobalOnly && !group.Global{
+		if condition.GlobalOnly && !group.Global {
 			continue
 		}
 		result.PolicyGroupList = append(result.PolicyGroupList, group.SecurityPolicyGroupStatus)
@@ -4009,10 +4021,10 @@ func (manager *ResourceManager) handleQuerySecurityPolicyGroups(condition Securi
 	return nil
 }
 
-func (manager *ResourceManager) handleGetSecurityPolicyGroup(groupID string, respChan chan ResourceResult) (err error){
+func (manager *ResourceManager) handleGetSecurityPolicyGroup(groupID string, respChan chan ResourceResult) (err error) {
 	var group managedSecurityPolicyGroup
 	var exists bool
-	if group, exists = manager.policyGroups[groupID]; !exists{
+	if group, exists = manager.policyGroups[groupID]; !exists {
 		err = fmt.Errorf("invalid security policy group '%s'", groupID)
 		respChan <- ResourceResult{Error: err}
 		return
@@ -4025,16 +4037,16 @@ func (manager *ResourceManager) handleGetSecurityPolicyGroup(groupID string, res
 	return nil
 }
 
-func (manager *ResourceManager) handleCreateSecurityPolicyGroup(config SecurityPolicyGroup, respChan chan ResourceResult) (err error){
+func (manager *ResourceManager) handleCreateSecurityPolicyGroup(config SecurityPolicyGroup, respChan chan ResourceResult) (err error) {
 	var exists bool
-	if _, exists = manager.policyGroupNames[config.Name]; exists{
+	if _, exists = manager.policyGroupNames[config.Name]; exists {
 		err = fmt.Errorf("security policy group '%s' already exists in system", config.Name)
 		respChan <- ResourceResult{Error: err}
 		return
 	}
 	var newID = uuid.NewV4()
 	var groupID = newID.String()
-	if _, exists = manager.policyGroups[groupID]; exists{
+	if _, exists = manager.policyGroups[groupID]; exists {
 		err = fmt.Errorf("security policy group '%s' already exists", groupID)
 		respChan <- ResourceResult{Error: err}
 		return
@@ -4047,7 +4059,7 @@ func (manager *ResourceManager) handleCreateSecurityPolicyGroup(config SecurityP
 	manager.sortedPolicyGroupID = append(manager.sortedPolicyGroupID, groupID)
 	respChan <- ResourceResult{
 		PolicyGroup: SecurityPolicyGroupStatus{
-			ID: groupID,
+			ID:                  groupID,
 			SecurityPolicyGroup: config,
 		},
 	}
@@ -4055,10 +4067,10 @@ func (manager *ResourceManager) handleCreateSecurityPolicyGroup(config SecurityP
 	return manager.saveConfig()
 }
 
-func (manager *ResourceManager) handleModifySecurityPolicyGroup(groupID string, config SecurityPolicyGroup, respChan chan error) (err error){
+func (manager *ResourceManager) handleModifySecurityPolicyGroup(groupID string, config SecurityPolicyGroup, respChan chan error) (err error) {
 	var group managedSecurityPolicyGroup
 	var exists bool
-	if group, exists = manager.policyGroups[groupID]; !exists{
+	if group, exists = manager.policyGroups[groupID]; !exists {
 		err = fmt.Errorf("invalid security policy group '%s'", groupID)
 		respChan <- err
 		return
@@ -4070,31 +4082,31 @@ func (manager *ResourceManager) handleModifySecurityPolicyGroup(groupID string, 
 	return manager.saveConfig()
 }
 
-func (manager *ResourceManager) handleDeleteSecurityPolicyGroup(groupID string, respChan chan error) (err error){
+func (manager *ResourceManager) handleDeleteSecurityPolicyGroup(groupID string, respChan chan error) (err error) {
 	var group managedSecurityPolicyGroup
 	var exists bool
-	if group, exists = manager.policyGroups[groupID]; !exists{
+	if group, exists = manager.policyGroups[groupID]; !exists {
 		err = fmt.Errorf("invalid security policy group '%s'", groupID)
 		respChan <- err
 		return
 	}
 	var index = -1
-	for offset, id := range manager.sortedPolicyGroupID{
-		if id == groupID{
+	for offset, id := range manager.sortedPolicyGroupID {
+		if id == groupID {
 			index = offset
 			break
 		}
 	}
-	if -1 == index{
+	if -1 == index {
 		err = fmt.Errorf("can not found security policy group '%s' in index", groupID)
 		respChan <- err
 		return
 	}
-	if index == len(manager.sortedPolicyGroupID) - 1{
+	if index == len(manager.sortedPolicyGroupID)-1 {
 		//truncate tail
 		manager.sortedPolicyGroupID = manager.sortedPolicyGroupID[:index]
-	}else{
-		manager.sortedPolicyGroupID = append(manager.sortedPolicyGroupID[:index], manager.sortedPolicyGroupID[index + 1:]...)
+	} else {
+		manager.sortedPolicyGroupID = append(manager.sortedPolicyGroupID[:index], manager.sortedPolicyGroupID[index+1:]...)
 	}
 	delete(manager.policyGroupNames, group.Name)
 	delete(manager.policyGroups, groupID)
@@ -4103,10 +4115,10 @@ func (manager *ResourceManager) handleDeleteSecurityPolicyGroup(groupID string, 
 	return manager.saveConfig()
 }
 
-func (manager *ResourceManager) handleGetSecurityPolicyRules(groupID string, respChan chan ResourceResult) (err error){
+func (manager *ResourceManager) handleGetSecurityPolicyRules(groupID string, respChan chan ResourceResult) (err error) {
 	var group managedSecurityPolicyGroup
 	var exists bool
-	if group, exists = manager.policyGroups[groupID]; !exists{
+	if group, exists = manager.policyGroups[groupID]; !exists {
 		err = fmt.Errorf("invalid security policy group '%s'", groupID)
 		respChan <- ResourceResult{Error: err}
 		return
@@ -4115,16 +4127,16 @@ func (manager *ResourceManager) handleGetSecurityPolicyRules(groupID string, res
 	return nil
 }
 
-func (manager *ResourceManager) handleAddSecurityPolicyRule(groupID string, rule SecurityPolicyRule, respChan chan error) (err error){
+func (manager *ResourceManager) handleAddSecurityPolicyRule(groupID string, rule SecurityPolicyRule, respChan chan error) (err error) {
 	var group managedSecurityPolicyGroup
 	var exists bool
-	if group, exists = manager.policyGroups[groupID]; !exists{
+	if group, exists = manager.policyGroups[groupID]; !exists {
 		err = fmt.Errorf("invalid security policy group '%s'", groupID)
 		respChan <- err
 		return
 	}
-	for _, current := range group.Rules{
-		if rule.TargetPort == current.TargetPort && rule.Protocol == current.Protocol && rule.SourceAddress == current.SourceAddress{
+	for _, current := range group.Rules {
+		if rule.TargetPort == current.TargetPort && rule.Protocol == current.Protocol && rule.SourceAddress == current.SourceAddress {
 			err = fmt.Errorf("rule %s:%s:%d already defined in policy group '%s'",
 				rule.Protocol, rule.SourceAddress, rule.TargetPort, group.Name)
 			respChan <- err
@@ -4139,28 +4151,28 @@ func (manager *ResourceManager) handleAddSecurityPolicyRule(groupID string, rule
 	return manager.saveConfig()
 }
 
-func (manager *ResourceManager) handleModifySecurityPolicyRule(groupID string, index int, rule SecurityPolicyRule, respChan chan error) (err error){
+func (manager *ResourceManager) handleModifySecurityPolicyRule(groupID string, index int, rule SecurityPolicyRule, respChan chan error) (err error) {
 	var group managedSecurityPolicyGroup
 	var exists bool
-	if group, exists = manager.policyGroups[groupID]; !exists{
+	if group, exists = manager.policyGroups[groupID]; !exists {
 		err = fmt.Errorf("invalid security policy group '%s'", groupID)
 		respChan <- err
 		return
 	}
-	if index >= len(group.Rules){
+	if index >= len(group.Rules) {
 		err = fmt.Errorf("invalid index %d on security policy group '%s'", index, groupID)
 		respChan <- err
 		return
 	}
-	for currentIndex, current := range group.Rules{
-		if rule.TargetPort == current.TargetPort && rule.Protocol == current.Protocol && rule.SourceAddress == current.SourceAddress{
-			if index == currentIndex{
-				if rule.Accept == current.Accept{
+	for currentIndex, current := range group.Rules {
+		if rule.TargetPort == current.TargetPort && rule.Protocol == current.Protocol && rule.SourceAddress == current.SourceAddress {
+			if index == currentIndex {
+				if rule.Accept == current.Accept {
 					err = errors.New("no need to change")
 					respChan <- err
 					return
 				}
-			}else{
+			} else {
 				err = fmt.Errorf("rule %s:%s:%d already defined in policy group '%s'",
 					rule.Protocol, rule.SourceAddress, rule.TargetPort, group.Name)
 				respChan <- err
@@ -4177,24 +4189,24 @@ func (manager *ResourceManager) handleModifySecurityPolicyRule(groupID string, i
 	return manager.saveConfig()
 }
 
-func (manager *ResourceManager) handleRemoveSecurityPolicyRule(groupID string, index int, respChan chan error) (err error){
+func (manager *ResourceManager) handleRemoveSecurityPolicyRule(groupID string, index int, respChan chan error) (err error) {
 	var group managedSecurityPolicyGroup
 	var exists bool
-	if group, exists = manager.policyGroups[groupID]; !exists{
+	if group, exists = manager.policyGroups[groupID]; !exists {
 		err = fmt.Errorf("invalid security policy group '%s'", groupID)
 		respChan <- err
 		return
 	}
-	if index >= len(group.Rules){
+	if index >= len(group.Rules) {
 		err = fmt.Errorf("invalid index %d on security policy group '%s'", index, groupID)
 		respChan <- err
 		return
 	}
-	if index == len(group.Rules) - 1{
+	if index == len(group.Rules)-1 {
 		//last
 		group.Rules = group.Rules[:index]
-	}else{
-		group.Rules = append(group.Rules[:index], group.Rules[index + 1:]...)
+	} else {
+		group.Rules = append(group.Rules[:index], group.Rules[index+1:]...)
 	}
 	manager.policyGroups[groupID] = group
 	respChan <- nil
@@ -4203,30 +4215,30 @@ func (manager *ResourceManager) handleRemoveSecurityPolicyRule(groupID string, i
 	return manager.saveConfig()
 }
 
-func (manager *ResourceManager) handleMoveSecurityPolicyRule(groupID string, index int, moveUp bool, respChan chan error) (err error){
+func (manager *ResourceManager) handleMoveSecurityPolicyRule(groupID string, index int, moveUp bool, respChan chan error) (err error) {
 	var group managedSecurityPolicyGroup
 	var exists bool
-	if group, exists = manager.policyGroups[groupID]; !exists{
+	if group, exists = manager.policyGroups[groupID]; !exists {
 		err = fmt.Errorf("invalid security policy group '%s'", groupID)
 		respChan <- err
 		return
 	}
 	var ruleCount = len(group.Rules)
-	if index >= ruleCount{
+	if index >= ruleCount {
 		err = fmt.Errorf("invalid index %d on security policy group '%s'", index, groupID)
 		respChan <- err
 		return
 	}
 	var swapIndex int
-	if moveUp{
-		if 0 == index{
+	if moveUp {
+		if 0 == index {
 			err = errors.New("already on top")
 			respChan <- err
 			return
 		}
 		swapIndex = index - 1
-	}else{
-		if ruleCount - 1 == index{
+	} else {
+		if ruleCount-1 == index {
 			err = errors.New("already on bottom")
 			respChan <- err
 			return
@@ -4237,10 +4249,10 @@ func (manager *ResourceManager) handleMoveSecurityPolicyRule(groupID string, ind
 	group.Rules[index] = group.Rules[swapIndex]
 	group.Rules[swapIndex] = current
 	respChan <- nil
-	if moveUp{
+	if moveUp {
 		log.Printf("<resource_manager> %dth rule of securiy policy group '%s'(%s) moved up",
 			index, group.Name, groupID)
-	}else{
+	} else {
 		log.Printf("<resource_manager> %dth rule of securiy policy group '%s'(%s) moved down",
 			index, group.Name, groupID)
 	}
@@ -4249,27 +4261,27 @@ func (manager *ResourceManager) handleMoveSecurityPolicyRule(groupID string, ind
 
 func (manager *ResourceManager) transferInstances(sourceName, targetName string, instances []string, monitorPorts []uint64) (err error) {
 	sourceCell, exists := manager.cells[sourceName]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid source cell '%s'", sourceName)
 		return err
 	}
 	targetCell, exists := manager.cells[targetName]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid target cell '%s'", targetName)
 		return err
 	}
-	if len(instances) != len(monitorPorts){
+	if len(instances) != len(monitorPorts) {
 		err = fmt.Errorf("unmatched port count %d/%d", len(monitorPorts), len(instances))
 		return err
 	}
-	for i, instanceID := range instances{
+	for i, instanceID := range instances {
 		var monitor = monitorPorts[i]
 		instance, exists := manager.instances[instanceID]
-		if !exists{
+		if !exists {
 			err = fmt.Errorf("invalid migrating instance '%s'", instanceID)
 			return err
 		}
-		if !instance.Migrating{
+		if !instance.Migrating {
 			err = fmt.Errorf("instance '%s' not in migrating", instance.Name)
 			return err
 		}
@@ -4290,35 +4302,35 @@ func (manager *ResourceManager) transferInstances(sourceName, targetName string,
 	return nil
 }
 
-func (manager *ResourceManager) allocateNetworkAddress(pool ManagedComputePool, instanceID string) (internal, external string, err error){
+func (manager *ResourceManager) allocateNetworkAddress(pool ManagedComputePool, instanceID string) (internal, external string, err error) {
 	addresses, exists := manager.addressPools[pool.Network]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid address pool '%s'", pool.Network)
 		return
 	}
 	{
 		//internal only
-		for _, startAddress := range addresses.rangeStartAddressed{
+		for _, startAddress := range addresses.rangeStartAddressed {
 			currentRange, exists := addresses.ranges[startAddress]
-			if !exists{
+			if !exists {
 				err = fmt.Errorf("invalid range '%s' in address pool '%s'", startAddress, pool.Network)
 				return
 			}
-			if len(currentRange.allocated) == int(currentRange.capacity){
+			if len(currentRange.allocated) == int(currentRange.capacity) {
 				log.Printf("<resource_manager> debug: ignore depleted range '%s' of address pool '%s'", startAddress, pool.Network)
 				continue
 			}
 			var seekStart = IPv4ToNumber(currentRange.startAddress) + uint32(manager.generator.Intn(int(currentRange.capacity)))
 			var seekEnd = IPv4ToNumber(currentRange.endAddress)
 			var offset uint32 = 0
-			for ; offset < currentRange.capacity; offset++{
+			for ; offset < currentRange.capacity; offset++ {
 				var selected = seekStart + offset
-				if selected > seekEnd{
+				if selected > seekEnd {
 					selected -= currentRange.capacity
 				}
 				var ip = NumberToIPv4(selected)
 				var ipString = ip.String()
-				if _, exists := currentRange.allocated[ipString]; !exists{
+				if _, exists := currentRange.allocated[ipString]; !exists {
 					var internalNetwork = net.IPNet{ip, currentRange.netmask}
 					internal = internalNetwork.String()
 					currentRange.allocated[ipString] = instanceID
@@ -4328,7 +4340,7 @@ func (manager *ResourceManager) allocateNetworkAddress(pool ManagedComputePool, 
 						internal, currentRange.startAddress.String(), currentRange.endAddress.String(), IPv4MaskToString(currentRange.netmask))
 					manager.saveConfig()
 					return
-				}else{
+				} else {
 					log.Printf("<resource_manager> debug: ignore allocated address '%s'", ipString)
 				}
 			}
@@ -4338,13 +4350,62 @@ func (manager *ResourceManager) allocateNetworkAddress(pool ManagedComputePool, 
 	return
 }
 
-func (manager *ResourceManager) deallocateNetworkAddress(pool ManagedComputePool, internalCIDR, external string) (err error){
+func (manager *ResourceManager) allocateAssignedNetworkAddress(pool ManagedComputePool, instanceID string, assignedIp string) (internal, external string, err error) {
 	addresses, exists := manager.addressPools[pool.Network]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid address pool '%s'", pool.Network)
 		return
 	}
-	if "" != external{
+	{
+		//internal only
+		for _, startAddress := range addresses.rangeStartAddressed {
+			currentRange, exists := addresses.ranges[startAddress]
+			if !exists {
+				err = fmt.Errorf("invalid range '%s' in address pool '%s'", startAddress, pool.Network)
+				return
+			}
+			if len(currentRange.allocated) == int(currentRange.capacity) {
+				log.Printf("<resource_manager> debug: ignore depleted range '%s' of address pool '%s'", startAddress, pool.Network)
+				continue
+			}
+			var seekStart = IPv4ToNumber(currentRange.startAddress) + uint32(manager.generator.Intn(int(currentRange.capacity)))
+			var seekEnd = IPv4ToNumber(currentRange.endAddress)
+			var offset uint32 = 0
+			for ; offset < currentRange.capacity; offset++ {
+				var selected = seekStart + offset
+				if selected > seekEnd {
+					selected -= currentRange.capacity
+				}
+				var ip = NumberToIPv4(selected)
+				var ipString = ip.String()
+				//ip must = assigned ip
+				if _, exists := currentRange.allocated[ipString]; !exists && ipString == assignedIp {
+					var internalNetwork = net.IPNet{ip, currentRange.netmask}
+					internal = internalNetwork.String()
+					currentRange.allocated[ipString] = instanceID
+					addresses.ranges[startAddress] = currentRange
+					manager.addressPools[pool.Network] = addresses
+					log.Printf("<resource_manager> internal address '%s' allocated in range '%s~%s/%s'",
+						internal, currentRange.startAddress.String(), currentRange.endAddress.String(), IPv4MaskToString(currentRange.netmask))
+					manager.saveConfig()
+					return
+				} else {
+					log.Printf("<resource_manager> debug: ignore allocated address '%s'", ipString)
+				}
+			}
+		}
+	}
+	err = fmt.Errorf("no address available in address pool '%s'", pool.Network)
+	return
+}
+
+func (manager *ResourceManager) deallocateNetworkAddress(pool ManagedComputePool, internalCIDR, external string) (err error) {
+	addresses, exists := manager.addressPools[pool.Network]
+	if !exists {
+		err = fmt.Errorf("invalid address pool '%s'", pool.Network)
+		return
+	}
+	if "" != external {
 		err = errors.New("external address not supported")
 		return
 	}
@@ -4353,19 +4414,19 @@ func (manager *ResourceManager) deallocateNetworkAddress(pool ManagedComputePool
 		return
 	}
 	internalIP, _, err := net.ParseCIDR(internalCIDR)
-	if err != nil{
+	if err != nil {
 		err = fmt.Errorf("invalid internal address '%s'", internalCIDR)
 		return
 	}
 	var internalString = internalIP.String()
-	for _, startAddress := range addresses.rangeStartAddressed{
+	for _, startAddress := range addresses.rangeStartAddressed {
 		currentRange, exists := addresses.ranges[startAddress]
-		if !exists{
+		if !exists {
 			err = fmt.Errorf("invalid range '%s' in address pool '%s'", startAddress, pool.Network)
 			return
 		}
 		instanceID, exists := currentRange.allocated[internalString]
-		if !exists{
+		if !exists {
 			log.Printf("<resource_manager> debug: internal address '%s' not in range '%s'", internalCIDR, startAddress)
 			continue
 		}
@@ -4396,46 +4457,46 @@ func (manager *ResourceManager) selectCell(poolName string, required InstanceRes
 	var coreMeetsRequirement, memoryMeetsRequirement, diskMeetsRequirement = false, false, false
 	for cellName, _ := range pool.Cells {
 		cell, exists := manager.cells[cellName]
-		if !exists{
+		if !exists {
 			err = fmt.Errorf("invalid cell '%s' in pool '%s'", cellName, poolName)
 			return
 		}
-		if !cell.Alive{
+		if !cell.Alive {
 			log.Printf("<resource_manager> debug: ignore offline cell '%s' when select resource node", cellName)
 			continue
 		}
-		if !cell.Enabled{
+		if !cell.Enabled {
 			log.Printf("<resource_manager> debug: ignore disabled cell '%s' when select resource node", cellName)
 			continue
 		}
 
-		if mustFulfill{
+		if mustFulfill {
 			//check minimal resource
-			if cell.CpuUsage > HealthCpuUsage{
+			if cell.CpuUsage > HealthCpuUsage {
 				log.Printf("<resource_manager> debug: ignore cell '%s' due to cpu overload (%.2f%%)", cellName, cell.CpuUsage)
 				continue
-			}else if !coreMeetsRequirement{
+			} else if !coreMeetsRequirement {
 				coreMeetsRequirement = true
 			}
-			if cell.DiskAvailable < requiredDisk{
+			if cell.DiskAvailable < requiredDisk {
 				log.Printf("<resource_manager> debug: ignore cell '%s' due to insuffient disk (%s for %s)",
 					cellName, bytesToString(cell.DiskAvailable), bytesToString(requiredDisk))
 				continue
-			}else if !diskMeetsRequirement{
+			} else if !diskMeetsRequirement {
 				diskMeetsRequirement = true
 			}
-			if cell.MemoryAvailable < requiredMemory{
+			if cell.MemoryAvailable < requiredMemory {
 				log.Printf("<resource_manager> debug: ignore cell '%s' due to insuffient memory (%s for %s)",
 					cellName, bytesToString(cell.MemoryAvailable), bytesToString(requiredMemory))
 				continue
-			}else if !memoryMeetsRequirement{
+			} else if !memoryMeetsRequirement {
 				memoryMeetsRequirement = true
 			}
 		}
 		var realLoad = manager.evaluateRealTimeCapacity(cell, required.Cores, required.Memory, requiredDisk)
 
 		configureLoad, err := manager.evaluateConfigureCapacity(cell, required.Cores, required.Memory, requiredDisk)
-		if err != nil{
+		if err != nil {
 			return "", err
 		}
 		var capacity = (realLoad + configureLoad) / 2
@@ -4445,14 +4506,14 @@ func (manager *ResourceManager) selectCell(poolName string, required InstanceRes
 			selectedCapacity = capacity
 		}
 	}
-	if mustFulfill{
-		if !diskMeetsRequirement{
+	if mustFulfill {
+		if !diskMeetsRequirement {
 			return "", fmt.Errorf("no cell has enough disk: %s", bytesToString(requiredDisk))
 		}
-		if !memoryMeetsRequirement{
+		if !memoryMeetsRequirement {
 			return "", fmt.Errorf("no cell has enough memory: %s", bytesToString(requiredMemory))
 		}
-		if !coreMeetsRequirement{
+		if !coreMeetsRequirement {
 			return "", fmt.Errorf("all cell cores are busy (load over %.2f%%)", HealthCpuUsage)
 		}
 	}
@@ -4462,58 +4523,58 @@ func (manager *ResourceManager) selectCell(poolName string, required InstanceRes
 	return selected, nil
 }
 
-func (manager *ResourceManager) evaluateRealTimeCapacity(cell ManagedComputeCell, requireCore, requireMemory uint, requireDisk uint64) (capacity float32){
+func (manager *ResourceManager) evaluateRealTimeCapacity(cell ManagedComputeCell, requireCore, requireMemory uint, requireDisk uint64) (capacity float32) {
 	const (
 		fullCPUUsage = 100
 	)
 
 	var availableCores float32
-	if cell.CpuUsage >= fullCPUUsage{
+	if cell.CpuUsage >= fullCPUUsage {
 		availableCores = 0
-	}else{
-		availableCores = float32(cell.Cores) * float32(fullCPUUsage - cell.CpuUsage) / 100
+	} else {
+		availableCores = float32(cell.Cores) * float32(fullCPUUsage-cell.CpuUsage) / 100
 	}
 
 	var coreCapacity = availableCores / float32(requireCore)
 	var memoryCapacity = float32(cell.MemoryAvailable) / float32(requireMemory)
 	var diskCapacity = float32(cell.DiskAvailable / requireDisk)
-	capacity = evaluateCoreFactor* coreCapacity + evaluateMemoryFactor* memoryCapacity + evaluateDiskFactor* diskCapacity
+	capacity = evaluateCoreFactor*coreCapacity + evaluateMemoryFactor*memoryCapacity + evaluateDiskFactor*diskCapacity
 	//log.Printf("<resource_manager> debug: real capacity %.2f, core %.2f / %d => %.2f, mem %d / %d => %.2f, disk %d / %d => %.2f",
 	//	capacity, availableCores, requireCore, coreCapacity, cell.MemoryAvailable >> 20, requireMemory >> 20, memoryCapacity,
 	//	cell.DiskAvailable  >> 30, requireDisk >> 30, diskCapacity)
 	return capacity
 }
 
-func (manager *ResourceManager) evaluateConfigureCapacity(cell ManagedComputeCell, requireCore, requireMemory uint, requireDisk uint64) (capacity float32, err error){
+func (manager *ResourceManager) evaluateConfigureCapacity(cell ManagedComputeCell, requireCore, requireMemory uint, requireDisk uint64) (capacity float32, err error) {
 	const (
 		configureScale = 3
 	)
 	var idList []string
-	for instanceID, _ := range cell.Instances{
+	for instanceID, _ := range cell.Instances {
 		idList = append(idList, instanceID)
 	}
-	for instanceID, _ := range cell.Pending{
+	for instanceID, _ := range cell.Pending {
 		idList = append(idList, instanceID)
 	}
 	var availableCores = cell.Cores * configureScale
 	var availableMemory = cell.Memory * configureScale
 	var availableDisk = cell.Disk * configureScale
-	for _, instanceID := range idList{
+	for _, instanceID := range idList {
 		ins, exists := manager.instances[instanceID]
-		if !exists{
+		if !exists {
 			err = fmt.Errorf("invalid instance '%s' in cell '%s'", instanceID, cell.Name)
 			return
 		}
 		availableCores -= ins.Cores
 		availableMemory -= uint64(ins.Memory)
-		for _, diskSize := range ins.Disks{
+		for _, diskSize := range ins.Disks {
 			availableDisk -= diskSize
 		}
 	}
-	var coreCapacity = float32(availableCores/requireCore)
-	var memoryCapacity = float32(availableMemory/uint64(requireMemory))
-	var diskCapacity = float32(availableDisk/requireDisk)
-	capacity = evaluateCoreFactor* coreCapacity + evaluateMemoryFactor* memoryCapacity + evaluateDiskFactor* diskCapacity
+	var coreCapacity = float32(availableCores / requireCore)
+	var memoryCapacity = float32(availableMemory / uint64(requireMemory))
+	var diskCapacity = float32(availableDisk / requireDisk)
+	capacity = evaluateCoreFactor*coreCapacity + evaluateMemoryFactor*memoryCapacity + evaluateDiskFactor*diskCapacity
 	//log.Printf("<resource_manager> debug: configure capacity %.2f, core %d / %d => %.2f, mem %d / %d => %.2f, disk %d / %d => %.2f",
 	//	capacity, availableCores, requireCore, coreCapacity, availableMemory >> 20, requireMemory >> 20, memoryCapacity,
 	//		availableDisk >> 30, requireDisk >> 30, diskCapacity)
@@ -4525,7 +4586,7 @@ func (manager *ResourceManager) saveConfig() (err error) {
 	var totalPools, totalCells = 0, 0
 	config.Zone = manager.zone.Name
 	for poolName, poolStatus := range manager.pools {
-		var pool = poolDefine{Name: poolName, Enabled: poolStatus.Enabled, Network:poolStatus.Network, Storage:poolStatus.Storage, Failover:poolStatus.Failover}
+		var pool = poolDefine{Name: poolName, Enabled: poolStatus.Enabled, Network: poolStatus.Network, Storage: poolStatus.Storage, Failover: poolStatus.Failover}
 		pool.Cells = map[string]cellDefine{}
 		totalPools++
 		for cellName, _ := range poolStatus.Cells {
@@ -4540,12 +4601,12 @@ func (manager *ResourceManager) saveConfig() (err error) {
 		config.Pools = append(config.Pools, pool)
 	}
 	//storage pools
-	for poolName, pool := range manager.storagePools{
+	for poolName, pool := range manager.storagePools {
 		var storage = storageDefine{poolName, pool.Type, pool.Host, pool.Target}
 		config.StoragePools = append(config.StoragePools, storage)
 	}
 	config.AddressPools = make([]addressPoolDefine, 0)
-	for poolName, pool := range manager.addressPools{
+	for poolName, pool := range manager.addressPools {
 		var define addressPoolDefine
 		define.Name = poolName
 		define.Gateway = pool.gateway
@@ -4553,9 +4614,9 @@ func (manager *ResourceManager) saveConfig() (err error) {
 		define.Provider = pool.provider
 		define.Mode = pool.mode
 		define.Ranges = make([]AddressRangeStatus, 0)
-		for _, startAddress := range pool.rangeStartAddressed{
+		for _, startAddress := range pool.rangeStartAddressed {
 			currentRange, exists := pool.ranges[startAddress]
-			if !exists{
+			if !exists {
 				return fmt.Errorf("invalid start address '%s' in pool '%s'", startAddress, poolName)
 			}
 			var status AddressRangeStatus
@@ -4564,7 +4625,7 @@ func (manager *ResourceManager) saveConfig() (err error) {
 			status.Netmask = IPv4MaskToString(currentRange.netmask)
 			status.Capacity = currentRange.capacity
 			status.Allocated = make([]AllocatedAddress, 0)
-			for address, instance := range currentRange.allocated{
+			for address, instance := range currentRange.allocated {
 				status.Allocated = append(status.Allocated, AllocatedAddress{address, instance})
 			}
 			define.Ranges = append(define.Ranges, status)
@@ -4573,16 +4634,16 @@ func (manager *ResourceManager) saveConfig() (err error) {
 	}
 	var template SystemTemplate
 	var exists bool
-	for _, templateID := range manager.allTemplateID{
-		if template, exists = manager.templates[templateID]; !exists{
+	for _, templateID := range manager.allTemplateID {
+		if template, exists = manager.templates[templateID]; !exists {
 			err = fmt.Errorf("invalid system template '%s'", templateID)
 			return
 		}
 		config.SystemTemplates = append(config.SystemTemplates, template)
 	}
 	var policy managedSecurityPolicyGroup
-	for _, groupID := range manager.sortedPolicyGroupID{
-		if policy, exists = manager.policyGroups[groupID]; !exists{
+	for _, groupID := range manager.sortedPolicyGroupID {
+		if policy, exists = manager.policyGroups[groupID]; !exists {
 			err = fmt.Errorf("invalid security policy '%s'", groupID)
 			return
 		}
@@ -4602,12 +4663,12 @@ func (manager *ResourceManager) saveConfig() (err error) {
 	return nil
 }
 
-func (manager *ResourceManager) generateDefaultTemplates() (templates []SystemTemplate, err error){
+func (manager *ResourceManager) generateDefaultTemplates() (templates []SystemTemplate, err error) {
 	templates = append(templates, CreateSystemTemplate(SystemTemplateConfig{
 		Name:            "CentOS 7",
 		Admin:           "root",
 		OperatingSystem: SystemNameLinux,
-		Disk:            DiskBusSCSI,
+		Disk:            DiskBusIDE,
 		Network:         NetworkModelVIRTIO,
 		Display:         DisplayDriverVGA,
 		Control:         RemoteControlVNC,
@@ -4618,7 +4679,7 @@ func (manager *ResourceManager) generateDefaultTemplates() (templates []SystemTe
 		Name:            "CentOS 6",
 		Admin:           "root",
 		OperatingSystem: SystemNameLinux,
-		Disk:            DiskBusSATA,
+		Disk:            DiskBusIDE,
 		Network:         NetworkModelVIRTIO,
 		Display:         DisplayDriverVGA,
 		Control:         RemoteControlVNC,
@@ -4629,7 +4690,7 @@ func (manager *ResourceManager) generateDefaultTemplates() (templates []SystemTe
 		Name:            "Windows Server 2012",
 		Admin:           "Administrator",
 		OperatingSystem: SystemNameWindows,
-		Disk:            DiskBusSATA,
+		Disk:            DiskBusIDE,
 		Network:         NetworkModelE1000,
 		Display:         DisplayDriverVGA,
 		Control:         RemoteControlVNC,
@@ -4640,7 +4701,7 @@ func (manager *ResourceManager) generateDefaultTemplates() (templates []SystemTe
 		Name:            "General",
 		Admin:           "root",
 		OperatingSystem: SystemNameLinux,
-		Disk:            DiskBusSATA,
+		Disk:            DiskBusIDE,
 		Network:         NetworkModelRTL8139,
 		Display:         DisplayDriverVGA,
 		Control:         RemoteControlVNC,
@@ -4659,10 +4720,10 @@ func (manager *ResourceManager) generateDefaultTemplates() (templates []SystemTe
 		Tablet:          TabletBusNone,
 	}))
 	log.Printf("<resource_manager> %d default system template(s) generated", len(templates))
-	return 
+	return
 }
 
-func (manager *ResourceManager) generateDefaultConfig() (err error){
+func (manager *ResourceManager) generateDefaultConfig() (err error) {
 	const (
 		DefaultPoolName = "default"
 		DefaultZoneName = "default"
@@ -4677,11 +4738,11 @@ func (manager *ResourceManager) generateDefaultConfig() (err error){
 	defaultPool.InstanceNames = map[string]string{}
 	manager.pools = map[string]ManagedComputePool{DefaultPoolName: defaultPool}
 	var templates []SystemTemplate
-	if templates, err = manager.generateDefaultTemplates(); err != nil{
+	if templates, err = manager.generateDefaultTemplates(); err != nil {
 		err = fmt.Errorf("genereate templates fail: %s", err.Error())
 		return
 	}
-	for _, template := range templates{
+	for _, template := range templates {
 		manager.templates[template.ID] = template
 		manager.allTemplateID = append(manager.allTemplateID, template.ID)
 	}
@@ -4694,15 +4755,15 @@ func (manager *ResourceManager) generateDefaultConfig() (err error){
 func (manager *ResourceManager) loadConfig() (err error) {
 	var configChanged = false
 	defer func() {
-		if configChanged{
-			if err = manager.saveConfig(); err != nil{
+		if configChanged {
+			if err = manager.saveConfig(); err != nil {
 				log.Printf("<resource_manager> save config fail after load: %s", err.Error())
 				return
 			}
 		}
 	}()
 	if _, err = os.Stat(manager.dataFile); os.IsNotExist(err) {
-		if err = manager.generateDefaultConfig(); err != nil{
+		if err = manager.generateDefaultConfig(); err != nil {
 			err = fmt.Errorf("generate default config fail: %s", err.Error())
 			return
 		}
@@ -4719,7 +4780,7 @@ func (manager *ResourceManager) loadConfig() (err error) {
 	if err = json.Unmarshal(data, &config); err != nil {
 		return err
 	}
-	for _, poolDefine := range config.AddressPools{
+	for _, poolDefine := range config.AddressPools {
 		var pool ManagedAddressPool
 		pool.name = poolDefine.Name
 		pool.gateway = poolDefine.Gateway
@@ -4728,21 +4789,21 @@ func (manager *ResourceManager) loadConfig() (err error) {
 		pool.mode = poolDefine.Mode
 		pool.ranges = map[string]ManagedIPV4AddressRange{}
 		pool.rangeStartAddressed = make([]string, 0)
-		for _, rangeDefine := range poolDefine.Ranges{
+		for _, rangeDefine := range poolDefine.Ranges {
 			var status ManagedIPV4AddressRange
-			if status.startAddress = net.ParseIP(rangeDefine.Start);nil == status.startAddress{
+			if status.startAddress = net.ParseIP(rangeDefine.Start); nil == status.startAddress {
 				return fmt.Errorf("invalid start address '%s' of pool '%s'", rangeDefine.Start, poolDefine.Name)
 			}
-			if status.endAddress = net.ParseIP(rangeDefine.End);nil == status.endAddress{
+			if status.endAddress = net.ParseIP(rangeDefine.End); nil == status.endAddress {
 				return fmt.Errorf("invalid end address '%s' of pool '%s'", rangeDefine.End, poolDefine.Name)
 			}
 			status.netmask, err = IPv4ToMask(rangeDefine.Netmask)
-			if err != nil{
+			if err != nil {
 				return err
 			}
 			status.capacity = rangeDefine.Capacity
 			status.allocated = map[string]string{}
-			for _, allocated := range rangeDefine.Allocated{
+			for _, allocated := range rangeDefine.Allocated {
 				status.allocated[allocated.Address] = allocated.Instance
 			}
 			pool.rangeStartAddressed = append(pool.rangeStartAddressed, rangeDefine.Start)
@@ -4777,25 +4838,25 @@ func (manager *ResourceManager) loadConfig() (err error) {
 		manager.pools[pool.Name] = poolStatus
 	}
 	//storage pools
-	for _, define := range config.StoragePools{
+	for _, define := range config.StoragePools {
 		var pool = StoragePoolInfo{define.Name, define.Type, define.Host, define.Target}
 		manager.storagePools[pool.Name] = pool
 	}
 	var templates []SystemTemplate
-	if 0 != len(config.SystemTemplates){
+	if 0 != len(config.SystemTemplates) {
 		templates = config.SystemTemplates
-	}else{
-		if templates, err = manager.generateDefaultTemplates(); err != nil{
+	} else {
+		if templates, err = manager.generateDefaultTemplates(); err != nil {
 			err = fmt.Errorf("generate templates fail: %s", err.Error())
 			return
 		}
 		configChanged = true
 	}
-	for _, template := range templates{
+	for _, template := range templates {
 		manager.templates[template.ID] = template
 		manager.allTemplateID = append(manager.allTemplateID, template.ID)
 	}
-	for _, policy := range config.SecurityPolicyGroup{
+	for _, policy := range config.SecurityPolicyGroup {
 		manager.policyGroups[policy.ID] = policy
 		manager.policyGroupNames[policy.Name] = true
 		manager.sortedPolicyGroupID = append(manager.sortedPolicyGroupID, policy.ID)
@@ -4808,35 +4869,35 @@ func (manager *ResourceManager) loadConfig() (err error) {
 	return nil
 }
 
-func (manager *ResourceManager) syncInstanceStatistic(cellName string) (err error){
+func (manager *ResourceManager) syncInstanceStatistic(cellName string) (err error) {
 	var exists bool
 	var cell ManagedComputeCell
-	if cell, exists = manager.cells[cellName]; !exists{
+	if cell, exists = manager.cells[cellName]; !exists {
 		err = fmt.Errorf("invalid cell '%s'", cellName)
 		return
 	}
 	cell.InstanceStatistic.Reset()
-	for instanceID, _ := range cell.Instances{
+	for instanceID, _ := range cell.Instances {
 		var instance InstanceStatus
-		if instance, exists = manager.instances[instanceID]; !exists{
+		if instance, exists = manager.instances[instanceID]; !exists {
 			err = fmt.Errorf("invalid instance '%s' in cell '%s'", instanceID, cellName)
 			return
 		}
-		if instance.Migrating{
-			cell.MigratingInstances ++
-		}else if instance.Lost{
-			cell.LostInstances ++
-		}else if instance.Running{
-			cell.RunningInstances ++
-		}else{
-			cell.StoppedInstances ++
+		if instance.Migrating {
+			cell.MigratingInstances++
+		} else if instance.Lost {
+			cell.LostInstances++
+		} else if instance.Running {
+			cell.RunningInstances++
+		} else {
+			cell.StoppedInstances++
 		}
 	}
 	manager.cells[cellName] = cell
 	return nil
 }
 
-func (cell *ManagedComputeCell) isInstanceConsistent() bool{
+func (cell *ManagedComputeCell) isInstanceConsistent() bool {
 	var current = cell.InstanceStatistic.StoppedInstances + cell.InstanceStatistic.RunningInstances +
 		cell.InstanceStatistic.LostInstances + cell.InstanceStatistic.MigratingInstances
 	var required = uint64(len(cell.Instances))
@@ -4849,9 +4910,9 @@ func (cell *ManagedComputeCell) isInstanceConsistent() bool{
 
 func (s *ResourceUsage) Accumulate(add ResourceUsage) {
 	var totalCores = s.Cores + add.Cores
-	if 0 == totalCores{
+	if 0 == totalCores {
 		s.CpuUsage = 0.0
-	}else{
+	} else {
 		s.CpuUsage = (s.CpuUsage*float64(s.Cores) + add.CpuUsage*float64(add.Cores)) / float64(totalCores)
 	}
 	s.Cores = totalCores
@@ -4915,19 +4976,19 @@ func (p *PoolStatistic) Reset() {
 	p.DisabledPools = 0
 }
 
-func IPv4ToNumber(ip net.IP) (number uint32){
+func IPv4ToNumber(ip net.IP) (number uint32) {
 	number = binary.BigEndian.Uint32(ip[12:])
 	return number
 }
 
-func NumberToIPv4(number uint32) (ip net.IP){
+func NumberToIPv4(number uint32) (ip net.IP) {
 	var bytes = make([]byte, net.IPv4len)
 	binary.BigEndian.PutUint32(bytes, number)
 	ip = net.IPv4(bytes[0], bytes[1], bytes[2], bytes[3])
 	return ip
 }
 
-func IPv4ToMask(stringValue string) (mask net.IPMask, err error){
+func IPv4ToMask(stringValue string) (mask net.IPMask, err error) {
 	var ip = net.ParseIP(stringValue)
 	if nil == ip {
 		err = fmt.Errorf("invalid IP address '%s'", stringValue)
@@ -4942,7 +5003,7 @@ func IPv4ToMask(stringValue string) (mask net.IPMask, err error){
 	return mask, nil
 }
 
-func IPv4MaskToString(mask net.IPMask) (string){
+func IPv4MaskToString(mask net.IPMask) string {
 	return net.IPv4(mask[0], mask[1], mask[2], mask[3]).String()
 }
 
@@ -4955,25 +5016,25 @@ func bytesToString(sizeInBytes uint64) string {
 	)
 	var value = float64(sizeInBytes)
 	var unit string
-	if value < KB{
+	if value < KB {
 		return fmt.Sprintf("%d Bytes", sizeInBytes)
-	}else if value < MB{
+	} else if value < MB {
 		unit = "KB"
 		value = value / KB
-	}else if value < GB{
+	} else if value < GB {
 		unit = "MB"
 		value = value / MB
-	}else if value < TB {
+	} else if value < TB {
 		unit = "GB"
 		value = value / GB
-	}else{
+	} else {
 		unit = "TB"
 		value = value / TB
 	}
-	if value == math.Round(value){
+	if value == math.Round(value) {
 		//integer
 		return fmt.Sprintf("%d %s", int(value), unit)
-	}else{
+	} else {
 		return fmt.Sprintf("%.02f %s", value, unit)
 	}
 }
