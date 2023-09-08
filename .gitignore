@@ -14,6 +14,8 @@
 .idea
 log
 cert
-pkg
 config
+data
+pkg
 core
+core.*

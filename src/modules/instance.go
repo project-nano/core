@@ -68,12 +68,12 @@ const (
 
 const (
 	//bit 0~1 for running/stopped
-	InstanceStatusLostBit    = 2;
-	InstanceStatusMigrateBit = 3;
+	InstanceStatusLostBit    = 2
+	InstanceStatusMigrateBit = 3
 )
 
 const (
-	InstanceMediaOptionNone    uint = iota
+	InstanceMediaOptionNone uint = iota
 	InstanceMediaOptionImage
 	InstanceMediaOptionNetwork
 )
@@ -89,6 +89,16 @@ const (
 const (
 	StorageModeLocal = iota
 )
+
+func (instance *InstanceStatus) IsVisible(userID, groupID string) (visible bool) {
+	if userID == instance.User {
+		return true
+	} else if "" != groupID {
+		//by group
+		return groupID == instance.Group
+	}
+	return false
+}
 
 func MarshalInstanceStatusListToMessage(list []InstanceStatus, msg framework.Message) error {
 	var count = uint(len(list))
@@ -190,53 +200,53 @@ func MarshalInstanceStatusListToMessage(list []InstanceStatus, msg framework.Mes
 	return nil
 }
 
-func (config *InstanceStatus) Marshal(msg framework.Message) error {
-	msg.SetUInt(framework.ParamKeyCore, config.Cores)
-	msg.SetUInt(framework.ParamKeyMemory, config.Memory)
-	msg.SetUIntArray(framework.ParamKeyDisk, config.Disks)
+func (instance *InstanceStatus) Marshal(msg framework.Message) error {
+	msg.SetUInt(framework.ParamKeyCore, instance.Cores)
+	msg.SetUInt(framework.ParamKeyMemory, instance.Memory)
+	msg.SetUIntArray(framework.ParamKeyDisk, instance.Disks)
 
-	msg.SetString(framework.ParamKeyName, config.Name)
-	msg.SetString(framework.ParamKeyUser, config.User)
-	msg.SetString(framework.ParamKeyGroup, config.Group)
-	msg.SetString(framework.ParamKeyPool, config.Pool)
-	msg.SetString(framework.ParamKeyCell, config.Cell)
-	msg.SetString(framework.ParamKeyHost, config.Host)
-	if config.ID != "" {
-		msg.SetString(framework.ParamKeyInstance, config.ID)
+	msg.SetString(framework.ParamKeyName, instance.Name)
+	msg.SetString(framework.ParamKeyUser, instance.User)
+	msg.SetString(framework.ParamKeyGroup, instance.Group)
+	msg.SetString(framework.ParamKeyPool, instance.Pool)
+	msg.SetString(framework.ParamKeyCell, instance.Cell)
+	msg.SetString(framework.ParamKeyHost, instance.Host)
+	if instance.ID != "" {
+		msg.SetString(framework.ParamKeyInstance, instance.ID)
 	}
-	msg.SetBoolean(framework.ParamKeyEnable, config.Created)
-	msg.SetUInt(framework.ParamKeyProgress, config.Progress)
+	msg.SetBoolean(framework.ParamKeyEnable, instance.Created)
+	msg.SetUInt(framework.ParamKeyProgress, instance.Progress)
 
-	if config.AutoStart {
+	if instance.AutoStart {
 		msg.SetUIntArray(framework.ParamKeyOption, []uint64{1})
 	} else {
 		msg.SetUIntArray(framework.ParamKeyOption, []uint64{0})
 	}
-	msg.SetBoolean(framework.ParamKeyMedia, config.MediaAttached)
+	msg.SetBoolean(framework.ParamKeyMedia, instance.MediaAttached)
 	var insStatus uint
-	if config.Running {
+	if instance.Running {
 		insStatus = InstanceStatusRunning
 	} else {
 		insStatus = InstanceStatusStopped
 	}
-	if config.Lost {
+	if instance.Lost {
 		insStatus |= 1 << InstanceStatusLostBit
 	}
 
 	msg.SetUInt(framework.ParamKeyStatus, insStatus)
-	msg.SetString(framework.ParamKeySecret, config.MonitorSecret)
-	msg.SetString(framework.ParamKeySystem, config.System)
-	msg.SetString(framework.ParamKeyCreate, config.CreateTime)
-	msg.SetString(framework.ParamKeyHardware, config.HardwareAddress)
-	var internalMonitor = fmt.Sprintf("%s:%d", config.InternalNetwork.MonitorAddress, config.InternalNetwork.MonitorPort)
-	var externalMonitor = fmt.Sprintf("%s:%d", config.ExternalNetwork.MonitorAddress, config.ExternalNetwork.MonitorPort)
+	msg.SetString(framework.ParamKeySecret, instance.MonitorSecret)
+	msg.SetString(framework.ParamKeySystem, instance.System)
+	msg.SetString(framework.ParamKeyCreate, instance.CreateTime)
+	msg.SetString(framework.ParamKeyHardware, instance.HardwareAddress)
+	var internalMonitor = fmt.Sprintf("%s:%d", instance.InternalNetwork.MonitorAddress, instance.InternalNetwork.MonitorPort)
+	var externalMonitor = fmt.Sprintf("%s:%d", instance.ExternalNetwork.MonitorAddress, instance.ExternalNetwork.MonitorPort)
 	msg.SetStringArray(framework.ParamKeyMonitor, []string{internalMonitor, externalMonitor})
-	msg.SetStringArray(framework.ParamKeyAddress, []string{config.InternalNetwork.InstanceAddress, config.ExternalNetwork.InstanceAddress})
-	msg.SetString(framework.ParamKeyInternal, config.InternalNetwork.AssignedAddress)
-	msg.SetString(framework.ParamKeyExternal, config.ExternalNetwork.AssignedAddress)
+	msg.SetStringArray(framework.ParamKeyAddress, []string{instance.InternalNetwork.InstanceAddress, instance.ExternalNetwork.InstanceAddress})
+	msg.SetString(framework.ParamKeyInternal, instance.InternalNetwork.AssignedAddress)
+	msg.SetString(framework.ParamKeyExternal, instance.ExternalNetwork.AssignedAddress)
 	//QoS
-	msg.SetUInt(framework.ParamKeyPriority, uint(config.CPUPriority))
-	msg.SetUIntArray(framework.ParamKeyLimit, []uint64{config.ReadSpeed, config.WriteSpeed, config.ReadIOPS,
-		config.WriteIOPS, config.ReceiveSpeed, config.SendSpeed})
+	msg.SetUInt(framework.ParamKeyPriority, uint(instance.CPUPriority))
+	msg.SetUIntArray(framework.ParamKeyLimit, []uint64{instance.ReadSpeed, instance.WriteSpeed, instance.ReadIOPS,
+		instance.WriteIOPS, instance.ReceiveSpeed, instance.SendSpeed})
 	return nil
 }

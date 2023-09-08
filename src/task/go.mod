@@ -1,6 +1,6 @@
 module github.com/project-nano/core/task
 
-go 1.13
+go 1.19
 
 replace (
 	github.com/project-nano/core/modules => ../modules
@@ -10,5 +10,6 @@ replace (
 require (
 	github.com/pkg/errors v0.9.1
 	github.com/project-nano/core/modules v0.0.0-00010101000000-000000000000
-	github.com/project-nano/framework v1.0.3
+	github.com/project-nano/framework v1.0.9
+	github.com/rs/xid v1.5.0 // indirect
 )

@@ -48,7 +48,7 @@ type APIConfig struct {
 }
 
 const (
-	HeaderNameHost          = "Host"
+	HeaderNameHost = "Host"
 	//HeaderNameContentType   = "Content-Type"
 	//HeaderNameSession       = "Nano-Session"
 	HeaderNameDate          = "Nano-Date"
@@ -72,23 +72,23 @@ func CreateAPIModule(configPath string, sender framework.MessageSender, resource
 	if err = json.Unmarshal(data, &config); err != nil {
 		return
 	}
-	if 0 == len(config.Credentials){
+	if 0 == len(config.Credentials) {
 		const (
 			dummyID  = "dummyID"
 			dummyKey = "ThisIsAKeyPlaceHolder_ChangeToYourContent"
 		)
 		config.Credentials = []ApiCredential{{ID: dummyID, Key: dummyKey}}
-		if data, err = json.MarshalIndent(config, "", " "); err != nil{
+		if data, err = json.MarshalIndent(config, "", " "); err != nil {
 			err = fmt.Errorf("marshal new config fail: %s", err.Error())
 			return
 		}
 		var file *os.File
-		if file, err = os.Create(configFile); err != nil{
+		if file, err = os.Create(configFile); err != nil {
 			err = fmt.Errorf("create new config fail: %s", err.Error())
 			return
 		}
 		defer file.Close()
-		if _, err = file.Write(data); err != nil{
+		if _, err = file.Write(data); err != nil {
 			err = fmt.Errorf("write new config fail: %s", err.Error())
 			return
 		}
@@ -103,12 +103,12 @@ func CreateAPIModule(configPath string, sender framework.MessageSender, resource
 	module = &APIModule{}
 	module.apiCredentials = map[string]string{}
 
-	for _, credential := range config.Credentials{
-		if 0 == len(credential.ID){
+	for _, credential := range config.Credentials {
+		if 0 == len(credential.ID) {
 			err = errors.New("empty API ID")
 			return
 		}
-		if 0 == len(credential.Key){
+		if 0 == len(credential.Key) {
 			err = fmt.Errorf("empty API key for '%s'", credential.ID)
 			return
 		}
@@ -127,7 +127,7 @@ func CreateAPIModule(configPath string, sender framework.MessageSender, resource
 	return
 }
 
-func (module *APIModule) GetServiceAddress() string{
+func (module *APIModule) GetServiceAddress() string {
 	return module.server.Addr
 }
 
@@ -160,19 +160,19 @@ func (module *APIModule) routine() {
 	module.exitChan <- true
 }
 
-func apiPath(path string) string{
+func apiPath(path string) string {
 	return fmt.Sprintf("%s/v%d%s", APIRoot, APIVersion, path)
 }
 
-func (module *APIModule) verifyRequestSignature(r *http.Request) error{
+func (module *APIModule) verifyRequestSignature(r *http.Request) error {
 	return module.verifySignature(r, true)
 }
 
-func (module *APIModule) verifyStreamSignature(r *http.Request) error{
+func (module *APIModule) verifyStreamSignature(r *http.Request) error {
 	return module.verifySignature(r, false)
 }
 
-func (module *APIModule) verifySignature(r *http.Request, processPayload bool) (err error){
+func (module *APIModule) verifySignature(r *http.Request, processPayload bool) (err error) {
 	const (
 		SignatureMethodHMAC256 = "Nano-HMAC-SHA256"
 		ShortDateFormat        = "20060102"
@@ -184,11 +184,11 @@ func (module *APIModule) verifySignature(r *http.Request, processPayload bool) (
 		//check authorization
 		var authorization = r.Header.Get(HeaderNameAuthorization)
 		var length = len(authorization)
-		if 0 == length{
+		if 0 == length {
 			err = errors.New("authorization required")
 			return
 		}
-		if length <= len(SignatureMethodHMAC256){
+		if length <= len(SignatureMethodHMAC256) {
 			err = fmt.Errorf("insufficent authorization: %s", authorization)
 			return
 		}
@@ -198,9 +198,9 @@ func (module *APIModule) verifySignature(r *http.Request, processPayload bool) (
 			return
 		}
 		var names, values []string
-		for _, token := range strings.Split(authorization[len(SignatureMethodHMAC256) + 1:], ","){
+		for _, token := range strings.Split(authorization[len(SignatureMethodHMAC256)+1:], ",") {
 			var split = strings.SplitN(token, "=", 2)
-			if 2 != len(split){
+			if 2 != len(split) {
 				err = fmt.Errorf("invalid authorization token: %s", token)
 				return
 			}
@@ -213,34 +213,34 @@ func (module *APIModule) verifySignature(r *http.Request, processPayload bool) (
 			TokenSignedHeaders = "SignedHeaders"
 			TokenSignature     = "Signature"
 		)
-		if TokenCount != len(names) || TokenCount != len(values){
+		if TokenCount != len(names) || TokenCount != len(values) {
 			err = fmt.Errorf("unexpected token count %d/%d", len(names), len(values))
 			return
 		}
-		if TokenCredential != names[0]{
+		if TokenCredential != names[0] {
 			err = fmt.Errorf("invalid first token %s", names[0])
 			return
 		}
-		if TokenSignedHeaders != names[1]{
+		if TokenSignedHeaders != names[1] {
 			err = fmt.Errorf("invalid second token %s", names[1])
 			return
 		}
-		if TokenSignature != names[2]{
+		if TokenSignature != names[2] {
 			err = fmt.Errorf("invalid third token %s", names[2])
 			return
 		}
 		var idTail = strings.IndexByte(values[0], '/')
-		if -1 == idTail{
+		if -1 == idTail {
 			err = fmt.Errorf("no API ID in credential: %s", values[0])
 			return
 		}
 		apiID = values[0][:idTail]
 		var exists bool
-		if apiKey, exists = module.apiCredentials[apiID]; !exists{
+		if apiKey, exists = module.apiCredentials[apiID]; !exists {
 			err = fmt.Errorf("invalid API ID: %s", apiID)
 			return
 		}
-		requestScope = values[0][idTail + 1:]
+		requestScope = values[0][idTail+1:]
 		signedHeaders = values[1]
 		signature = values[2]
 	}
@@ -249,51 +249,51 @@ func (module *APIModule) verifySignature(r *http.Request, processPayload bool) (
 		//canonicalRequest
 		var canonicalURI = url.QueryEscape(url.QueryEscape(r.URL.Path))
 		var canonicalQueryString string
-		if 0 != len(r.URL.Query()){
+		if 0 != len(r.URL.Query()) {
 			var paramNames []string
-			for key := range r.URL.Query(){
+			for key := range r.URL.Query() {
 				paramNames = append(paramNames, key)
 			}
 			sort.Sort(sort.StringSlice(paramNames))
 			var queryParams []string
-			for _, name := range paramNames{
+			for _, name := range paramNames {
 				queryParams = append(queryParams,
 					fmt.Sprintf("%s=%s", url.QueryEscape(name), url.QueryEscape(r.URL.Query().Get(name))))
 			}
 			canonicalQueryString = strings.Join(queryParams, "&")
-		}else{
+		} else {
 			canonicalQueryString = ""
 		}
 		var headerIndexes = map[string]int{}
 		var targetHeaders = strings.Split(signedHeaders, ";")
-		for index, name := range targetHeaders{
+		for index, name := range targetHeaders {
 			headerIndexes[name] = index
 		}
 		var signedHeaderToken = make([]string, len(signedHeaders))
 
 		//extract signed headers
-		for name, _ := range r.Header{
+		for name, _ := range r.Header {
 			var lowerName = strings.ToLower(name)
-			if index, exists := headerIndexes[lowerName]; exists{
+			if index, exists := headerIndexes[lowerName]; exists {
 				//signed header
 				signedHeaderToken[index] = fmt.Sprintf("%s:%s\n",
 					lowerName, strings.Trim(r.Header.Get(name), " "))
 			}
-			if HeaderNameDate == name{
+			if HeaderNameDate == name {
 				requestDate = r.Header.Get(name)
 				var requestTime time.Time
-				if requestTime, err = time.Parse(time.RFC3339, requestDate); err != nil{
+				if requestTime, err = time.Parse(time.RFC3339, requestDate); err != nil {
 					err = fmt.Errorf("invalid request date: %s", requestDate)
 				}
 				//must on same day
-				if time.Now().Format(ShortDateFormat) != requestTime.Format(ShortDateFormat){
+				if time.Now().Format(ShortDateFormat) != requestTime.Format(ShortDateFormat) {
 					err = fmt.Errorf("expired request with date %s", requestDate)
 					return
 				}
 			}
-			if HeaderNameScope == name{
+			if HeaderNameScope == name {
 				var scope = r.Header.Get(name)
-				if scope != requestScope{
+				if scope != requestScope {
 					err = fmt.Errorf("request scope mismatch: %s => %s", scope, requestScope)
 					return
 				}
@@ -301,7 +301,7 @@ func (module *APIModule) verifySignature(r *http.Request, processPayload bool) (
 		}
 		var canonicalHeaders string
 		var headersBuilder strings.Builder
-		for _, token := range signedHeaderToken{
+		for _, token := range signedHeaderToken {
 			headersBuilder.WriteString(token)
 		}
 		canonicalHeaders = headersBuilder.String()
@@ -314,12 +314,12 @@ func (module *APIModule) verifySignature(r *http.Request, processPayload bool) (
 			signedHeaders,
 		}
 		if processPayload {
-			if http.MethodGet == r.Method || http.MethodHead == r.Method || http.MethodOptions == r.Method{
+			if http.MethodGet == r.Method || http.MethodHead == r.Method || http.MethodOptions == r.Method {
 				hash.Write([]byte(""))
-			}else {
+			} else {
 				//clone request payload
 				var payload []byte
-				if payload, err = ioutil.ReadAll(r.Body); err != nil{
+				if payload, err = ioutil.ReadAll(r.Body); err != nil {
 					return
 				}
 				hash.Write(payload)
@@ -349,17 +349,17 @@ func (module *APIModule) verifySignature(r *http.Request, processPayload bool) (
 
 		var key = []byte(builder.String())
 		var data = []byte(requestScope)
-		if signKey, err = computeHMACSha256(key, data); err != nil{
+		if signKey, err = computeHMACSha256(key, data); err != nil {
 			err = fmt.Errorf("compute signature key fail: %s", err.Error())
 			return
 		}
 		var hmacSignature []byte
-		if hmacSignature, err = computeHMACSha256(signKey, []byte(stringToSign)); err != nil{
+		if hmacSignature, err = computeHMACSha256(signKey, []byte(stringToSign)); err != nil {
 			err = fmt.Errorf("compute signature fail: %s", err.Error())
 			return
 		}
 		var expectedSignature = hex.EncodeToString(hmacSignature)
-		if signature != expectedSignature{
+		if signature != expectedSignature {
 			err = errors.New("signature corrupted")
 			return
 		}
@@ -367,9 +367,9 @@ func (module *APIModule) verifySignature(r *http.Request, processPayload bool) (
 	return nil
 }
 
-func computeHMACSha256(key, data []byte) (hash []byte, err error){
+func computeHMACSha256(key, data []byte) (hash []byte, err error) {
 	var h = hmac.New(sha256.New, key)
-	if _, err = h.Write(data); err != nil{
+	if _, err = h.Write(data); err != nil {
 		return
 	}
 	hash = h.Sum(nil)
@@ -452,7 +452,7 @@ func (module *APIModule) RegisterAPIHandler(router *httprouter.Router) {
 	router.PATCH(apiPath("/disk_images/"), module.syncDiskImages)
 
 	router.GET(apiPath("/disk_images/:id/file/"), module.redirectToImageServer)
-	router.POST(apiPath("/disk_images/:id/file/"), module.redirectToImageServer)//upload from web
+	router.POST(apiPath("/disk_images/:id/file/"), module.redirectToImageServer) //upload from web
 
 	router.POST(apiPath("/instances/:id/media"), module.handleInsertMedia)
 	router.DELETE(apiPath("/instances/:id/media"), module.handleEjectMedia)
@@ -522,7 +522,7 @@ func (module *APIModule) RegisterAPIHandler(router *httprouter.Router) {
 }
 
 func (module *APIModule) queryZoneStatistic(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -623,13 +623,13 @@ func (module *APIModule) queryZoneStatistic(w http.ResponseWriter, r *http.Reque
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	if err = ResponseOK(data, w); err != nil{
+	if err = ResponseOK(data, w); err != nil {
 		log.Printf("<api> marshal zone status fail: %s", err.Error())
 	}
 }
 
 func (module *APIModule) queryComputePoolsStatus(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -706,45 +706,45 @@ func (module *APIModule) queryComputePoolsStatus(w http.ResponseWriter, r *http.
 		var memoryCount = len(memory)
 		var diskCount = len(disk)
 		var speedCount = len(speed)
-		if cellCount != count * cellParamCount{
-			err = fmt.Errorf("unexpected cell params %d / %d", cellCount, count * cellParamCount)
+		if cellCount != count*cellParamCount {
+			err = fmt.Errorf("unexpected cell params %d / %d", cellCount, count*cellParamCount)
 			return
 		}
-		if instanceCount != count * instanceParamCount{
-			err = fmt.Errorf("unexpected instance params %d / %d", instanceCount, count * instanceParamCount)
+		if instanceCount != count*instanceParamCount {
+			err = fmt.Errorf("unexpected instance params %d / %d", instanceCount, count*instanceParamCount)
 			return
 		}
-		if memoryCount != count * memoryParamCount{
-			err = fmt.Errorf("unexpected memory params %d / %d", memoryCount, count * memoryParamCount)
+		if memoryCount != count*memoryParamCount {
+			err = fmt.Errorf("unexpected memory params %d / %d", memoryCount, count*memoryParamCount)
 			return
 		}
-		if diskCount != count * diskParamCount{
-			err = fmt.Errorf("unexpected disk params %d / %d", diskCount, count * diskParamCount)
+		if diskCount != count*diskParamCount {
+			err = fmt.Errorf("unexpected disk params %d / %d", diskCount, count*diskParamCount)
 			return
 		}
-		if speedCount != count * speedParamCount{
-			err = fmt.Errorf("unexpected speed params %d / %d", memoryCount, count * speedParamCount)
+		if speedCount != count*speedParamCount {
+			err = fmt.Errorf("unexpected speed params %d / %d", memoryCount, count*speedParamCount)
 			return
 		}
-		for i := 0; i < count; i++{
-			var p = poolStatus{Name:name[i]}
-			if 1 == enabled[i]{
+		for i := 0; i < count; i++ {
+			var p = poolStatus{Name: name[i]}
+			if 1 == enabled[i] {
 				p.Enabled = true
-			}else{
+			} else {
 				p.Enabled = false
 			}
-			p.Cells = []uint64{cells[i*cellParamCount], cells[i*cellParamCount + 1]}
-			p.Instances = []uint64{instances[i*instanceParamCount], instances[i*instanceParamCount + 1], instances[i*instanceParamCount+ 2], instances[i*instanceParamCount + 3]}
+			p.Cells = []uint64{cells[i*cellParamCount], cells[i*cellParamCount+1]}
+			p.Instances = []uint64{instances[i*instanceParamCount], instances[i*instanceParamCount+1], instances[i*instanceParamCount+2], instances[i*instanceParamCount+3]}
 			p.CpuUsage = float64(usage[i])
 			p.MaxCpu = uint(cores[i])
 			p.AvailableMemory = memory[i*memoryParamCount]
-			p.MaxMemory = memory[i*memoryParamCount + 1]
+			p.MaxMemory = memory[i*memoryParamCount+1]
 			p.AvailableDisk = disk[i*diskParamCount]
-			p.MaxDisk = disk[i*diskParamCount + 1]
+			p.MaxDisk = disk[i*diskParamCount+1]
 			p.ReadSpeed = speed[i*speedParamCount]
-			p.WriteSpeed = speed[i*speedParamCount + 1]
-			p.ReceiveSpeed = speed[i*speedParamCount + 2]
-			p.SendSpeed = speed[i*speedParamCount + 3]
+			p.WriteSpeed = speed[i*speedParamCount+1]
+			p.ReceiveSpeed = speed[i*speedParamCount+2]
+			p.SendSpeed = speed[i*speedParamCount+3]
 			status = append(status, p)
 		}
 		return
@@ -760,7 +760,7 @@ func (module *APIModule) queryComputePoolsStatus(w http.ResponseWriter, r *http.
 }
 
 func (module *APIModule) getComputePoolStatus(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -864,7 +864,7 @@ func (module *APIModule) getComputePoolStatus(w http.ResponseWriter, r *http.Req
 }
 
 func (module *APIModule) queryComputeCellStatus(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -945,45 +945,45 @@ func (module *APIModule) queryComputeCellStatus(w http.ResponseWriter, r *http.R
 		var memoryCount = len(memory)
 		var diskCount = len(disk)
 		var speedCount = len(speed)
-		if instanceCount != count * instanceParamCount{
-			err = fmt.Errorf("unexpected instance params %d / %d", instanceCount, count * instanceParamCount)
+		if instanceCount != count*instanceParamCount {
+			err = fmt.Errorf("unexpected instance params %d / %d", instanceCount, count*instanceParamCount)
 			return
 		}
-		if memoryCount != count * memoryParamCount{
-			err = fmt.Errorf("unexpected memory params %d / %d", memoryCount, count * memoryParamCount)
+		if memoryCount != count*memoryParamCount {
+			err = fmt.Errorf("unexpected memory params %d / %d", memoryCount, count*memoryParamCount)
 			return
 		}
-		if diskCount != count * diskParamCount{
-			err = fmt.Errorf("unexpected disk params %d / %d", diskCount, count * diskParamCount)
+		if diskCount != count*diskParamCount {
+			err = fmt.Errorf("unexpected disk params %d / %d", diskCount, count*diskParamCount)
 			return
 		}
-		if speedCount != count * speedParamCount{
-			err = fmt.Errorf("unexpected speed params %d / %d", memoryCount, count * speedParamCount)
+		if speedCount != count*speedParamCount {
+			err = fmt.Errorf("unexpected speed params %d / %d", memoryCount, count*speedParamCount)
 			return
 		}
-		for i := 0; i < count; i++{
-			var p = cellStatus{Name:name[i], Address:address[i]}
-			if 1 == enabled[i]{
+		for i := 0; i < count; i++ {
+			var p = cellStatus{Name: name[i], Address: address[i]}
+			if 1 == enabled[i] {
 				p.Enabled = true
-			}else{
+			} else {
 				p.Enabled = false
 			}
-			if 1 == alive[i]{
+			if 1 == alive[i] {
 				p.Alive = true
-			}else{
+			} else {
 				p.Alive = false
 			}
-			p.Instances = []uint64{instances[i*instanceParamCount], instances[i*instanceParamCount + 1], instances[i*instanceParamCount+ 2], instances[i*instanceParamCount + 3]}
+			p.Instances = []uint64{instances[i*instanceParamCount], instances[i*instanceParamCount+1], instances[i*instanceParamCount+2], instances[i*instanceParamCount+3]}
 			p.CpuUsage = float64(usage[i])
 			p.MaxCpu = uint(cores[i])
 			p.AvailableMemory = memory[i*memoryParamCount]
-			p.MaxMemory = memory[i*memoryParamCount + 1]
+			p.MaxMemory = memory[i*memoryParamCount+1]
 			p.AvailableDisk = disk[i*diskParamCount]
-			p.MaxDisk = disk[i*diskParamCount + 1]
+			p.MaxDisk = disk[i*diskParamCount+1]
 			p.ReadSpeed = speed[i*speedParamCount]
-			p.WriteSpeed = speed[i*speedParamCount + 1]
-			p.ReceiveSpeed = speed[i*speedParamCount + 2]
-			p.SendSpeed = speed[i*speedParamCount + 3]
+			p.WriteSpeed = speed[i*speedParamCount+1]
+			p.ReceiveSpeed = speed[i*speedParamCount+2]
+			p.SendSpeed = speed[i*speedParamCount+3]
 			status = append(status, p)
 		}
 		return
@@ -999,7 +999,7 @@ func (module *APIModule) queryComputeCellStatus(w http.ResponseWriter, r *http.R
 }
 
 func (module *APIModule) getComputeCellStatus(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -1110,12 +1110,12 @@ func (module *APIModule) getComputeCellStatus(w http.ResponseWriter, r *http.Req
 }
 
 func (module *APIModule) handleQueryInstanceStatusInPool(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var poolName = params.ByName("pool")
-	if "" == poolName{
+	if "" == poolName {
 		err := errors.New("must specify target pool")
 		log.Printf("<api> query instance in pool fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
@@ -1138,7 +1138,7 @@ func (module *APIModule) handleQueryInstanceStatusInPool(w http.ResponseWriter, 
 		return
 	}
 	result, err := UnmarshalGuestConfigListFromMessage(resp)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> parse query instance in pool result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -1147,12 +1147,12 @@ func (module *APIModule) handleQueryInstanceStatusInPool(w http.ResponseWriter, 
 }
 
 func (module *APIModule) handleQueryInstanceStatusInCell(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var poolName = params.ByName("pool")
-	if "" == poolName{
+	if "" == poolName {
 		err := errors.New("must specify target pool")
 		log.Printf("<api> query instance in cell fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
@@ -1160,7 +1160,7 @@ func (module *APIModule) handleQueryInstanceStatusInCell(w http.ResponseWriter, 
 	}
 
 	var cellName = params.ByName("cell")
-	if "" == cellName{
+	if "" == cellName {
 		err := errors.New("must specify target cell")
 		log.Printf("<api> query instance in cell fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
@@ -1184,7 +1184,7 @@ func (module *APIModule) handleQueryInstanceStatusInCell(w http.ResponseWriter, 
 		return
 	}
 	result, err := UnmarshalGuestConfigListFromMessage(resp)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> parse query instance in cell result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -1193,13 +1193,13 @@ func (module *APIModule) handleQueryInstanceStatusInCell(w http.ResponseWriter, 
 }
 
 func (module *APIModule) handleCreateComputePool(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	pool := params.ByName("pool")
 	rawData, err := ioutil.ReadAll(r.Body)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> read create compute pool param fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -1210,9 +1210,9 @@ func (module *APIModule) handleCreateComputePool(w http.ResponseWriter, r *http.
 		Failover bool   `json:"failover,omitempty"`
 	}
 	var requestData UserRequest
-	if 0 != len(rawData){
+	if 0 != len(rawData) {
 		//body available
-		if err = json.Unmarshal(rawData, &requestData); err != nil{
+		if err = json.Unmarshal(rawData, &requestData); err != nil {
 			log.Printf("<api> parse create compute pool request fail: %s", err.Error())
 			ResponseFail(ResponseDefaultError, err.Error(), w)
 			return
@@ -1239,7 +1239,7 @@ func (module *APIModule) handleCreateComputePool(w http.ResponseWriter, r *http.
 }
 
 func (module *APIModule) handleDeleteComputePool(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -1261,8 +1261,8 @@ func (module *APIModule) handleDeleteComputePool(w http.ResponseWriter, r *http.
 	ResponseOK("", w)
 }
 
-func (module *APIModule) handleModifyComputePool(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleModifyComputePool(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -1275,7 +1275,7 @@ func (module *APIModule) handleModifyComputePool(w http.ResponseWriter, r *http.
 	}
 	var requestData UserRequest
 	var decoder = json.NewDecoder(r.Body)
-	if err := decoder.Decode(&requestData); err != nil{
+	if err := decoder.Decode(&requestData); err != nil {
 		log.Printf("<api> parse delete compute pool request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -1300,8 +1300,8 @@ func (module *APIModule) handleModifyComputePool(w http.ResponseWriter, r *http.
 	ResponseOK("", w)
 }
 
-func (module *APIModule) handleQueryStoragePool(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleQueryStoragePool(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -1337,7 +1337,7 @@ func (module *APIModule) handleQueryStoragePool(w http.ResponseWriter, r *http.R
 		if hostArray, err = msg.GetStringArray(framework.ParamKeyHost); err != nil {
 			return pools, err
 		}
-		if targetArray, err = msg.GetStringArray(framework.ParamKeyTarget); err != nil{
+		if targetArray, err = msg.GetStringArray(framework.ParamKeyTarget); err != nil {
 			return
 		}
 		poolCount := len(nameArray)
@@ -1367,13 +1367,13 @@ func (module *APIModule) handleQueryStoragePool(w http.ResponseWriter, r *http.R
 	ResponseOK(pools, w)
 }
 
-func (module *APIModule) handleGetStoragePool(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleGetStoragePool(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	poolName := params.ByName("pool")
-	if "" == poolName{
+	if "" == poolName {
 		err := errors.New("must specify pool name")
 		log.Printf("<api> get storage pool fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
@@ -1403,10 +1403,10 @@ func (module *APIModule) handleGetStoragePool(w http.ResponseWriter, r *http.Req
 		if pool.Type, err = msg.GetString(framework.ParamKeyType); err != nil {
 			return
 		}
-		if pool.Host, err = msg.GetString(framework.ParamKeyHost); err != nil{
+		if pool.Host, err = msg.GetString(framework.ParamKeyHost); err != nil {
 			return
 		}
-		if pool.Target, err = msg.GetString(framework.ParamKeyTarget); err != nil{
+		if pool.Target, err = msg.GetString(framework.ParamKeyTarget); err != nil {
 			return
 		}
 		return
@@ -1421,20 +1421,20 @@ func (module *APIModule) handleGetStoragePool(w http.ResponseWriter, r *http.Req
 	ResponseOK(pool, w)
 }
 
-func (module *APIModule) handleCreateStoragePool(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleCreateStoragePool(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	pool := params.ByName("pool")
 	type UserRequest struct {
-		Type string `json:"type"`
-		Host string `json:"host,omitempty"`
+		Type   string `json:"type"`
+		Host   string `json:"host,omitempty"`
 		Target string `json:"target,omitempty"`
 	}
 	var requestData UserRequest
 	var decoder = json.NewDecoder(r.Body)
-	if err := decoder.Decode(&requestData); err != nil{
+	if err := decoder.Decode(&requestData); err != nil {
 		log.Printf("<api> parse create storage pool request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -1459,20 +1459,20 @@ func (module *APIModule) handleCreateStoragePool(w http.ResponseWriter, r *http.
 	ResponseOK("", w)
 }
 
-func (module *APIModule) handleModifyStoragePool(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleModifyStoragePool(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	pool := params.ByName("pool")
 	type UserRequest struct {
-		Type string `json:"type"`
-		Host string `json:"host,omitempty"`
+		Type   string `json:"type"`
+		Host   string `json:"host,omitempty"`
 		Target string `json:"target,omitempty"`
 	}
 	var requestData UserRequest
 	var decoder = json.NewDecoder(r.Body)
-	if err := decoder.Decode(&requestData); err != nil{
+	if err := decoder.Decode(&requestData); err != nil {
 		log.Printf("<api> parse modify storage pool request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -1497,8 +1497,8 @@ func (module *APIModule) handleModifyStoragePool(w http.ResponseWriter, r *http.
 	ResponseOK("", w)
 }
 
-func (module *APIModule) handleDeleteStoragePool(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleDeleteStoragePool(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -1521,7 +1521,7 @@ func (module *APIModule) handleDeleteStoragePool(w http.ResponseWriter, r *http.
 }
 
 func (module *APIModule) handleAddComputeCell(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -1546,7 +1546,7 @@ func (module *APIModule) handleAddComputeCell(w http.ResponseWriter, r *http.Req
 }
 
 func (module *APIModule) handleRemoveComputeCell(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -1571,7 +1571,7 @@ func (module *APIModule) handleRemoveComputeCell(w http.ResponseWriter, r *http.
 }
 
 func (module *APIModule) handleModifyComputeCell(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -1582,7 +1582,7 @@ func (module *APIModule) handleModifyComputeCell(w http.ResponseWriter, r *http.
 	}
 	var requestData UserRequest
 	var decoder = json.NewDecoder(r.Body)
-	if err := decoder.Decode(&requestData); err != nil{
+	if err := decoder.Decode(&requestData); err != nil {
 		log.Printf("<api> parse modify cell request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -1592,7 +1592,7 @@ func (module *APIModule) handleModifyComputeCell(w http.ResponseWriter, r *http.
 	if requestData.Enable {
 		operateName = "enable"
 		msg, _ = framework.CreateJsonMessage(framework.EnableComputePoolCellRequest)
-	}else{
+	} else {
 		operateName = "disable"
 		msg, _ = framework.CreateJsonMessage(framework.DisableComputePoolCellRequest)
 	}
@@ -1615,7 +1615,7 @@ func (module *APIModule) handleModifyComputeCell(w http.ResponseWriter, r *http.
 }
 
 func (module *APIModule) handleGetComputeCell(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -1663,28 +1663,28 @@ func (module *APIModule) handleGetComputeCell(w http.ResponseWriter, r *http.Req
 		if data.Alive, err = msg.GetBoolean(framework.ParamKeyStatus); err != nil {
 			return data, err
 		}
-		if data.Alive && data.Enabled{
+		if data.Alive && data.Enabled {
 			var storage, errors []string
 			var attached []uint64
-			if storage, err = msg.GetStringArray(framework.ParamKeyStorage); err != nil{
+			if storage, err = msg.GetStringArray(framework.ParamKeyStorage); err != nil {
 				return
 			}
-			if errors, err = msg.GetStringArray(framework.ParamKeyError);err != nil{
+			if errors, err = msg.GetStringArray(framework.ParamKeyError); err != nil {
 				return
 			}
-			if attached, err = msg.GetUIntArray(framework.ParamKeyAttach); err != nil{
+			if attached, err = msg.GetUIntArray(framework.ParamKeyAttach); err != nil {
 				return
 			}
 			var storageCount = len(storage)
-			if 0 == storageCount{
+			if 0 == storageCount {
 				return
 			}
 			var index = 0
-			for ; index < storageCount; index++{
+			for ; index < storageCount; index++ {
 				var pool = StorageStatus{Name: storage[index]}
-				if 1 == attached[index]{
+				if 1 == attached[index] {
 					pool.Attached = true
-				}else{
+				} else {
 					pool.Attached = false
 					pool.Error = errors[index]
 				}
@@ -1705,7 +1705,7 @@ func (module *APIModule) handleGetComputeCell(w http.ResponseWriter, r *http.Req
 }
 
 func (module *APIModule) handleQueryUnallocatedCell(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -1732,7 +1732,7 @@ func (module *APIModule) handleQueryUnallocatedCell(w http.ResponseWriter, r *ht
 }
 
 func (module *APIModule) handleQueryCellsInPool(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -1761,7 +1761,7 @@ func (module *APIModule) handleQueryCellsInPool(w http.ResponseWriter, r *http.R
 }
 
 func (module *APIModule) handleQueryAllPools(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -1847,12 +1847,12 @@ func (module *APIModule) handleQueryAllPools(w http.ResponseWriter, r *http.Requ
 }
 
 func (module *APIModule) handleGetComputePool(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	poolName := params.ByName("pool")
-	if "" == poolName{
+	if "" == poolName {
 		err := errors.New("must specify pool name")
 		log.Printf("<api> get compute pool fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
@@ -1885,19 +1885,19 @@ func (module *APIModule) handleGetComputePool(w http.ResponseWriter, r *http.Req
 		if pool.Name, err = msg.GetString(framework.ParamKeyName); err != nil {
 			return
 		}
-		if pool.Enabled, err = msg.GetBoolean(framework.ParamKeyEnable); err != nil{
+		if pool.Enabled, err = msg.GetBoolean(framework.ParamKeyEnable); err != nil {
 			return
 		}
-		if pool.Cells, err = msg.GetUInt(framework.ParamKeyCell);err != nil{
+		if pool.Cells, err = msg.GetUInt(framework.ParamKeyCell); err != nil {
 			return
 		}
-		if pool.Network, err = msg.GetString(framework.ParamKeyNetwork); err != nil{
+		if pool.Network, err = msg.GetString(framework.ParamKeyNetwork); err != nil {
 			return
 		}
-		if pool.Storage, err = msg.GetString(framework.ParamKeyStorage); err != nil{
+		if pool.Storage, err = msg.GetString(framework.ParamKeyStorage); err != nil {
 			return
 		}
-		if pool.Failover, err = msg.GetBoolean(framework.ParamKeyOption); err != nil{
+		if pool.Failover, err = msg.GetBoolean(framework.ParamKeyOption); err != nil {
 			return
 		}
 		return
@@ -1912,10 +1912,8 @@ func (module *APIModule) handleGetComputePool(w http.ResponseWriter, r *http.Req
 	ResponseOK(pool, w)
 }
 
-
-
 func (module *APIModule) handleQueryGuestConfig(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -1936,28 +1934,28 @@ func (module *APIModule) handleQueryGuestConfig(w http.ResponseWriter, r *http.R
 	var err error
 	query := r.URL.Query()
 	request.Pool = query.Get("pool")
-	if request.Cell = query.Get("cell");request.Cell != ""{
+	if request.Cell = query.Get("cell"); request.Cell != "" {
 		request.InCell = true
 	}
-	if request.Owner = query.Get("owner");request.Owner != ""{
+	if request.Owner = query.Get("owner"); request.Owner != "" {
 		request.WithOwner = true
 	}
-	if request.Group = query.Get("group");request.Group != ""{
+	if request.Group = query.Get("group"); request.Group != "" {
 		request.WithGroup = true
 	}
-	if status := query.Get("status");status != ""{
+	if status := query.Get("status"); status != "" {
 		request.WithStatus = true
 		request.Status, err = strconv.Atoi(status)
-		if err != nil{
+		if err != nil {
 			log.Printf("<api> parse query guest request fail: %s", err.Error())
 			ResponseFail(ResponseDefaultError, err.Error(), w)
 			return
 		}
 	}
-	if created := query.Get("created");created != ""{
+	if created := query.Get("created"); created != "" {
 		request.WithCreateFlag = true
 		request.Created, err = strconv.ParseBool(created)
-		if err != nil{
+		if err != nil {
 			log.Printf("<api> parse query guest request fail: %s", err.Error())
 			ResponseFail(ResponseDefaultError, err.Error(), w)
 			return
@@ -1965,7 +1963,7 @@ func (module *APIModule) handleQueryGuestConfig(w http.ResponseWriter, r *http.R
 	}
 
 	msg, _ := framework.CreateJsonMessage(framework.QueryGuestRequest)
-	if "" == request.Pool{
+	if "" == request.Pool {
 		err := errors.New("must specify target pool")
 		log.Printf("<api> build query guest request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
@@ -1973,56 +1971,56 @@ func (module *APIModule) handleQueryGuestConfig(w http.ResponseWriter, r *http.R
 	}
 	msg.SetString(framework.ParamKeyPool, request.Pool)
 	var options []uint64
-	if request.InCell{
+	if request.InCell {
 		options = append(options, 1)
-		if "" == request.Cell{
+		if "" == request.Cell {
 			err := errors.New("must specify target cell")
 			log.Printf("<api> build query guest request fail: %s", err.Error())
 			ResponseFail(ResponseDefaultError, err.Error(), w)
 			return
 		}
 		msg.SetString(framework.ParamKeyCell, request.Cell)
-	}else{
+	} else {
 		options = append(options, 0)
 	}
 
-	if request.WithOwner{
+	if request.WithOwner {
 		options = append(options, 1)
-		if "" == request.Owner{
+		if "" == request.Owner {
 			err := errors.New("must specify instance owner")
 			log.Printf("<api> build query guest request fail: %s", err.Error())
 			ResponseFail(ResponseDefaultError, err.Error(), w)
 			return
 		}
 		msg.SetString(framework.ParamKeyUser, request.Owner)
-	}else{
+	} else {
 		options = append(options, 0)
 	}
 
-	if request.WithGroup{
+	if request.WithGroup {
 		options = append(options, 1)
-		if "" == request.Group{
+		if "" == request.Group {
 			err := errors.New("must specify instance group")
 			log.Printf("<api> build query guest request fail: %s", err.Error())
 			ResponseFail(ResponseDefaultError, err.Error(), w)
 			return
 		}
 		msg.SetString(framework.ParamKeyGroup, request.Group)
-	}else{
+	} else {
 		options = append(options, 0)
 	}
 
-	if request.WithStatus{
+	if request.WithStatus {
 		options = append(options, 1)
 		msg.SetUInt(framework.ParamKeyStatus, uint(request.Status))
-	}else{
+	} else {
 		options = append(options, 0)
 	}
 
-	if request.WithCreateFlag{
+	if request.WithCreateFlag {
 		options = append(options, 1)
 		msg.SetBoolean(framework.ParamKeyEnable, request.Created)
-	}else{
+	} else {
 		options = append(options, 0)
 	}
 
@@ -2041,7 +2039,7 @@ func (module *APIModule) handleQueryGuestConfig(w http.ResponseWriter, r *http.R
 		return
 	}
 	result, err := UnmarshalGuestConfigListFromMessage(resp)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> parse query result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -2051,15 +2049,15 @@ func (module *APIModule) handleQueryGuestConfig(w http.ResponseWriter, r *http.R
 
 func (module *APIModule) redirectToImageServer(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyStreamSignature(r)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> verify stream fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, "unauthorized stream", w)
 		return
 	}
 	var respChan = make(chan ResourceResult, 1)
 	module.resource.GetImageServer(respChan)
-	var result = <- respChan
-	if result.Error != nil{
+	var result = <-respChan
+	if result.Error != nil {
 		var err = result.Error
 		log.Printf("<api> fetch current image server fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
@@ -2070,19 +2068,19 @@ func (module *APIModule) redirectToImageServer(w http.ResponseWriter, r *http.Re
 	const (
 		DefaultProtocol = "https"
 	)
-	var address = fmt.Sprintf("%s://%s:%d",DefaultProtocol, imageHost, imagePort)
-	if address == module.currentImageURL{
+	var address = fmt.Sprintf("%s://%s:%d", DefaultProtocol, imageHost, imagePort)
+	if address == module.currentImageURL {
 		//not changed
 		r.Host = module.currentImageHost
 		module.currentImageProxy.ServeHTTP(w, r)
 		return
 	}
 	//update new URL
-	if url, err := url.Parse(address);err != nil{
+	if url, err := url.Parse(address); err != nil {
 		log.Printf("<api> parse image proxy url fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
-	}else{
+	} else {
 		module.currentImageHost = imageHost
 		module.currentImageURL = address
 		module.currentImageProxy = httputil.NewSingleHostReverseProxy(url)
@@ -2095,7 +2093,7 @@ func (module *APIModule) redirectToImageServer(w http.ResponseWriter, r *http.Re
 }
 
 func (module *APIModule) handleGetGuestConfig(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -2115,23 +2113,22 @@ func (module *APIModule) handleGetGuestConfig(w http.ResponseWriter, r *http.Req
 		return
 	}
 	var config restGuestConfig
-	if err := config.Unmarshal(resp);err != nil{
+	if err := config.Unmarshal(resp); err != nil {
 		log.Printf("<api> parse guest config fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	if !config.Created{
+	if !config.Created {
 		w.WriteHeader(http.StatusCreated)
-	}else{
+	} else {
 		w.WriteHeader(http.StatusOK)
 	}
 	ResponseOK(config, w)
 }
 
-
 func (module *APIModule) handleCreateGuest(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err error
-	if err = module.verifyRequestSignature(r); err != nil{
+	if err = module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -2164,45 +2161,45 @@ func (module *APIModule) handleCreateGuest(w http.ResponseWriter, r *http.Reques
 
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse create guest request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	var validator = func(config userRequest) (err error){
-		if "" == config.Name{
+	var validator = func(config userRequest) (err error) {
+		if "" == config.Name {
 			err = fmt.Errorf("name required")
 			return
 		}
-		if "" == config.Owner{
+		if "" == config.Owner {
 			err = fmt.Errorf("owner required")
 			return
 		}
-		if "" == config.Group{
+		if "" == config.Group {
 			err = fmt.Errorf("group required")
 			return
 		}
-		if "" == config.Pool{
+		if "" == config.Pool {
 			err = fmt.Errorf("target pool required")
 			return
 		}
-		if "" == config.Template{
+		if "" == config.Template {
 			err = fmt.Errorf("system template required")
 			return
 		}
-		if 0 == config.Cores{
+		if 0 == config.Cores {
 			err = fmt.Errorf("cores required")
 			return
 		}
-		if 0 == config.Memory{
+		if 0 == config.Memory {
 			err = fmt.Errorf("memory required")
 			return
 		}
 		return nil
 	}
 
-	if err = validator(request); err != nil{
+	if err = validator(request); err != nil {
 		log.Printf("<api> validate create guest request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -2221,7 +2218,7 @@ func (module *APIModule) handleCreateGuest(w http.ResponseWriter, r *http.Reques
 	msg.SetString(framework.ParamKeyTemplate, request.Template)
 	msg.SetString(framework.ParamKeyPolicy, request.SecurityPolicyGroup)
 	//optional disk image
-	if "" != request.FromImage{
+	if "" != request.FromImage {
 		msg.SetString(framework.ParamKeyImage, request.FromImage)
 	}
 	msg.SetStringArray(framework.ParamKeyModule, request.Modules)
@@ -2230,24 +2227,24 @@ func (module *APIModule) handleCreateGuest(w http.ResponseWriter, r *http.Reques
 		RootLoginEnabled
 	)
 	var flags []uint64
-	if nil != request.CloudInit{
+	if nil != request.CloudInit {
 		msg.SetString(framework.ParamKeyAdmin, request.CloudInit.AdminName)
 		msg.SetString(framework.ParamKeySecret, request.CloudInit.AdminSecret)
 		msg.SetString(framework.ParamKeyPath, request.CloudInit.DataPath)
-		if request.CloudInit.RootEnabled{
+		if request.CloudInit.RootEnabled {
 			flags = append(flags, RootLoginEnabled)
-		}else{
+		} else {
 			flags = append(flags, RootLoginDisabled)
 		}
 
-	}else{
+	} else {
 		msg.SetString(framework.ParamKeyAdmin, "")
 		msg.SetString(framework.ParamKeySecret, "")
 		msg.SetString(framework.ParamKeyPath, "")
 		flags = append(flags, RootLoginEnabled)
 	}
 
-	if nil != request.QoS{
+	if nil != request.QoS {
 		var qos = request.QoS
 		switch qos.CPUPriority {
 		case priority_label_high:
@@ -2264,7 +2261,7 @@ func (module *APIModule) handleCreateGuest(w http.ResponseWriter, r *http.Reques
 		}
 		msg.SetUIntArray(framework.ParamKeyLimit, []uint64{qos.ReadSpeed, qos.WriteSpeed,
 			qos.ReadIOPS, qos.WriteIOPS, qos.ReceiveSpeed, qos.SendSpeed})
-	}else{
+	} else {
 		msg.SetUInt(framework.ParamKeyPriority, PriorityHigh)
 		msg.SetUIntArray(framework.ParamKeyLimit, []uint64{0, 0, 0, 0, 0, 0})
 	}
@@ -2283,13 +2280,13 @@ func (module *APIModule) handleCreateGuest(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	created, err := resp.GetBoolean(framework.ParamKeyEnable)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> parse create result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	id, err := resp.GetString(framework.ParamKeyInstance)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> parse instance id fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -2298,17 +2295,17 @@ func (module *APIModule) handleCreateGuest(w http.ResponseWriter, r *http.Reques
 		ID string `json:"id"`
 	}
 
-	var result = userResponse{ID:id}
-	if !created{
+	var result = userResponse{ID: id}
+	if !created {
 		w.WriteHeader(http.StatusAccepted)
-	}else{
+	} else {
 		w.WriteHeader(http.StatusOK)
 	}
 	ResponseOK(result, w)
 }
 
 func (module *APIModule) handleDeleteGuest(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -2318,7 +2315,7 @@ func (module *APIModule) handleDeleteGuest(w http.ResponseWriter, r *http.Reques
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse delete guest request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -2326,9 +2323,9 @@ func (module *APIModule) handleDeleteGuest(w http.ResponseWriter, r *http.Reques
 
 	msg, _ := framework.CreateJsonMessage(framework.DeleteGuestRequest)
 	msg.SetString(framework.ParamKeyInstance, id)
-	if request.Force{
+	if request.Force {
 		msg.SetUInt(framework.ParamKeyOption, 1)
-	}else {
+	} else {
 		msg.SetUInt(framework.ParamKeyOption, 0)
 	}
 
@@ -2348,7 +2345,7 @@ func (module *APIModule) handleDeleteGuest(w http.ResponseWriter, r *http.Reques
 }
 
 func (module *APIModule) handleGetInstanceStatus(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -2368,7 +2365,7 @@ func (module *APIModule) handleGetInstanceStatus(w http.ResponseWriter, r *http.
 		return
 	}
 	var status restInstanceStatus
-	if err := status.Unmarshal(resp);err != nil{
+	if err := status.Unmarshal(resp); err != nil {
 		log.Printf("<api> parse status fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -2377,19 +2374,19 @@ func (module *APIModule) handleGetInstanceStatus(w http.ResponseWriter, r *http.
 }
 
 func (module *APIModule) handleStartInstance(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	id := params.ByName("id")
 	type userRequest struct {
-		FromMedia bool `json:"from_media,omitempty"`
-		FromNetwork bool `json:"from_network,omitempty"`
-		Source string `json:"source,omitempty"`
+		FromMedia   bool   `json:"from_media,omitempty"`
+		FromNetwork bool   `json:"from_network,omitempty"`
+		Source      string `json:"source,omitempty"`
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse start instance request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -2397,12 +2394,12 @@ func (module *APIModule) handleStartInstance(w http.ResponseWriter, r *http.Requ
 	msg, _ := framework.CreateJsonMessage(framework.StartInstanceRequest)
 	msg.SetString(framework.ParamKeyInstance, id)
 
-	if request.FromMedia{
+	if request.FromMedia {
 		msg.SetUInt(framework.ParamKeyOption, InstanceMediaOptionImage)
 		msg.SetString(framework.ParamKeySource, request.Source)
-	}else if request.FromNetwork{
+	} else if request.FromNetwork {
 		msg.SetUInt(framework.ParamKeyOption, InstanceMediaOptionNetwork)
-	}else{
+	} else {
 		msg.SetUInt(framework.ParamKeyOption, InstanceMediaOptionNone)
 	}
 	respChan := make(chan ProxyResult)
@@ -2421,18 +2418,18 @@ func (module *APIModule) handleStartInstance(w http.ResponseWriter, r *http.Requ
 }
 
 func (module *APIModule) handleStopInstance(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	id := params.ByName("id")
 	type userRequest struct {
 		Reboot bool `json:"reboot,omitempty"`
-		Force bool `json:"force,omitempty"`
+		Force  bool `json:"force,omitempty"`
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse stop instance request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -2440,14 +2437,14 @@ func (module *APIModule) handleStopInstance(w http.ResponseWriter, r *http.Reque
 	msg, _ := framework.CreateJsonMessage(framework.StopInstanceRequest)
 	msg.SetString(framework.ParamKeyInstance, id)
 	var options []uint64
-	if request.Reboot{
+	if request.Reboot {
 		options = append(options, 1)
-	}else{
+	} else {
 		options = append(options, 0)
 	}
-	if request.Force{
+	if request.Force {
 		options = append(options, 1)
-	}else{
+	} else {
 		options = append(options, 0)
 	}
 	msg.SetUIntArray(framework.ParamKeyOption, options)
@@ -2466,8 +2463,7 @@ func (module *APIModule) handleStopInstance(w http.ResponseWriter, r *http.Reque
 	ResponseOK("", w)
 }
 
-
-func (module *APIModule) searchMediaImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) searchMediaImage(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var filterOwner = r.URL.Query().Get("owner")
 	var filterGroup = r.URL.Query().Get("group")
 
@@ -2498,47 +2494,47 @@ func (module *APIModule) searchMediaImage(w http.ResponseWriter, r *http.Request
 		ModifyTime  string   `json:"modify_time,omitempty"`
 	}
 
-	var parser = func(msg framework.Message) (images []respImage, err error){
+	var parser = func(msg framework.Message) (images []respImage, err error) {
 		//unmarshal
 		var name, id, description, tags, createTime, modifyTime []string
 		var size, tagCount []uint64
-		if name, err = msg.GetStringArray(framework.ParamKeyName); err != nil{
+		if name, err = msg.GetStringArray(framework.ParamKeyName); err != nil {
 			return
 		}
-		if id, err = msg.GetStringArray(framework.ParamKeyImage); err != nil{
+		if id, err = msg.GetStringArray(framework.ParamKeyImage); err != nil {
 			return
 		}
-		if description, err = msg.GetStringArray(framework.ParamKeyDescription); err != nil{
+		if description, err = msg.GetStringArray(framework.ParamKeyDescription); err != nil {
 			return
 		}
-		if tags, err = msg.GetStringArray(framework.ParamKeyTag); err != nil{
+		if tags, err = msg.GetStringArray(framework.ParamKeyTag); err != nil {
 			return
 		}
-		if createTime, err = msg.GetStringArray(framework.ParamKeyCreate); err != nil{
+		if createTime, err = msg.GetStringArray(framework.ParamKeyCreate); err != nil {
 			return
 		}
-		if modifyTime, err = msg.GetStringArray(framework.ParamKeyModify); err != nil{
+		if modifyTime, err = msg.GetStringArray(framework.ParamKeyModify); err != nil {
 			return
 		}
-		if size, err = msg.GetUIntArray(framework.ParamKeySize); err != nil{
+		if size, err = msg.GetUIntArray(framework.ParamKeySize); err != nil {
 			return
 		}
-		if tagCount, err = msg.GetUIntArray(framework.ParamKeyCount); err != nil{
+		if tagCount, err = msg.GetUIntArray(framework.ParamKeyCount); err != nil {
 			return
 		}
 
 		var totalTags uint64 = 0
-		for _, count := range tagCount{
+		for _, count := range tagCount {
 			totalTags += count
 		}
-		if int(totalTags) != len(tags){
+		if int(totalTags) != len(tags) {
 			err = fmt.Errorf("unexpect tag count %d / %d", len(tags), totalTags)
 			return
 		}
 		var imageCount = len(name)
 		images = make([]respImage, 0)
 		var tagBegin = 0
-		for i := 0 ; i < imageCount;i++{
+		for i := 0; i < imageCount; i++ {
 			var image = respImage{}
 			image.Name = name[i]
 			image.ID = id[i]
@@ -2555,7 +2551,7 @@ func (module *APIModule) searchMediaImage(w http.ResponseWriter, r *http.Request
 	}
 
 	payload, err := parser(resp)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> parse query media image result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -2563,8 +2559,8 @@ func (module *APIModule) searchMediaImage(w http.ResponseWriter, r *http.Request
 	ResponseOK(payload, w)
 }
 
-func (module *APIModule) queryAllMediaImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) queryAllMediaImage(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -2592,47 +2588,47 @@ func (module *APIModule) queryAllMediaImage(w http.ResponseWriter, r *http.Reque
 		ModifyTime  string   `json:"modify_time,omitempty"`
 	}
 
-	var parser = func(msg framework.Message) (images []respImage, err error){
+	var parser = func(msg framework.Message) (images []respImage, err error) {
 		//unmarshal
 		var name, id, description, tags, createTime, modifyTime []string
 		var size, tagCount []uint64
-		if name, err = msg.GetStringArray(framework.ParamKeyName); err != nil{
+		if name, err = msg.GetStringArray(framework.ParamKeyName); err != nil {
 			return
 		}
-		if id, err = msg.GetStringArray(framework.ParamKeyImage); err != nil{
+		if id, err = msg.GetStringArray(framework.ParamKeyImage); err != nil {
 			return
 		}
-		if description, err = msg.GetStringArray(framework.ParamKeyDescription); err != nil{
+		if description, err = msg.GetStringArray(framework.ParamKeyDescription); err != nil {
 			return
 		}
-		if tags, err = msg.GetStringArray(framework.ParamKeyTag); err != nil{
+		if tags, err = msg.GetStringArray(framework.ParamKeyTag); err != nil {
 			return
 		}
-		if createTime, err = msg.GetStringArray(framework.ParamKeyCreate); err != nil{
+		if createTime, err = msg.GetStringArray(framework.ParamKeyCreate); err != nil {
 			return
 		}
-		if modifyTime, err = msg.GetStringArray(framework.ParamKeyModify); err != nil{
+		if modifyTime, err = msg.GetStringArray(framework.ParamKeyModify); err != nil {
 			return
 		}
-		if size, err = msg.GetUIntArray(framework.ParamKeySize); err != nil{
+		if size, err = msg.GetUIntArray(framework.ParamKeySize); err != nil {
 			return
 		}
-		if tagCount, err = msg.GetUIntArray(framework.ParamKeyCount); err != nil{
+		if tagCount, err = msg.GetUIntArray(framework.ParamKeyCount); err != nil {
 			return
 		}
 
 		var totalTags uint64 = 0
-		for _, count := range tagCount{
+		for _, count := range tagCount {
 			totalTags += count
 		}
-		if int(totalTags) != len(tags){
+		if int(totalTags) != len(tags) {
 			err = fmt.Errorf("unexpect tag count %d / %d", len(tags), totalTags)
 			return
 		}
 		var imageCount = len(name)
 		images = make([]respImage, 0)
 		var tagBegin = 0
-		for i := 0 ; i < imageCount;i++{
+		for i := 0; i < imageCount; i++ {
 			var image = respImage{}
 			image.Name = name[i]
 			image.ID = id[i]
@@ -2649,16 +2645,15 @@ func (module *APIModule) queryAllMediaImage(w http.ResponseWriter, r *http.Reque
 	}
 
 	payload, err := parser(resp)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> parse query media image result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 	}
 	ResponseOK(payload, w)
 }
 
-
-func (module *APIModule) getMediaImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) getMediaImage(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -2686,22 +2681,22 @@ func (module *APIModule) getMediaImage(w http.ResponseWriter, r *http.Request, p
 	}
 	var data userResponse
 	var err error
-	if data.Name, err = resp.GetString(framework.ParamKeyName); err != nil{
+	if data.Name, err = resp.GetString(framework.ParamKeyName); err != nil {
 		log.Printf("<api> parse media image name fail: %s", errMsg)
 		ResponseFail(ResponseDefaultError, errMsg, w)
 		return
 	}
-	if data.Description, err = resp.GetString(framework.ParamKeyDescription); err != nil{
+	if data.Description, err = resp.GetString(framework.ParamKeyDescription); err != nil {
 		log.Printf("<api> parse media image description fail: %s", errMsg)
 		ResponseFail(ResponseDefaultError, errMsg, w)
 		return
 	}
-	if data.Tags, err = resp.GetStringArray(framework.ParamKeyTag); err != nil{
+	if data.Tags, err = resp.GetStringArray(framework.ParamKeyTag); err != nil {
 		log.Printf("<api> parse media image tags fail: %s", errMsg)
 		ResponseFail(ResponseDefaultError, errMsg, w)
 		return
 	}
-	if data.Size, err = resp.GetUInt(framework.ParamKeySize); err != nil{
+	if data.Size, err = resp.GetUInt(framework.ParamKeySize); err != nil {
 		log.Printf("<api> parse media image size fail: %s", errMsg)
 		ResponseFail(ResponseDefaultError, errMsg, w)
 		return
@@ -2710,8 +2705,8 @@ func (module *APIModule) getMediaImage(w http.ResponseWriter, r *http.Request, p
 	ResponseOK(data, w)
 }
 
-func (module *APIModule) createMediaImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) createMediaImage(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -2724,7 +2719,7 @@ func (module *APIModule) createMediaImage(w http.ResponseWriter, r *http.Request
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse create media image request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -2751,7 +2746,7 @@ func (module *APIModule) createMediaImage(w http.ResponseWriter, r *http.Request
 	}
 	var imageID string
 	var err error
-	if imageID, err = resp.GetString(framework.ParamKeyImage);err != nil{
+	if imageID, err = resp.GetString(framework.ParamKeyImage); err != nil {
 		log.Printf("<api> get image from create result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -2760,13 +2755,12 @@ func (module *APIModule) createMediaImage(w http.ResponseWriter, r *http.Request
 	type userResponse struct {
 		ID string `json:"id"`
 	}
-	var data = userResponse{ID:imageID}
+	var data = userResponse{ID: imageID}
 	ResponseOK(data, w)
 }
 
-
-func (module *APIModule) modifyMediaImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) modifyMediaImage(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -2781,7 +2775,7 @@ func (module *APIModule) modifyMediaImage(w http.ResponseWriter, r *http.Request
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse modify media image request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -2810,8 +2804,8 @@ func (module *APIModule) modifyMediaImage(w http.ResponseWriter, r *http.Request
 	ResponseOK("", w)
 }
 
-func (module *APIModule) deleteMediaImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) deleteMediaImage(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -2833,9 +2827,9 @@ func (module *APIModule) deleteMediaImage(w http.ResponseWriter, r *http.Request
 	ResponseOK("", w)
 }
 
-func (module *APIModule) syncMediaImages(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) syncMediaImages(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err error
-	if err = module.verifyRequestSignature(r); err != nil{
+	if err = module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -2846,17 +2840,17 @@ func (module *APIModule) syncMediaImages(w http.ResponseWriter, r *http.Request,
 
 	var request RequestPayload
 	var decoder = json.NewDecoder(r.Body)
-	if err = decoder.Decode(&request);err != nil{
+	if err = decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse sync media image request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	if "" == request.Owner{
+	if "" == request.Owner {
 		ResponseFail(ResponseDefaultError, "owner required", w)
 		return
 	}
-	if "" == request.Group{
+	if "" == request.Group {
 		ResponseFail(ResponseDefaultError, "group required", w)
 		return
 	}
@@ -2878,8 +2872,8 @@ func (module *APIModule) syncMediaImages(w http.ResponseWriter, r *http.Request,
 	ResponseOK("", w)
 }
 
-func (module *APIModule) queryDiskImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) queryDiskImage(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -2891,10 +2885,10 @@ func (module *APIModule) queryDiskImage(w http.ResponseWriter, r *http.Request, 
 
 	msg.SetString(framework.ParamKeyUser, filterOwner)
 
-	if filterGroup != ""{
+	if filterGroup != "" {
 		msg.SetString(framework.ParamKeyGroup, filterGroup)
 	}
-	if 0 != len(filterTags){
+	if 0 != len(filterTags) {
 		msg.SetStringArray(framework.ParamKeyTag, filterTags)
 	}
 	respChan := make(chan ProxyResult)
@@ -2920,47 +2914,47 @@ func (module *APIModule) queryDiskImage(w http.ResponseWriter, r *http.Request, 
 		ModifyTime  string   `json:"modify_time,omitempty"`
 	}
 
-	var parser = func(msg framework.Message) (images []respImage, err error){
+	var parser = func(msg framework.Message) (images []respImage, err error) {
 		//unmarshal
 		var name, id, description, tags, createTime, modifyTime []string
 		var size, tagCount []uint64
-		if name, err = msg.GetStringArray(framework.ParamKeyName); err != nil{
+		if name, err = msg.GetStringArray(framework.ParamKeyName); err != nil {
 			return
 		}
-		if id, err = msg.GetStringArray(framework.ParamKeyImage); err != nil{
+		if id, err = msg.GetStringArray(framework.ParamKeyImage); err != nil {
 			return
 		}
-		if description, err = msg.GetStringArray(framework.ParamKeyDescription); err != nil{
+		if description, err = msg.GetStringArray(framework.ParamKeyDescription); err != nil {
 			return
 		}
-		if tags, err = msg.GetStringArray(framework.ParamKeyTag); err != nil{
+		if tags, err = msg.GetStringArray(framework.ParamKeyTag); err != nil {
 			return
 		}
-		if createTime, err = msg.GetStringArray(framework.ParamKeyCreate); err != nil{
+		if createTime, err = msg.GetStringArray(framework.ParamKeyCreate); err != nil {
 			return
 		}
-		if modifyTime, err = msg.GetStringArray(framework.ParamKeyModify); err != nil{
+		if modifyTime, err = msg.GetStringArray(framework.ParamKeyModify); err != nil {
 			return
 		}
-		if size, err = msg.GetUIntArray(framework.ParamKeySize); err != nil{
+		if size, err = msg.GetUIntArray(framework.ParamKeySize); err != nil {
 			return
 		}
-		if tagCount, err = msg.GetUIntArray(framework.ParamKeyCount); err != nil{
+		if tagCount, err = msg.GetUIntArray(framework.ParamKeyCount); err != nil {
 			return
 		}
 
 		var totalTags uint64 = 0
-		for _, count := range tagCount{
+		for _, count := range tagCount {
 			totalTags += count
 		}
-		if int(totalTags) != len(tags){
+		if int(totalTags) != len(tags) {
 			err = fmt.Errorf("unexpect tag count %d / %d", len(tags), totalTags)
 			return
 		}
 		var imageCount = len(name)
 		images = make([]respImage, 0)
 		var tagBegin = 0
-		for i := 0 ; i < imageCount;i++{
+		for i := 0; i < imageCount; i++ {
 			var image = respImage{}
 			image.Name = name[i]
 			image.ID = id[i]
@@ -2977,7 +2971,7 @@ func (module *APIModule) queryDiskImage(w http.ResponseWriter, r *http.Request, 
 	}
 
 	payload, err := parser(resp)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> parse query disk image result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -2985,8 +2979,8 @@ func (module *APIModule) queryDiskImage(w http.ResponseWriter, r *http.Request, 
 	ResponseOK(payload, w)
 }
 
-func (module *APIModule) getDiskImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) getDiskImage(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -3016,32 +3010,32 @@ func (module *APIModule) getDiskImage(w http.ResponseWriter, r *http.Request, pa
 	}
 	var data userResponse
 	var err error
-	if data.Name, err = resp.GetString(framework.ParamKeyName); err != nil{
+	if data.Name, err = resp.GetString(framework.ParamKeyName); err != nil {
 		log.Printf("<api> parse disk image name fail: %s", errMsg)
 		ResponseFail(ResponseDefaultError, errMsg, w)
 		return
 	}
-	if data.Description, err = resp.GetString(framework.ParamKeyDescription); err != nil{
+	if data.Description, err = resp.GetString(framework.ParamKeyDescription); err != nil {
 		log.Printf("<api> parse disk image description fail: %s", errMsg)
 		ResponseFail(ResponseDefaultError, errMsg, w)
 		return
 	}
-	if data.Tags, err = resp.GetStringArray(framework.ParamKeyTag); err != nil{
+	if data.Tags, err = resp.GetStringArray(framework.ParamKeyTag); err != nil {
 		log.Printf("<api> parse disk image tags fail: %s", errMsg)
 		ResponseFail(ResponseDefaultError, errMsg, w)
 		return
 	}
-	if data.Size, err = resp.GetUInt(framework.ParamKeySize); err != nil{
+	if data.Size, err = resp.GetUInt(framework.ParamKeySize); err != nil {
 		log.Printf("<api> parse disk image size fail: %s", errMsg)
 		ResponseFail(ResponseDefaultError, errMsg, w)
 		return
 	}
-	if data.Progress, err = resp.GetUInt(framework.ParamKeyProgress); err != nil{
+	if data.Progress, err = resp.GetUInt(framework.ParamKeyProgress); err != nil {
 		log.Printf("<api> parse disk image progress fail: %s", errMsg)
 		ResponseFail(ResponseDefaultError, errMsg, w)
 		return
 	}
-	if data.Created, err = resp.GetBoolean(framework.ParamKeyEnable); err != nil{
+	if data.Created, err = resp.GetBoolean(framework.ParamKeyEnable); err != nil {
 		log.Printf("<api> parse disk image status fail: %s", errMsg)
 		ResponseFail(ResponseDefaultError, errMsg, w)
 		return
@@ -3050,8 +3044,8 @@ func (module *APIModule) getDiskImage(w http.ResponseWriter, r *http.Request, pa
 	ResponseOK(data, w)
 }
 
-func (module *APIModule) createDiskImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) createDiskImage(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -3065,7 +3059,7 @@ func (module *APIModule) createDiskImage(w http.ResponseWriter, r *http.Request,
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse create disk image request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -3093,7 +3087,7 @@ func (module *APIModule) createDiskImage(w http.ResponseWriter, r *http.Request,
 	}
 	var imageID string
 	var err error
-	if imageID, err = resp.GetString(framework.ParamKeyImage);err != nil{
+	if imageID, err = resp.GetString(framework.ParamKeyImage); err != nil {
 		log.Printf("<api> get image from create result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -3102,16 +3096,15 @@ func (module *APIModule) createDiskImage(w http.ResponseWriter, r *http.Request,
 	type userResponse struct {
 		ID string `json:"id"`
 	}
-	var data = userResponse{ID:imageID}
-	if "" != request.Guest{
+	var data = userResponse{ID: imageID}
+	if "" != request.Guest {
 		w.WriteHeader(http.StatusAccepted)
 	}
 	ResponseOK(data, w)
 }
 
-
-func (module *APIModule) modifyDiskImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) modifyDiskImage(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -3126,7 +3119,7 @@ func (module *APIModule) modifyDiskImage(w http.ResponseWriter, r *http.Request,
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse modify media image request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -3155,9 +3148,8 @@ func (module *APIModule) modifyDiskImage(w http.ResponseWriter, r *http.Request,
 	ResponseOK("", w)
 }
 
-
-func (module *APIModule) deleteDiskImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) deleteDiskImage(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -3179,9 +3171,9 @@ func (module *APIModule) deleteDiskImage(w http.ResponseWriter, r *http.Request,
 	ResponseOK("", w)
 }
 
-func (module *APIModule) syncDiskImages(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) syncDiskImages(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err error
-	if err = module.verifyRequestSignature(r); err != nil{
+	if err = module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -3192,17 +3184,17 @@ func (module *APIModule) syncDiskImages(w http.ResponseWriter, r *http.Request, 
 
 	var request RequestPayload
 	var decoder = json.NewDecoder(r.Body)
-	if err = decoder.Decode(&request);err != nil{
+	if err = decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse sync disk image request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	if "" == request.Owner{
+	if "" == request.Owner {
 		ResponseFail(ResponseDefaultError, "owner required", w)
 		return
 	}
-	if "" == request.Group{
+	if "" == request.Group {
 		ResponseFail(ResponseDefaultError, "group required", w)
 		return
 	}
@@ -3225,17 +3217,17 @@ func (module *APIModule) syncDiskImages(w http.ResponseWriter, r *http.Request, 
 }
 
 func (module *APIModule) handleModifyGuestName(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	var id= params.ByName("id")
+	var id = params.ByName("id")
 	type userRequest struct {
 		Name string `json:"name"`
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse modify name request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -3261,18 +3253,18 @@ func (module *APIModule) handleModifyGuestName(w http.ResponseWriter, r *http.Re
 }
 
 func (module *APIModule) handleModifyGuestCores(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	var id= params.ByName("id")
+	var id = params.ByName("id")
 	type userRequest struct {
 		Cores     uint `json:"cores"`
 		Immediate bool `json:"immediate,omitempty"`
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse modify cores request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -3299,18 +3291,18 @@ func (module *APIModule) handleModifyGuestCores(w http.ResponseWriter, r *http.R
 }
 
 func (module *APIModule) handleModifyGuestMemory(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	var id= params.ByName("id")
+	var id = params.ByName("id")
 	type userRequest struct {
 		Memory    uint `json:"memory"`
 		Immediate bool `json:"immediate,omitempty"`
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse modify memory request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -3337,17 +3329,17 @@ func (module *APIModule) handleModifyGuestMemory(w http.ResponseWriter, r *http.
 }
 
 func (module *APIModule) handleModifyAutoStart(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	var id= params.ByName("id")
+	var id = params.ByName("id")
 	type userRequest struct {
 		Enable bool `json:"enable"`
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse modify memory request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -3373,17 +3365,17 @@ func (module *APIModule) handleModifyAutoStart(w http.ResponseWriter, r *http.Re
 }
 
 func (module *APIModule) handleModifyGuestPriority(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	var id= params.ByName("id")
+	var id = params.ByName("id")
 	type userRequest struct {
 		Priority string `json:"priority"`
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse modify priority request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -3422,11 +3414,11 @@ func (module *APIModule) handleModifyGuestPriority(w http.ResponseWriter, r *htt
 }
 
 func (module *APIModule) handleModifyDiskThreshold(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	var id= params.ByName("id")
+	var id = params.ByName("id")
 	type userRequest struct {
 		ReadSpeed  uint64 `json:"read_speed,omitempty"`
 		ReadIOPS   uint64 `json:"read_iops,omitempty"`
@@ -3435,7 +3427,7 @@ func (module *APIModule) handleModifyDiskThreshold(w http.ResponseWriter, r *htt
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse modify disk threshold request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -3460,20 +3452,19 @@ func (module *APIModule) handleModifyDiskThreshold(w http.ResponseWriter, r *htt
 	ResponseOK("", w)
 }
 
-
 func (module *APIModule) handleModifyNetworkThreshold(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	var id= params.ByName("id")
+	var id = params.ByName("id")
 	type userRequest struct {
 		ReceiveSpeed uint64 `json:"receive_speed,omitempty"`
 		SendSpeed    uint64 `json:"send_speed,omitempty"`
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse modify network threshold request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -3499,7 +3490,7 @@ func (module *APIModule) handleModifyNetworkThreshold(w http.ResponseWriter, r *
 }
 
 func (module *APIModule) handleResetGuestSystem(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -3509,7 +3500,7 @@ func (module *APIModule) handleResetGuestSystem(w http.ResponseWriter, r *http.R
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse reset system request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -3534,20 +3525,19 @@ func (module *APIModule) handleResetGuestSystem(w http.ResponseWriter, r *http.R
 	ResponseOK("", w)
 }
 
-
 func (module *APIModule) handleModifyGuestPassword(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	var id= params.ByName("id")
+	var id = params.ByName("id")
 	type userRequest struct {
 		Password string `json:"password,omitempty"`
 		User     string `json:"user,omitempty"`
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse modify password request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -3581,11 +3571,11 @@ func (module *APIModule) handleModifyGuestPassword(w http.ResponseWriter, r *htt
 }
 
 func (module *APIModule) handleGetGuestPassword(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	var id= params.ByName("id")
+	var id = params.ByName("id")
 	msg, _ := framework.CreateJsonMessage(framework.GetAuthRequest)
 	msg.SetString(framework.ParamKeyGuest, id)
 
@@ -3607,12 +3597,12 @@ func (module *APIModule) handleGetGuestPassword(w http.ResponseWriter, r *http.R
 	}
 	var data RespData
 	var err error
-	if data.Password, err = resp.GetString(framework.ParamKeySecret); err != nil{
+	if data.Password, err = resp.GetString(framework.ParamKeySecret); err != nil {
 		log.Printf("<api> get password fail when parse password: %s", errMsg)
 		ResponseFail(ResponseDefaultError, errMsg, w)
 		return
 	}
-	if data.User, err = resp.GetString(framework.ParamKeyUser); err != nil{
+	if data.User, err = resp.GetString(framework.ParamKeyUser); err != nil {
 		log.Printf("<api> get password fail when parse user: %s", errMsg)
 		ResponseFail(ResponseDefaultError, errMsg, w)
 		return
@@ -3622,14 +3612,14 @@ func (module *APIModule) handleGetGuestPassword(w http.ResponseWriter, r *http.R
 }
 
 func (module *APIModule) handleResizeDisk(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var id = params.ByName("id")
 	var index = params.ByName("index")
 	diskOffset, err := strconv.Atoi(index)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> try resize disk with invalid index %s", index)
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -3640,7 +3630,7 @@ func (module *APIModule) handleResizeDisk(w http.ResponseWriter, r *http.Request
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse resize disk request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -3668,14 +3658,14 @@ func (module *APIModule) handleResizeDisk(w http.ResponseWriter, r *http.Request
 }
 
 func (module *APIModule) handleShrinkDisk(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var id = params.ByName("id")
 	var index = params.ByName("index")
 	diskOffset, err := strconv.Atoi(index)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> try shrink disk with invalid index %s", index)
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -3685,7 +3675,7 @@ func (module *APIModule) handleShrinkDisk(w http.ResponseWriter, r *http.Request
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse shrink disk request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -3712,7 +3702,7 @@ func (module *APIModule) handleShrinkDisk(w http.ResponseWriter, r *http.Request
 }
 
 func (module *APIModule) handleInsertMedia(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -3725,7 +3715,7 @@ func (module *APIModule) handleInsertMedia(w http.ResponseWriter, r *http.Reques
 
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse insert media request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -3752,7 +3742,7 @@ func (module *APIModule) handleInsertMedia(w http.ResponseWriter, r *http.Reques
 }
 
 func (module *APIModule) handleEjectMedia(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -3776,8 +3766,8 @@ func (module *APIModule) handleEjectMedia(w http.ResponseWriter, r *http.Request
 	ResponseOK("", w)
 }
 
-func (module *APIModule) handleQueryInstanceSnapshots(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleQueryInstanceSnapshots(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -3798,42 +3788,42 @@ func (module *APIModule) handleQueryInstanceSnapshots(w http.ResponseWriter, r *
 		return
 	}
 	type Snapshot struct {
-		IsRoot      bool   `json:"is_root,omitempty"`
-		IsCurrent   bool   `json:"is_current,omitempty"`
-		Backing     string `json:"backing,omitempty"`
+		IsRoot    bool   `json:"is_root,omitempty"`
+		IsCurrent bool   `json:"is_current,omitempty"`
+		Backing   string `json:"backing,omitempty"`
 	}
 
 	var data = map[string]Snapshot{}
 	var rootFlags, currentFlags []uint64
 	var backings, names []string
-	var parser = func () (err error) {
-		if names, err = resp.GetStringArray(framework.ParamKeyName); err != nil{
+	var parser = func() (err error) {
+		if names, err = resp.GetStringArray(framework.ParamKeyName); err != nil {
 			return
 		}
-		if backings, err = resp.GetStringArray(framework.ParamKeyPrevious); err != nil{
+		if backings, err = resp.GetStringArray(framework.ParamKeyPrevious); err != nil {
 			return
 		}
-		if rootFlags, err = resp.GetUIntArray(framework.ParamKeySource); err != nil{
+		if rootFlags, err = resp.GetUIntArray(framework.ParamKeySource); err != nil {
 			return
 		}
-		if currentFlags, err = resp.GetUIntArray(framework.ParamKeyCurrent); err != nil{
+		if currentFlags, err = resp.GetUIntArray(framework.ParamKeyCurrent); err != nil {
 			return
 		}
 		return nil
 	}
-	if err := parser(); err != nil{
+	if err := parser(); err != nil {
 		log.Printf("<api> parse snapshots fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var count = len(names)
-	for i := 0; i < count; i++{
+	for i := 0; i < count; i++ {
 		var snapshot = Snapshot{}
 		snapshot.Backing = backings[i]
-		if 1 == rootFlags[i]{
+		if 1 == rootFlags[i] {
 			snapshot.IsRoot = true
 		}
-		if 1 == currentFlags[i]{
+		if 1 == currentFlags[i] {
 			snapshot.IsCurrent = true
 		}
 		data[names[i]] = snapshot
@@ -3842,21 +3832,21 @@ func (module *APIModule) handleQueryInstanceSnapshots(w http.ResponseWriter, r *
 	ResponseOK(data, w)
 }
 
-func (module *APIModule) handleCreateInstanceSnapshot(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleCreateInstanceSnapshot(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var instanceID = params.ByName("id")
 
 	type UserRequest struct {
-		Name string `json:"name"`
+		Name        string `json:"name"`
 		Description string `json:"description,omitempty"`
 	}
 	var err error
 	var decoder = json.NewDecoder(r.Body)
 	var requestData UserRequest
-	if err = decoder.Decode(&requestData); err != nil{
+	if err = decoder.Decode(&requestData); err != nil {
 		log.Printf("<api> decode create snapshot request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -3882,8 +3872,8 @@ func (module *APIModule) handleCreateInstanceSnapshot(w http.ResponseWriter, r *
 	ResponseOK("", w)
 }
 
-func (module *APIModule) handleDeleteInstanceSnapshot(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleDeleteInstanceSnapshot(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -3909,8 +3899,8 @@ func (module *APIModule) handleDeleteInstanceSnapshot(w http.ResponseWriter, r *
 	ResponseOK("", w)
 }
 
-func (module *APIModule) handleRestoreInstanceSnapshot(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleRestoreInstanceSnapshot(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -3920,7 +3910,7 @@ func (module *APIModule) handleRestoreInstanceSnapshot(w http.ResponseWriter, r 
 	}
 	var request UserRequest
 	var decoder = json.NewDecoder(r.Body)
-	if err := decoder.Decode(&request); err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse restore snapshot request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -3946,8 +3936,8 @@ func (module *APIModule) handleRestoreInstanceSnapshot(w http.ResponseWriter, r 
 	ResponseOK("", w)
 }
 
-func (module *APIModule) handleGetInstanceSnapshot(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleGetInstanceSnapshot(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -3971,18 +3961,18 @@ func (module *APIModule) handleGetInstanceSnapshot(w http.ResponseWriter, r *htt
 		return
 	}
 	type ResponseData struct {
-		Running bool `json:"running"`
+		Running     bool   `json:"running"`
 		Description string `json:"description,omitempty"`
-		CreateTime string `json:"create_time"`
+		CreateTime  string `json:"create_time"`
 	}
 	var data ResponseData
 	var err error
-	if data.Running, err = resp.GetBoolean(framework.ParamKeyStatus); err != nil{
+	if data.Running, err = resp.GetBoolean(framework.ParamKeyStatus); err != nil {
 		log.Printf("<api> parse snapshot status fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	if data.CreateTime, err = resp.GetString(framework.ParamKeyCreate); err != nil{
+	if data.CreateTime, err = resp.GetString(framework.ParamKeyCreate); err != nil {
 		log.Printf("<api> parse snapshot create time fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -3991,8 +3981,8 @@ func (module *APIModule) handleGetInstanceSnapshot(w http.ResponseWriter, r *htt
 	ResponseOK(data, w)
 }
 
-func (module *APIModule) handleQueryMigrations(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleQueryMigrations(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -4020,12 +4010,12 @@ func (module *APIModule) handleQueryMigrations(w http.ResponseWriter, r *http.Re
 	var err error
 
 	var respPayload = make([]Migration, 0)
-	if id, err = resp.GetStringArray(framework.ParamKeyMigration); err != nil{
+	if id, err = resp.GetStringArray(framework.ParamKeyMigration); err != nil {
 		log.Printf("<api> parse id fail when query migration: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	if finished, err = resp.GetUIntArray(framework.ParamKeyStatus); err != nil{
+	if finished, err = resp.GetUIntArray(framework.ParamKeyStatus); err != nil {
 		log.Printf("<api> parse status fail when query migration: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -4035,36 +4025,36 @@ func (module *APIModule) handleQueryMigrations(w http.ResponseWriter, r *http.Re
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	if errMessage, err = resp.GetStringArray(framework.ParamKeyError); err != nil{
+	if errMessage, err = resp.GetStringArray(framework.ParamKeyError); err != nil {
 		log.Printf("<api> parse message fail when query migration: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var count = len(id)
-	if len(finished) != count{
+	if len(finished) != count {
 		var err = fmt.Errorf("unexpect status array size %d", len(finished))
 		log.Printf("<api> verify status fail when query migration: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	if len(progress) != count{
+	if len(progress) != count {
 		var err = fmt.Errorf("unexpect progress array size %d", len(finished))
 		log.Printf("<api> verify progress fail when query migration: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	if len(errMessage) != count{
+	if len(errMessage) != count {
 		var err = fmt.Errorf("unexpect message array size %d", len(finished))
 		log.Printf("<api> verify message fail when query migration: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	for i := 0; i < count;i++{
+	for i := 0; i < count; i++ {
 		var m = Migration{ID: id[i]}
-		if 1 == finished[i]{
+		if 1 == finished[i] {
 			m.Finished = true
 		}
-		if 0 != progress[i]{
+		if 0 != progress[i] {
 			m.Progress = uint(progress[i])
 		}
 		m.Error = errMessage[i]
@@ -4073,8 +4063,8 @@ func (module *APIModule) handleQueryMigrations(w http.ResponseWriter, r *http.Re
 	ResponseOK(respPayload, w)
 }
 
-func (module *APIModule) handleGetMigration(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleGetMigration(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -4105,8 +4095,8 @@ func (module *APIModule) handleGetMigration(w http.ResponseWriter, r *http.Reque
 	ResponseOK(respPayload, w)
 }
 
-func (module *APIModule) handleCreateMigration(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleCreateMigration(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -4120,12 +4110,12 @@ func (module *APIModule) handleCreateMigration(w http.ResponseWriter, r *http.Re
 	var err error
 	var decoder = json.NewDecoder(r.Body)
 	var requestData UserRequest
-	if err = decoder.Decode(&requestData); err != nil{
+	if err = decoder.Decode(&requestData); err != nil {
 		log.Printf("<api> decode create migration request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	if "" != requestData.TargetPool{
+	if "" != requestData.TargetPool {
 		err = errors.New("migration between pools not support")
 		log.Printf("<api> verify migration request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
@@ -4157,8 +4147,8 @@ func (module *APIModule) handleCreateMigration(w http.ResponseWriter, r *http.Re
 	ResponseOK(respPayload, w)
 }
 
-func (module *APIModule) handleQueryAddressPool(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleQueryAddressPool(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -4190,51 +4180,51 @@ func (module *APIModule) handleQueryAddressPool(w http.ResponseWriter, r *http.R
 		payload = make([]Pool, 0)
 		var nameArray, gatewayArray, dnsArray, providerArray []string
 		var addressArray, allocateArray, dnsCountArray []uint64
-		if nameArray, err = msg.GetStringArray(framework.ParamKeyName); err != nil{
+		if nameArray, err = msg.GetStringArray(framework.ParamKeyName); err != nil {
 			return
 		}
-		if gatewayArray, err = msg.GetStringArray(framework.ParamKeyGateway); err != nil{
+		if gatewayArray, err = msg.GetStringArray(framework.ParamKeyGateway); err != nil {
 			return
 		}
-		if dnsArray, err = msg.GetStringArray(framework.ParamKeyServer); err != nil{
+		if dnsArray, err = msg.GetStringArray(framework.ParamKeyServer); err != nil {
 			return
 		}
-		if providerArray, err = msg.GetStringArray(framework.ParamKeyMode); err != nil{
+		if providerArray, err = msg.GetStringArray(framework.ParamKeyMode); err != nil {
 			err = fmt.Errorf("get provider fail: %s", err.Error())
 			return
 		}
-		if addressArray, err = msg.GetUIntArray(framework.ParamKeyAddress); err != nil{
+		if addressArray, err = msg.GetUIntArray(framework.ParamKeyAddress); err != nil {
 			return
 		}
-		if allocateArray, err = msg.GetUIntArray(framework.ParamKeyAllocate); err != nil{
+		if allocateArray, err = msg.GetUIntArray(framework.ParamKeyAllocate); err != nil {
 			return
 		}
-		if dnsCountArray, err = msg.GetUIntArray(framework.ParamKeyCount); err != nil{
+		if dnsCountArray, err = msg.GetUIntArray(framework.ParamKeyCount); err != nil {
 			return
 		}
 		var count = len(nameArray)
-		if count != len(gatewayArray){
+		if count != len(gatewayArray) {
 			err = fmt.Errorf("unmatched gateway array size %d", len(gatewayArray))
 			return
 		}
-		if count != len(addressArray){
+		if count != len(addressArray) {
 			err = fmt.Errorf("unmatched address array size %d", len(addressArray))
 			return
 		}
-		if count != len(allocateArray){
+		if count != len(allocateArray) {
 			err = fmt.Errorf("unmatched allocate array size %d", len(allocateArray))
 			return
 		}
 		var start = 0
-		for i := 0; i < count;i++{
+		for i := 0; i < count; i++ {
 			var dnsCount = int(dnsCountArray[i])
 			var end = start + dnsCount
-			var dns = dnsArray[start : end]
+			var dns = dnsArray[start:end]
 			var pool = Pool{
-				Name: nameArray[i],
-				Gateway: gatewayArray[i],
-				DNS: dns,
-				Provider: providerArray[i],
+				Name:      nameArray[i],
+				Gateway:   gatewayArray[i],
+				DNS:       dns,
+				Provider:  providerArray[i],
 				Addresses: addressArray[i],
 				Allocated: allocateArray[i],
 			}
@@ -4244,7 +4234,7 @@ func (module *APIModule) handleQueryAddressPool(w http.ResponseWriter, r *http.R
 		return
 	}
 	payload, err := parser(resp)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> parse query address pool result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -4252,8 +4242,8 @@ func (module *APIModule) handleQueryAddressPool(w http.ResponseWriter, r *http.R
 	ResponseOK(payload, w)
 }
 
-func (module *APIModule) handleGetAddressPool(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleGetAddressPool(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -4280,32 +4270,32 @@ func (module *APIModule) handleGetAddressPool(w http.ResponseWriter, r *http.Req
 		payload.Ranges = make([]AddressRangeConfig, 0)
 		var addressArray, instanceArray, startArray, endArray, maskArray []string
 		var capacityArray []uint64
-		if startArray, err = msg.GetStringArray(framework.ParamKeyStart); err != nil{
+		if startArray, err = msg.GetStringArray(framework.ParamKeyStart); err != nil {
 			return
 		}
-		if endArray, err = msg.GetStringArray(framework.ParamKeyEnd); err != nil{
+		if endArray, err = msg.GetStringArray(framework.ParamKeyEnd); err != nil {
 			return
 		}
-		if maskArray, err = msg.GetStringArray(framework.ParamKeyMask); err != nil{
+		if maskArray, err = msg.GetStringArray(framework.ParamKeyMask); err != nil {
 			return
 		}
-		if capacityArray, err = msg.GetUIntArray(framework.ParamKeyCount); err != nil{
+		if capacityArray, err = msg.GetUIntArray(framework.ParamKeyCount); err != nil {
 			return
 		}
-		if payload.Gateway, err = msg.GetString(framework.ParamKeyGateway); err != nil{
+		if payload.Gateway, err = msg.GetString(framework.ParamKeyGateway); err != nil {
 			return
 		}
-		if payload.DNS, err = msg.GetStringArray(framework.ParamKeyServer); err != nil{
+		if payload.DNS, err = msg.GetStringArray(framework.ParamKeyServer); err != nil {
 			return
 		}
-		if payload.Provider, err = msg.GetString(framework.ParamKeyMode); err != nil{
+		if payload.Provider, err = msg.GetString(framework.ParamKeyMode); err != nil {
 			err = fmt.Errorf("get provider fail: %s", err.Error())
 			return
 		}
-		if addressArray, err = msg.GetStringArray(framework.ParamKeyAddress); err != nil{
+		if addressArray, err = msg.GetStringArray(framework.ParamKeyAddress); err != nil {
 			return
 		}
-		if instanceArray, err = msg.GetStringArray(framework.ParamKeyInstance); err != nil{
+		if instanceArray, err = msg.GetStringArray(framework.ParamKeyInstance); err != nil {
 			return
 		}
 		var rangeCount = len(startArray)
@@ -4319,23 +4309,23 @@ func (module *APIModule) handleGetAddressPool(w http.ResponseWriter, r *http.Req
 		}
 
 		var allocatedCount = len(addressArray)
-		if allocatedCount != len(instanceArray){
+		if allocatedCount != len(instanceArray) {
 			err = fmt.Errorf("unmatched instance array size %d", len(instanceArray))
 			return
 		}
 
-		for i := 0; i < rangeCount; i++{
-			payload.Ranges = append(payload.Ranges, AddressRangeConfig{Start:startArray[i], End: endArray[i], Netmask: maskArray[i], Capacity: uint32(capacityArray[i])})
+		for i := 0; i < rangeCount; i++ {
+			payload.Ranges = append(payload.Ranges, AddressRangeConfig{Start: startArray[i], End: endArray[i], Netmask: maskArray[i], Capacity: uint32(capacityArray[i])})
 		}
 
-		for i := 0; i < allocatedCount; i++{
+		for i := 0; i < allocatedCount; i++ {
 			payload.Allocated = append(payload.Allocated, AllocatedAddress{addressArray[i], instanceArray[i]})
 		}
 
 		return payload, nil
 	}
 	payload, err := parser(resp)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> parse get address pool result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -4344,8 +4334,8 @@ func (module *APIModule) handleGetAddressPool(w http.ResponseWriter, r *http.Req
 	ResponseOK(payload, w)
 }
 
-func (module *APIModule) handleCreateAddressPool(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleCreateAddressPool(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -4353,14 +4343,14 @@ func (module *APIModule) handleCreateAddressPool(w http.ResponseWriter, r *http.
 	var err error
 	var decoder = json.NewDecoder(r.Body)
 	var request AddressPoolConfig
-	if err = decoder.Decode(&request); err != nil{
+	if err = decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse create address pool request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	request.Name = poolName
 	msg, _ := framework.CreateJsonMessage(framework.CreateAddressPoolRequest)
-	if err = request.build(msg); err != nil{
+	if err = request.build(msg); err != nil {
 		log.Printf("<api> build create address pool request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -4380,8 +4370,8 @@ func (module *APIModule) handleCreateAddressPool(w http.ResponseWriter, r *http.
 	ResponseOK("", w)
 }
 
-func (module *APIModule) handleModifyAddressPool(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleModifyAddressPool(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -4389,14 +4379,14 @@ func (module *APIModule) handleModifyAddressPool(w http.ResponseWriter, r *http.
 	var err error
 	var decoder = json.NewDecoder(r.Body)
 	var request AddressPoolConfig
-	if err = decoder.Decode(&request); err != nil{
+	if err = decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse modify address pool request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	request.Name = poolName
 	msg, _ := framework.CreateJsonMessage(framework.ModifyAddressPoolRequest)
-	if err = request.build(msg); err != nil{
+	if err = request.build(msg); err != nil {
 		log.Printf("<api> build modify address pool request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -4416,8 +4406,8 @@ func (module *APIModule) handleModifyAddressPool(w http.ResponseWriter, r *http.
 	ResponseOK("", w)
 }
 
-func (module *APIModule) handleDeleteAddressPool(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleDeleteAddressPool(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -4439,8 +4429,8 @@ func (module *APIModule) handleDeleteAddressPool(w http.ResponseWriter, r *http.
 	ResponseOK("", w)
 }
 
-func (module *APIModule) handleQueryAddressRange(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleQueryAddressRange(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -4470,31 +4460,31 @@ func (module *APIModule) handleQueryAddressRange(w http.ResponseWriter, r *http.
 	var parser = func(msg framework.Message) (payload []Range, err error) {
 		payload = make([]Range, 0)
 		var startArray, endArray, maskArray []string
-		if startArray, err = msg.GetStringArray(framework.ParamKeyStart); err != nil{
+		if startArray, err = msg.GetStringArray(framework.ParamKeyStart); err != nil {
 			return
 		}
-		if endArray, err = msg.GetStringArray(framework.ParamKeyEnd); err != nil{
+		if endArray, err = msg.GetStringArray(framework.ParamKeyEnd); err != nil {
 			return
 		}
-		if maskArray, err = msg.GetStringArray(framework.ParamKeyMask); err != nil{
+		if maskArray, err = msg.GetStringArray(framework.ParamKeyMask); err != nil {
 			return
 		}
 		var count = len(startArray)
-		if count != len(endArray){
+		if count != len(endArray) {
 			err = fmt.Errorf("unmatched end array size %d", len(endArray))
 			return
 		}
-		if count != len(maskArray){
+		if count != len(maskArray) {
 			err = fmt.Errorf("unmatched netmask array size %d", len(maskArray))
 			return
 		}
-		for i := 0; i < count;i++{
+		for i := 0; i < count; i++ {
 			payload = append(payload, Range{startArray[i], endArray[i], maskArray[i]})
 		}
 		return
 	}
 	payload, err := parser(resp)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> parse query address range result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -4502,8 +4492,8 @@ func (module *APIModule) handleQueryAddressRange(w http.ResponseWriter, r *http.
 	ResponseOK(payload, w)
 }
 
-func (module *APIModule) handleGetAddressRange(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleGetAddressRange(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -4532,40 +4522,40 @@ func (module *APIModule) handleGetAddressRange(w http.ResponseWriter, r *http.Re
 	var parser = func(msg framework.Message) (payload AddressRangeStatus, err error) {
 		payload.Allocated = make([]AllocatedAddress, 0)
 		var addressArray, instanceArray []string
-		if payload.Start, err = msg.GetString(framework.ParamKeyStart); err != nil{
+		if payload.Start, err = msg.GetString(framework.ParamKeyStart); err != nil {
 			return
 		}
-		if payload.End, err = msg.GetString(framework.ParamKeyEnd); err != nil{
+		if payload.End, err = msg.GetString(framework.ParamKeyEnd); err != nil {
 			return
 		}
-		if payload.Netmask, err = msg.GetString(framework.ParamKeyMask); err != nil{
+		if payload.Netmask, err = msg.GetString(framework.ParamKeyMask); err != nil {
 			return
 		}
 		capacity, err := msg.GetUInt(framework.ParamKeyCount)
-		if err != nil{
+		if err != nil {
 			return
 		}
 		payload.Capacity = uint32(capacity)
 
-		if addressArray, err = msg.GetStringArray(framework.ParamKeyAddress); err != nil{
+		if addressArray, err = msg.GetStringArray(framework.ParamKeyAddress); err != nil {
 			return
 		}
-		if instanceArray, err = msg.GetStringArray(framework.ParamKeyInstance); err != nil{
+		if instanceArray, err = msg.GetStringArray(framework.ParamKeyInstance); err != nil {
 			return
 		}
 		var count = len(addressArray)
-		if count != len(instanceArray){
+		if count != len(instanceArray) {
 			err = fmt.Errorf("unmatched instance array size %d", len(instanceArray))
 			return
 		}
 		payload.Allocated = make([]AllocatedAddress, 0)
-		for i := 0; i< count ; i++{
+		for i := 0; i < count; i++ {
 			payload.Allocated = append(payload.Allocated, AllocatedAddress{addressArray[i], instanceArray[i]})
 		}
 		return payload, nil
 	}
 	payload, err := parser(resp)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> parse get address range result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -4573,8 +4563,8 @@ func (module *APIModule) handleGetAddressRange(w http.ResponseWriter, r *http.Re
 	ResponseOK(payload, w)
 }
 
-func (module *APIModule) handleAddAddressRange(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleAddAddressRange(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -4588,7 +4578,7 @@ func (module *APIModule) handleAddAddressRange(w http.ResponseWriter, r *http.Re
 	var err error
 	var decoder = json.NewDecoder(r.Body)
 	var requestData UserRequest
-	if err = decoder.Decode(&requestData); err != nil{
+	if err = decoder.Decode(&requestData); err != nil {
 		log.Printf("<api> parse add address range request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -4616,8 +4606,8 @@ func (module *APIModule) handleAddAddressRange(w http.ResponseWriter, r *http.Re
 	ResponseOK("", w)
 }
 
-func (module *APIModule) handleRemoveAddressRange(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleRemoveAddressRange(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -4646,7 +4636,7 @@ func (module *APIModule) handleRemoveAddressRange(w http.ResponseWriter, r *http
 }
 
 func (module *APIModule) handleGetBatchCreateGuest(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -4678,53 +4668,53 @@ func (module *APIModule) handleGetBatchCreateGuest(w http.ResponseWriter, r *htt
 	const (
 		StatusProcess = "creating"
 		StatusSuccess = "created"
-		StatusFail = "fail"
+		StatusFail    = "fail"
 	)
 	var allFinished = true
 	var parser = func(msg framework.Message) (payload []GuestStatus, err error) {
 		var nameArray, idArray, errArray []string
 		var statusArray, progressArray []uint64
-		if nameArray, err = msg.GetStringArray(framework.ParamKeyName); err != nil{
+		if nameArray, err = msg.GetStringArray(framework.ParamKeyName); err != nil {
 			return
 		}
-		if idArray, err = msg.GetStringArray(framework.ParamKeyGuest); err != nil{
+		if idArray, err = msg.GetStringArray(framework.ParamKeyGuest); err != nil {
 			return
 		}
-		if errArray, err = msg.GetStringArray(framework.ParamKeyError); err != nil{
+		if errArray, err = msg.GetStringArray(framework.ParamKeyError); err != nil {
 			return
 		}
-		if statusArray, err = msg.GetUIntArray(framework.ParamKeyStatus); err != nil{
+		if statusArray, err = msg.GetUIntArray(framework.ParamKeyStatus); err != nil {
 			return
 		}
-		if progressArray, err = msg.GetUIntArray(framework.ParamKeyProgress); err != nil{
+		if progressArray, err = msg.GetUIntArray(framework.ParamKeyProgress); err != nil {
 			return
 		}
 		var count = len(nameArray)
-		if count != len(idArray){
+		if count != len(idArray) {
 			err = fmt.Errorf("unmatched id array size %d", len(idArray))
 			return
 		}
-		if count != len(errArray){
+		if count != len(errArray) {
 			err = fmt.Errorf("unmatched error array size %d", len(errArray))
 			return
 		}
-		if count != len(statusArray){
+		if count != len(statusArray) {
 			err = fmt.Errorf("unmatched status array size %d", len(statusArray))
 			return
 		}
-		if count != len(progressArray){
+		if count != len(progressArray) {
 			err = fmt.Errorf("unmatched progress array size %d", len(progressArray))
 			return
 		}
-		for i := 0; i < count;i++{
+		for i := 0; i < count; i++ {
 			switch statusArray[i] {
 			case BatchTaskStatusProcess:
 				allFinished = false
-				payload = append(payload, GuestStatus{nameArray[i], idArray[i], StatusProcess,errArray[i], progressArray[i]})
+				payload = append(payload, GuestStatus{nameArray[i], idArray[i], StatusProcess, errArray[i], progressArray[i]})
 			case BatchTaskStatusSuccess:
-				payload = append(payload, GuestStatus{nameArray[i], idArray[i], StatusSuccess,errArray[i], progressArray[i]})
+				payload = append(payload, GuestStatus{nameArray[i], idArray[i], StatusSuccess, errArray[i], progressArray[i]})
 			case BatchTaskStatusFail:
-				payload = append(payload, GuestStatus{nameArray[i], idArray[i], StatusFail,errArray[i], progressArray[i]})
+				payload = append(payload, GuestStatus{nameArray[i], idArray[i], StatusFail, errArray[i], progressArray[i]})
 			default:
 				err = fmt.Errorf("invalid status %d for guest '%s'", statusArray[i], nameArray[i])
 				return
@@ -4733,15 +4723,15 @@ func (module *APIModule) handleGetBatchCreateGuest(w http.ResponseWriter, r *htt
 		return payload, nil
 	}
 	payload, err := parser(resp)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> parse batch create guest result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	if allFinished{
+	if allFinished {
 		w.WriteHeader(http.StatusOK)
-	}else{
+	} else {
 		w.WriteHeader(http.StatusAccepted)
 	}
 	ResponseOK(payload, w)
@@ -4749,7 +4739,7 @@ func (module *APIModule) handleGetBatchCreateGuest(w http.ResponseWriter, r *htt
 
 func (module *APIModule) handleStartBatchCreateGuest(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err error
-	if err = module.verifyRequestSignature(r); err != nil{
+	if err = module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -4783,45 +4773,45 @@ func (module *APIModule) handleStartBatchCreateGuest(w http.ResponseWriter, r *h
 
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse batch create guest request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	var validator = func(config userRequest) (err error){
-		if "" == config.NamePrefix{
+	var validator = func(config userRequest) (err error) {
+		if "" == config.NamePrefix {
 			err = fmt.Errorf("prefix required")
 			return
 		}
-		if "" == config.Owner{
+		if "" == config.Owner {
 			err = fmt.Errorf("owner required")
 			return
 		}
-		if "" == config.Group{
+		if "" == config.Group {
 			err = fmt.Errorf("group required")
 			return
 		}
-		if "" == config.Pool{
+		if "" == config.Pool {
 			err = fmt.Errorf("target pool required")
 			return
 		}
-		if "" == config.Template{
+		if "" == config.Template {
 			err = fmt.Errorf("system template required")
 			return
 		}
-		if 0 == config.Cores{
+		if 0 == config.Cores {
 			err = fmt.Errorf("cores required")
 			return
 		}
-		if 0 == config.Memory{
+		if 0 == config.Memory {
 			err = fmt.Errorf("memory required")
 			return
 		}
 		return nil
 	}
 
-	if err = validator(request); err != nil{
+	if err = validator(request); err != nil {
 		log.Printf("<api> validate batch create guest request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -4858,7 +4848,7 @@ func (module *APIModule) handleStartBatchCreateGuest(w http.ResponseWriter, r *h
 	msg.SetBoolean(framework.ParamKeyOption, request.AutoStart)
 	msg.SetString(framework.ParamKeyTemplate, request.Template)
 	//optional disk image
-	if "" != request.FromImage{
+	if "" != request.FromImage {
 		msg.SetString(framework.ParamKeyImage, request.FromImage)
 	}
 	msg.SetStringArray(framework.ParamKeyModule, request.Modules)
@@ -4867,24 +4857,24 @@ func (module *APIModule) handleStartBatchCreateGuest(w http.ResponseWriter, r *h
 		RootLoginEnabled
 	)
 	var flags []uint64
-	if nil != request.CloudInit{
+	if nil != request.CloudInit {
 		msg.SetString(framework.ParamKeyAdmin, request.CloudInit.AdminName)
 		msg.SetString(framework.ParamKeySecret, request.CloudInit.AdminSecret)
 		msg.SetString(framework.ParamKeyPath, request.CloudInit.DataPath)
-		if request.CloudInit.RootEnabled{
+		if request.CloudInit.RootEnabled {
 			flags = append(flags, RootLoginEnabled)
-		}else{
+		} else {
 			flags = append(flags, RootLoginDisabled)
 		}
 
-	}else{
+	} else {
 		msg.SetString(framework.ParamKeyAdmin, "")
 		msg.SetString(framework.ParamKeySecret, "")
 		msg.SetString(framework.ParamKeyPath, "")
 		flags = append(flags, RootLoginEnabled)
 	}
 
-	if nil != request.QoS{
+	if nil != request.QoS {
 		var qos = request.QoS
 		switch qos.CPUPriority {
 		case priority_label_high:
@@ -4901,7 +4891,7 @@ func (module *APIModule) handleStartBatchCreateGuest(w http.ResponseWriter, r *h
 		}
 		msg.SetUIntArray(framework.ParamKeyLimit, []uint64{qos.ReadSpeed, qos.WriteSpeed,
 			qos.ReadIOPS, qos.WriteIOPS, qos.ReceiveSpeed, qos.SendSpeed})
-	}else{
+	} else {
 		msg.SetUInt(framework.ParamKeyPriority, PriorityHigh)
 		msg.SetUIntArray(framework.ParamKeyLimit, []uint64{0, 0, 0, 0, 0, 0})
 	}
@@ -4921,7 +4911,7 @@ func (module *APIModule) handleStartBatchCreateGuest(w http.ResponseWriter, r *h
 		return
 	}
 	batchID, err := resp.GetString(framework.ParamKeyID)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> parse batch id fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -4936,7 +4926,7 @@ func (module *APIModule) handleStartBatchCreateGuest(w http.ResponseWriter, r *h
 }
 
 func (module *APIModule) handleGetBatchDeleteGuest(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -4967,47 +4957,47 @@ func (module *APIModule) handleGetBatchDeleteGuest(w http.ResponseWriter, r *htt
 	const (
 		StatusProcess = "deleting"
 		StatusSuccess = "deleted"
-		StatusFail = "fail"
+		StatusFail    = "fail"
 	)
 
 	var allFinished = true
 	var parser = func(msg framework.Message) (payload []GuestStatus, err error) {
 		var nameArray, idArray, errArray []string
 		var statusArray []uint64
-		if nameArray, err = msg.GetStringArray(framework.ParamKeyName); err != nil{
+		if nameArray, err = msg.GetStringArray(framework.ParamKeyName); err != nil {
 			return
 		}
-		if idArray, err = msg.GetStringArray(framework.ParamKeyGuest); err != nil{
+		if idArray, err = msg.GetStringArray(framework.ParamKeyGuest); err != nil {
 			return
 		}
-		if errArray, err = msg.GetStringArray(framework.ParamKeyError); err != nil{
+		if errArray, err = msg.GetStringArray(framework.ParamKeyError); err != nil {
 			return
 		}
-		if statusArray, err = msg.GetUIntArray(framework.ParamKeyStatus); err != nil{
+		if statusArray, err = msg.GetUIntArray(framework.ParamKeyStatus); err != nil {
 			return
 		}
 		var count = len(nameArray)
-		if count != len(idArray){
+		if count != len(idArray) {
 			err = fmt.Errorf("unmatched id array size %d", len(idArray))
 			return
 		}
-		if count != len(errArray){
+		if count != len(errArray) {
 			err = fmt.Errorf("unmatched error array size %d", len(errArray))
 			return
 		}
-		if count != len(statusArray){
+		if count != len(statusArray) {
 			err = fmt.Errorf("unmatched status array size %d", len(statusArray))
 			return
 		}
-		for i := 0; i < count;i++{
+		for i := 0; i < count; i++ {
 			switch statusArray[i] {
 			case BatchTaskStatusProcess:
-				payload = append(payload, GuestStatus{nameArray[i], idArray[i], StatusProcess,errArray[i] })
+				payload = append(payload, GuestStatus{nameArray[i], idArray[i], StatusProcess, errArray[i]})
 				allFinished = false
 			case BatchTaskStatusSuccess:
-				payload = append(payload, GuestStatus{nameArray[i], idArray[i], StatusSuccess,errArray[i] })
+				payload = append(payload, GuestStatus{nameArray[i], idArray[i], StatusSuccess, errArray[i]})
 			case BatchTaskStatusFail:
-				payload = append(payload, GuestStatus{nameArray[i], idArray[i], StatusFail,errArray[i] })
+				payload = append(payload, GuestStatus{nameArray[i], idArray[i], StatusFail, errArray[i]})
 			default:
 				err = fmt.Errorf("invalid status %d for guest '%s'", statusArray[i], nameArray[i])
 				return
@@ -5016,21 +5006,21 @@ func (module *APIModule) handleGetBatchDeleteGuest(w http.ResponseWriter, r *htt
 		return payload, nil
 	}
 	payload, err := parser(resp)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> parse batch delete guest result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	if allFinished{
+	if allFinished {
 		w.WriteHeader(http.StatusOK)
-	}else{
+	} else {
 		w.WriteHeader(http.StatusAccepted)
 	}
 	ResponseOK(payload, w)
 }
 
 func (module *APIModule) handleStartBatchDeleteGuest(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -5040,7 +5030,7 @@ func (module *APIModule) handleStartBatchDeleteGuest(w http.ResponseWriter, r *h
 	var err error
 	var decoder = json.NewDecoder(r.Body)
 	var requestData UserRequest
-	if err = decoder.Decode(&requestData); err != nil{
+	if err = decoder.Decode(&requestData); err != nil {
 		log.Printf("<api> parse start batch delete request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -5062,7 +5052,7 @@ func (module *APIModule) handleStartBatchDeleteGuest(w http.ResponseWriter, r *h
 		return
 	}
 	batchID, err := resp.GetString(framework.ParamKeyID)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> parse batch id fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -5076,9 +5066,8 @@ func (module *APIModule) handleStartBatchDeleteGuest(w http.ResponseWriter, r *h
 	ResponseOK(result, w)
 }
 
-
 func (module *APIModule) handleGetBatchStopGuest(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -5109,47 +5098,47 @@ func (module *APIModule) handleGetBatchStopGuest(w http.ResponseWriter, r *http.
 	const (
 		StatusProcess = "stopping"
 		StatusSuccess = "stopped"
-		StatusFail = "fail"
+		StatusFail    = "fail"
 	)
 
 	var allFinished = true
 	var parser = func(msg framework.Message) (payload []GuestStatus, err error) {
 		var nameArray, idArray, errArray []string
 		var statusArray []uint64
-		if nameArray, err = msg.GetStringArray(framework.ParamKeyName); err != nil{
+		if nameArray, err = msg.GetStringArray(framework.ParamKeyName); err != nil {
 			return
 		}
-		if idArray, err = msg.GetStringArray(framework.ParamKeyGuest); err != nil{
+		if idArray, err = msg.GetStringArray(framework.ParamKeyGuest); err != nil {
 			return
 		}
-		if errArray, err = msg.GetStringArray(framework.ParamKeyError); err != nil{
+		if errArray, err = msg.GetStringArray(framework.ParamKeyError); err != nil {
 			return
 		}
-		if statusArray, err = msg.GetUIntArray(framework.ParamKeyStatus); err != nil{
+		if statusArray, err = msg.GetUIntArray(framework.ParamKeyStatus); err != nil {
 			return
 		}
 		var count = len(nameArray)
-		if count != len(idArray){
+		if count != len(idArray) {
 			err = fmt.Errorf("unmatched id array size %d", len(idArray))
 			return
 		}
-		if count != len(errArray){
+		if count != len(errArray) {
 			err = fmt.Errorf("unmatched error array size %d", len(errArray))
 			return
 		}
-		if count != len(statusArray){
+		if count != len(statusArray) {
 			err = fmt.Errorf("unmatched status array size %d", len(statusArray))
 			return
 		}
-		for i := 0; i < count;i++{
+		for i := 0; i < count; i++ {
 			switch statusArray[i] {
 			case BatchTaskStatusProcess:
-				payload = append(payload, GuestStatus{nameArray[i], idArray[i], StatusProcess,errArray[i] })
+				payload = append(payload, GuestStatus{nameArray[i], idArray[i], StatusProcess, errArray[i]})
 				allFinished = false
 			case BatchTaskStatusSuccess:
-				payload = append(payload, GuestStatus{nameArray[i], idArray[i], StatusSuccess,errArray[i] })
+				payload = append(payload, GuestStatus{nameArray[i], idArray[i], StatusSuccess, errArray[i]})
 			case BatchTaskStatusFail:
-				payload = append(payload, GuestStatus{nameArray[i], idArray[i], StatusFail,errArray[i] })
+				payload = append(payload, GuestStatus{nameArray[i], idArray[i], StatusFail, errArray[i]})
 			default:
 				err = fmt.Errorf("invalid status %d for guest '%s'", statusArray[i], nameArray[i])
 				return
@@ -5158,21 +5147,21 @@ func (module *APIModule) handleGetBatchStopGuest(w http.ResponseWriter, r *http.
 		return payload, nil
 	}
 	payload, err := parser(resp)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> parse batch stop guest result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	if allFinished{
+	if allFinished {
 		w.WriteHeader(http.StatusOK)
-	}else{
+	} else {
 		w.WriteHeader(http.StatusAccepted)
 	}
 	ResponseOK(payload, w)
 }
 
 func (module *APIModule) handleStartBatchStopGuest(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -5183,7 +5172,7 @@ func (module *APIModule) handleStartBatchStopGuest(w http.ResponseWriter, r *htt
 	var err error
 	var decoder = json.NewDecoder(r.Body)
 	var requestData UserRequest
-	if err = decoder.Decode(&requestData); err != nil{
+	if err = decoder.Decode(&requestData); err != nil {
 		log.Printf("<api> parse start batch stop request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -5196,9 +5185,9 @@ func (module *APIModule) handleStartBatchStopGuest(w http.ResponseWriter, r *htt
 	)
 
 	var options []uint64
-	if requestData.Force{
+	if requestData.Force {
 		options = []uint64{RebootDisable, ForceStopEnable}
-	}else{
+	} else {
 		options = []uint64{RebootDisable, ForceStopDisable}
 	}
 
@@ -5219,7 +5208,7 @@ func (module *APIModule) handleStartBatchStopGuest(w http.ResponseWriter, r *htt
 		return
 	}
 	batchID, err := resp.GetString(framework.ParamKeyID)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> parse batch id fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -5233,9 +5222,9 @@ func (module *APIModule) handleStartBatchStopGuest(w http.ResponseWriter, r *htt
 	ResponseOK(result, w)
 }
 
-func (module *APIModule) querySystemTemplates(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) querySystemTemplates(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if  err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -5262,32 +5251,32 @@ func (module *APIModule) querySystemTemplates(w http.ResponseWriter, r *http.Req
 		ModifiedTime    string `json:"modified_time,omitempty"`
 	}
 
-	var parser = func(msg framework.Message) (items []responseItem, err error){
+	var parser = func(msg framework.Message) (items []responseItem, err error) {
 		//unmarshal
 		var name, id, operatingSystem, createTime, modifyTime []string
-		if name, err = msg.GetStringArray(framework.ParamKeyName); err != nil{
+		if name, err = msg.GetStringArray(framework.ParamKeyName); err != nil {
 			err = fmt.Errorf("get name fail: %s", err.Error())
 			return
 		}
-		if id, err = msg.GetStringArray(framework.ParamKeyID); err != nil{
+		if id, err = msg.GetStringArray(framework.ParamKeyID); err != nil {
 			err = fmt.Errorf("get id fail: %s", err.Error())
 			return
 		}
-		if operatingSystem, err = msg.GetStringArray(framework.ParamKeySystem); err != nil{
+		if operatingSystem, err = msg.GetStringArray(framework.ParamKeySystem); err != nil {
 			err = fmt.Errorf("get operating system fail: %s", err.Error())
 			return
 		}
-		if createTime, err = msg.GetStringArray(framework.ParamKeyCreate); err != nil{
+		if createTime, err = msg.GetStringArray(framework.ParamKeyCreate); err != nil {
 			err = fmt.Errorf("get created time fail: %s", err.Error())
 			return
 		}
-		if modifyTime, err = msg.GetStringArray(framework.ParamKeyModify); err != nil{
+		if modifyTime, err = msg.GetStringArray(framework.ParamKeyModify); err != nil {
 			err = fmt.Errorf("get modified time fail: %s", err.Error())
 			return
 		}
 		var itemCount = len(name)
 		items = make([]responseItem, 0)
-		for i := 0 ; i < itemCount;i++{
+		for i := 0; i < itemCount; i++ {
 			items = append(items, responseItem{
 				ID:              id[i],
 				Name:            name[i],
@@ -5299,7 +5288,7 @@ func (module *APIModule) querySystemTemplates(w http.ResponseWriter, r *http.Req
 		return items, nil
 	}
 	var items []responseItem
-	if items, err = parser(resp); err != nil{
+	if items, err = parser(resp); err != nil {
 		log.Printf("<api> parse query system templates result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -5307,9 +5296,9 @@ func (module *APIModule) querySystemTemplates(w http.ResponseWriter, r *http.Req
 	ResponseOK(items, w)
 }
 
-func (module *APIModule) getSystemTemplate(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) getSystemTemplate(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -5329,54 +5318,54 @@ func (module *APIModule) getSystemTemplate(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	var parser = func(msg framework.Message) (t SystemTemplate, err error){
-		if t.ID, err = msg.GetString(framework.ParamKeyID); err != nil{
+	var parser = func(msg framework.Message) (t SystemTemplate, err error) {
+		if t.ID, err = msg.GetString(framework.ParamKeyID); err != nil {
 			err = fmt.Errorf("get template id fail: %s", err.Error())
 			return
 		}
 
-		if t.Name, err = msg.GetString(framework.ParamKeyName); err != nil{
+		if t.Name, err = msg.GetString(framework.ParamKeyName); err != nil {
 			err = fmt.Errorf("get template name fail: %s", err.Error())
 			return
 		}
-		if t.Admin, err = msg.GetString(framework.ParamKeyAdmin); err != nil{
+		if t.Admin, err = msg.GetString(framework.ParamKeyAdmin); err != nil {
 			err = fmt.Errorf("get template admin fail: %s", err.Error())
 			return
 		}
-		if t.OperatingSystem, err = msg.GetString(framework.ParamKeySystem); err != nil{
+		if t.OperatingSystem, err = msg.GetString(framework.ParamKeySystem); err != nil {
 			err = fmt.Errorf("get template os fail: %s", err.Error())
 			return
 		}
-		if t.Disk, err = msg.GetString(framework.ParamKeyDisk); err != nil{
+		if t.Disk, err = msg.GetString(framework.ParamKeyDisk); err != nil {
 			err = fmt.Errorf("get template disk fail: %s", err.Error())
 			return
 		}
-		if t.Network, err = msg.GetString(framework.ParamKeyNetwork); err != nil{
+		if t.Network, err = msg.GetString(framework.ParamKeyNetwork); err != nil {
 			err = fmt.Errorf("get template network fail: %s", err.Error())
 			return
 		}
 
-		if t.Display, err = msg.GetString(framework.ParamKeyDisplay); err != nil{
+		if t.Display, err = msg.GetString(framework.ParamKeyDisplay); err != nil {
 			err = fmt.Errorf("get template control fail: %s", err.Error())
 			return
 		}
-		if t.Control, err = msg.GetString(framework.ParamKeyMonitor); err != nil{
+		if t.Control, err = msg.GetString(framework.ParamKeyMonitor); err != nil {
 			err = fmt.Errorf("get template id fail: %s", err.Error())
 			return
 		}
-		if t.USB, err = msg.GetString(framework.ParamKeyDevice); err != nil{
+		if t.USB, err = msg.GetString(framework.ParamKeyDevice); err != nil {
 			err = fmt.Errorf("get template usb fail: %s", err.Error())
 			return
 		}
-		if t.Tablet, err = msg.GetString(framework.ParamKeyInterface); err != nil{
+		if t.Tablet, err = msg.GetString(framework.ParamKeyInterface); err != nil {
 			err = fmt.Errorf("get template tablet fail: %s", err.Error())
 			return
 		}
-		if t.CreatedTime, err = msg.GetString(framework.ParamKeyCreate); err != nil{
+		if t.CreatedTime, err = msg.GetString(framework.ParamKeyCreate); err != nil {
 			err = fmt.Errorf("get created time fail: %s", err.Error())
 			return
 		}
-		if t.ModifiedTime, err = msg.GetString(framework.ParamKeyModify); err != nil{
+		if t.ModifiedTime, err = msg.GetString(framework.ParamKeyModify); err != nil {
 			err = fmt.Errorf("get modified time fail: %s", err.Error())
 			return
 		}
@@ -5384,7 +5373,7 @@ func (module *APIModule) getSystemTemplate(w http.ResponseWriter, r *http.Reques
 	}
 
 	var template SystemTemplate
-	if template, err = parser(resp); err != nil{
+	if template, err = parser(resp); err != nil {
 		log.Printf("<api> parse get system templates result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -5392,53 +5381,53 @@ func (module *APIModule) getSystemTemplate(w http.ResponseWriter, r *http.Reques
 	ResponseOK(template, w)
 }
 
-func (module *APIModule) createSystemTemplate(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) createSystemTemplate(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var decoder = json.NewDecoder(r.Body)
 	var request SystemTemplateConfig
-	if err = decoder.Decode(&request);err != nil{
+	if err = decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse create system template request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	var validator = func(config SystemTemplateConfig) (err error){
-		if "" == config.Name{
+	var validator = func(config SystemTemplateConfig) (err error) {
+		if "" == config.Name {
 			err = fmt.Errorf("name required")
 			return
 		}
-		if "" == config.Admin{
+		if "" == config.Admin {
 			err = fmt.Errorf("admin required")
 			return
 		}
-		if "" == config.OperatingSystem{
+		if "" == config.OperatingSystem {
 			err = fmt.Errorf("operating system required")
 			return
 		}
-		if "" == config.Disk{
+		if "" == config.Disk {
 			err = fmt.Errorf("disk driver required")
 			return
 		}
-		if "" == config.Network{
+		if "" == config.Network {
 			err = fmt.Errorf("network driver required")
 			return
 		}
-		if "" == config.Display{
+		if "" == config.Display {
 			err = fmt.Errorf("display model required")
 			return
 		}
-		if "" == config.Control{
+		if "" == config.Control {
 			err = fmt.Errorf("control protocol required")
 			return
 		}
 		return nil
 	}
 
-	if err = validator(request); err != nil{
+	if err = validator(request); err != nil {
 		log.Printf("<api> validate create system template request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -5468,7 +5457,7 @@ func (module *APIModule) createSystemTemplate(w http.ResponseWriter, r *http.Req
 		return
 	}
 	var templateID string
-	if templateID, err = resp.GetString(framework.ParamKeyID);err != nil{
+	if templateID, err = resp.GetString(framework.ParamKeyID); err != nil {
 		log.Printf("<api> get id from create result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -5481,55 +5470,54 @@ func (module *APIModule) createSystemTemplate(w http.ResponseWriter, r *http.Req
 	ResponseOK(data, w)
 }
 
-
-func (module *APIModule) modifySystemTemplate(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) modifySystemTemplate(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var templateID = params.ByName("id")
 	var decoder = json.NewDecoder(r.Body)
 	var request SystemTemplateConfig
-	if err = decoder.Decode(&request);err != nil{
+	if err = decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse modify system template request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	var validator = func(config SystemTemplateConfig) (err error){
-		if "" == config.Name{
+	var validator = func(config SystemTemplateConfig) (err error) {
+		if "" == config.Name {
 			err = fmt.Errorf("name required")
 			return
 		}
-		if "" == config.Admin{
+		if "" == config.Admin {
 			err = fmt.Errorf("admin required")
 			return
 		}
-		if "" == config.OperatingSystem{
+		if "" == config.OperatingSystem {
 			err = fmt.Errorf("operating system required")
 			return
 		}
-		if "" == config.Disk{
+		if "" == config.Disk {
 			err = fmt.Errorf("disk driver required")
 			return
 		}
-		if "" == config.Network{
+		if "" == config.Network {
 			err = fmt.Errorf("network driver required")
 			return
 		}
-		if "" == config.Display{
+		if "" == config.Display {
 			err = fmt.Errorf("display model required")
 			return
 		}
-		if "" == config.Control{
+		if "" == config.Control {
 			err = fmt.Errorf("control protocol required")
 			return
 		}
 		return nil
 	}
 
-	if err = validator(request); err != nil{
+	if err = validator(request); err != nil {
 		log.Printf("<api> validate modify system template request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -5562,10 +5550,9 @@ func (module *APIModule) modifySystemTemplate(w http.ResponseWriter, r *http.Req
 	ResponseOK("", w)
 }
 
-
-func (module *APIModule) deleteSystemTemplate(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) deleteSystemTemplate(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -5587,9 +5574,9 @@ func (module *APIModule) deleteSystemTemplate(w http.ResponseWriter, r *http.Req
 	ResponseOK("", w)
 }
 
-func (module *APIModule) resetMonitorSecret(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) resetMonitorSecret(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -5613,9 +5600,9 @@ func (module *APIModule) resetMonitorSecret(w http.ResponseWriter, r *http.Reque
 	ResponseOK("", w)
 }
 
-func (module *APIModule) queryCellStorages(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) queryCellStorages(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if  err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -5641,7 +5628,7 @@ func (module *APIModule) queryCellStorages(w http.ResponseWriter, r *http.Reques
 		Data   []string `json:"data"`
 	}
 
-	var parser = func(msg framework.Message) (payload Payload, err error){
+	var parser = func(msg framework.Message) (payload Payload, err error) {
 		const (
 			StoragePoolModeLocal = iota
 			StoragePoolModeNFS
@@ -5649,7 +5636,7 @@ func (module *APIModule) queryCellStorages(w http.ResponseWriter, r *http.Reques
 		)
 		//unmarshal
 		var mode uint
-		if mode, err = msg.GetUInt(framework.ParamKeyMode); err != nil{
+		if mode, err = msg.GetUInt(framework.ParamKeyMode); err != nil {
 			err = fmt.Errorf("get storage mode fail: %s", err.Error())
 			return
 		}
@@ -5663,18 +5650,18 @@ func (module *APIModule) queryCellStorages(w http.ResponseWriter, r *http.Reques
 			return
 
 		}
-		if payload.System, err = msg.GetStringArray(framework.ParamKeySystem); err != nil{
+		if payload.System, err = msg.GetStringArray(framework.ParamKeySystem); err != nil {
 			err = fmt.Errorf("get system paths fail: %s", err.Error())
 			return
 		}
-		if payload.Data, err = msg.GetStringArray(framework.ParamKeyData); err != nil{
+		if payload.Data, err = msg.GetStringArray(framework.ParamKeyData); err != nil {
 			err = fmt.Errorf("get data paths fail: %s", err.Error())
 			return
 		}
 		return
 	}
 	var payload Payload
-	if payload, err = parser(resp); err != nil{
+	if payload, err = parser(resp); err != nil {
 		log.Printf("<api> parse query cell storages result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -5682,9 +5669,9 @@ func (module *APIModule) queryCellStorages(w http.ResponseWriter, r *http.Reques
 	ResponseOK(payload, w)
 }
 
-func (module *APIModule) changeCellStorage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) changeCellStorage(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if  err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -5694,12 +5681,12 @@ func (module *APIModule) changeCellStorage(w http.ResponseWriter, r *http.Reques
 	}
 	var decoder = json.NewDecoder(r.Body)
 	var request Payload
-	if err = decoder.Decode(&request);err != nil{
+	if err = decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse change cell storage request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	if "" == request.Default{
+	if "" == request.Default {
 		err = errors.New("target path required")
 		log.Printf("<api> verify change cell storage request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
@@ -5723,10 +5710,11 @@ func (module *APIModule) changeCellStorage(w http.ResponseWriter, r *http.Reques
 	}
 	ResponseOK("", w)
 }
-//Security Policy Group
-func (module *APIModule) querySecurityPolicyGroups(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+
+// Security Policy Group
+func (module *APIModule) querySecurityPolicyGroups(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -5740,14 +5728,14 @@ func (module *APIModule) querySecurityPolicyGroups(w http.ResponseWriter, r *htt
 	msg.SetString(framework.ParamKeyUser, owner)
 	msg.SetString(framework.ParamKeyGroup, group)
 
-	if "true" == globalOnly{
+	if "true" == globalOnly {
 		msg.SetBoolean(framework.ParamKeyLimit, true)
-	}else{
+	} else {
 		msg.SetBoolean(framework.ParamKeyLimit, false)
 	}
-	if "true" == enabledOnly{
+	if "true" == enabledOnly {
 		msg.SetBoolean(framework.ParamKeyEnable, true)
-	}else{
+	} else {
 		msg.SetBoolean(framework.ParamKeyEnable, false)
 	}
 	var respChan = make(chan ProxyResult, 1)
@@ -5764,7 +5752,7 @@ func (module *APIModule) querySecurityPolicyGroups(w http.ResponseWriter, r *htt
 	}
 
 	payload, err := parsePolicyGroupList(resp)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> parse security policy groups result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -5773,8 +5761,15 @@ func (module *APIModule) querySecurityPolicyGroups(w http.ResponseWriter, r *htt
 }
 
 func (module *APIModule) searchGuests(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
-		ResponseFail(ResponseDefaultError, err.Error(), w)
+	err := module.verifyRequestSignature(r)
+	defer func() {
+		if nil != err {
+			if reportErr := ResponseFail(ResponseDefaultError, err.Error(), w); reportErr != nil {
+				log.Printf("<api> warning: fail to report error: %s", reportErr.Error())
+			}
+		}
+	}()
+	if nil != err {
 		return
 	}
 	const (
@@ -5791,20 +5786,22 @@ func (module *APIModule) searchGuests(w http.ResponseWriter, r *http.Request, pa
 		Pool    string `json:"pool,omitempty"`
 		Cell    string `json:"cell,omitempty"`
 		Keyword string `json:"keyword,omitempty"`
+		Owner   string `json:"owner"`
+		Group   string `json:"group,omitempty"`
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err = decoder.Decode(&request); err != nil {
+		err = fmt.Errorf("invalid request payload: %s", err.Error())
 		log.Printf("<api> parse search guests request fail: %s", err.Error())
-		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	if 0 >= request.Limit{
+	if 0 >= request.Limit {
 		request.Limit = DefaultLimit
 	}
 
-	if "" != request.Keyword && strings.Contains(request.Keyword, " "){
-		ResponseFail(ResponseDefaultError, "only allow one keyword", w)
+	if "" != request.Keyword && strings.Contains(request.Keyword, " ") {
+		err = errors.New("only allow one keyword")
 		return
 	}
 
@@ -5814,17 +5811,19 @@ func (module *APIModule) searchGuests(w http.ResponseWriter, r *http.Request, pa
 	msg.SetString(framework.ParamKeyPool, request.Pool)
 	msg.SetString(framework.ParamKeyCell, request.Cell)
 	msg.SetString(framework.ParamKeyData, request.Keyword)
+	//set owner and group
+	msg.SetString(framework.ParamKeyUser, request.Owner)
+	msg.SetString(framework.ParamKeyGroup, request.Group)
 
 	respChan := make(chan ProxyResult)
-	if err := module.proxy.SendRequest(msg, respChan); err != nil {
+	if err = module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> send query instance in pool fail: %s", err.Error())
-		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	resp, errMsg, success := IsResponseSuccess(respChan)
 	if !success {
 		log.Printf("<api> search guests fail: %s", errMsg)
-		ResponseFail(ResponseDefaultError, errMsg, w)
+		err = errors.New(errMsg)
 		return
 	}
 	type responsePayload struct {
@@ -5835,22 +5834,19 @@ func (module *APIModule) searchGuests(w http.ResponseWriter, r *http.Request, pa
 	}
 
 	var payload responsePayload
-	var err error
-	if payload.Result, err = UnmarshalGuestConfigListFromMessage(resp); err != nil{
+	if payload.Result, err = UnmarshalGuestConfigListFromMessage(resp); err != nil {
 		log.Printf("<api> parse search guests result fail: %s", err.Error())
-		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var flags []uint64
-	if flags, err = resp.GetUIntArray(framework.ParamKeyFlag); err != nil{
+	if flags, err = resp.GetUIntArray(framework.ParamKeyFlag); err != nil {
 		log.Printf("<api> parse search guests flags fail: %s", err.Error())
-		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	if ValidFlagCount != len(flags){
+	if ValidFlagCount != len(flags) {
+		err = fmt.Errorf("result flag count mismatch: %d != %d", len(flags), ValidFlagCount)
 		log.Printf("<api> unexpected search guests flags count %d => %d", len(flags), ValidFlagCount)
-		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
@@ -5861,9 +5857,9 @@ func (module *APIModule) searchGuests(w http.ResponseWriter, r *http.Request, pa
 	ResponseOK(payload, w)
 }
 
-func (module *APIModule) getSecurityPolicyGroup(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) getSecurityPolicyGroup(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if  err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -5883,7 +5879,7 @@ func (module *APIModule) getSecurityPolicyGroup(w http.ResponseWriter, r *http.R
 		return
 	}
 	var payload restSecurityPolicyGroup
-	if payload, err = parsePolicyGroup(resp); err != nil{
+	if payload, err = parsePolicyGroup(resp); err != nil {
 		log.Printf("<api> parse get security policy group result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -5891,15 +5887,15 @@ func (module *APIModule) getSecurityPolicyGroup(w http.ResponseWriter, r *http.R
 	ResponseOK(payload, w)
 }
 
-func (module *APIModule) createSecurityPolicyGroup(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) createSecurityPolicyGroup(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if  err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var decoder = json.NewDecoder(r.Body)
 	var request restSecurityPolicyGroup
-	if err = decoder.Decode(&request);err != nil{
+	if err = decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse create security policy group request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -5923,7 +5919,7 @@ func (module *APIModule) createSecurityPolicyGroup(w http.ResponseWriter, r *htt
 		ID string `json:"id"`
 	}
 	var result Response
-	if result.ID, err = resp.GetString(framework.ParamKeyPolicy); err != nil{
+	if result.ID, err = resp.GetString(framework.ParamKeyPolicy); err != nil {
 		err = fmt.Errorf("get policy id fail: %s", err.Error())
 		log.Printf("<api> parse create security policy group result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
@@ -5932,16 +5928,16 @@ func (module *APIModule) createSecurityPolicyGroup(w http.ResponseWriter, r *htt
 	ResponseOK(result, w)
 }
 
-func (module *APIModule) modifySecurityPolicyGroup(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) modifySecurityPolicyGroup(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if  err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var policyID = params.ByName("id")
 	var decoder = json.NewDecoder(r.Body)
 	var request restSecurityPolicyGroup
-	if err = decoder.Decode(&request);err != nil{
+	if err = decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse modify security policy group request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -5965,9 +5961,9 @@ func (module *APIModule) modifySecurityPolicyGroup(w http.ResponseWriter, r *htt
 	ResponseOK("", w)
 }
 
-func (module *APIModule) deleteSecurityPolicyGroup(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) deleteSecurityPolicyGroup(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if  err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -5990,9 +5986,9 @@ func (module *APIModule) deleteSecurityPolicyGroup(w http.ResponseWriter, r *htt
 	ResponseOK("", w)
 }
 
-func (module *APIModule) querySecurityPolicyRules(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) querySecurityPolicyRules(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -6014,7 +6010,7 @@ func (module *APIModule) querySecurityPolicyRules(w http.ResponseWriter, r *http
 	}
 
 	payload, err := parsePolicyRuleList(resp)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> parse security policy rules result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -6022,38 +6018,38 @@ func (module *APIModule) querySecurityPolicyRules(w http.ResponseWriter, r *http
 	ResponseOK(payload, w)
 }
 
-func (module *APIModule) addSecurityPolicyRule(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) addSecurityPolicyRule(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if  err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var policyID = params.ByName("id")
 	var decoder = json.NewDecoder(r.Body)
 	var request restSecurityPolicyRule
-	if err = decoder.Decode(&request);err != nil{
+	if err = decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse add security policy rule request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	//check IP format
-	if "" != request.ToAddress{
+	if "" != request.ToAddress {
 		var ip = net.ParseIP(request.ToAddress)
-		if nil == ip{
+		if nil == ip {
 			err = fmt.Errorf("invalid source address '%s'", request.ToAddress)
 			ResponseFail(ResponseDefaultError, err.Error(), w)
 			return
 		}
 	}
-	if "" != request.FromAddress{
+	if "" != request.FromAddress {
 		var ip = net.ParseIP(request.FromAddress)
-		if nil == ip{
+		if nil == ip {
 			err = fmt.Errorf("invalid target address '%s'", request.FromAddress)
 			ResponseFail(ResponseDefaultError, err.Error(), w)
 			return
 		}
 	}
-	if request.ToPort > 0xFFFF{
+	if request.ToPort > 0xFFFF {
 		err = fmt.Errorf("invalid target port %d", request.ToPort)
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -6076,45 +6072,45 @@ func (module *APIModule) addSecurityPolicyRule(w http.ResponseWriter, r *http.Re
 	ResponseOK("", w)
 }
 
-func (module *APIModule) modifySecurityPolicyRule(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) modifySecurityPolicyRule(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if  err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var policyID = params.ByName("id")
 	var indexString = params.ByName("index")
 	var index int
-	if index, err = strconv.Atoi(indexString); err != nil{
+	if index, err = strconv.Atoi(indexString); err != nil {
 		err = fmt.Errorf("invalid index %s", indexString)
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var decoder = json.NewDecoder(r.Body)
 	var request restSecurityPolicyRule
-	if err = decoder.Decode(&request);err != nil{
+	if err = decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse modify security policy rule request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	//check IP format
-	if "" != request.ToAddress{
+	if "" != request.ToAddress {
 		var ip = net.ParseIP(request.ToAddress)
-		if nil == ip{
+		if nil == ip {
 			err = fmt.Errorf("invalid source address '%s'", request.ToAddress)
 			ResponseFail(ResponseDefaultError, err.Error(), w)
 			return
 		}
 	}
-	if "" != request.FromAddress{
+	if "" != request.FromAddress {
 		var ip = net.ParseIP(request.FromAddress)
-		if nil == ip{
+		if nil == ip {
 			err = fmt.Errorf("invalid target address '%s'", request.FromAddress)
 			ResponseFail(ResponseDefaultError, err.Error(), w)
 			return
 		}
 	}
-	if request.ToPort > 0xFFFF{
+	if request.ToPort > 0xFFFF {
 		err = fmt.Errorf("invalid target port %d", request.ToPort)
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -6139,16 +6135,16 @@ func (module *APIModule) modifySecurityPolicyRule(w http.ResponseWriter, r *http
 	ResponseOK("", w)
 }
 
-func (module *APIModule) removeSecurityPolicyRule(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) removeSecurityPolicyRule(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if  err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var policyID = params.ByName("id")
 	var indexString = params.ByName("index")
 	var index int
-	if index, err = strconv.Atoi(indexString); err != nil{
+	if index, err = strconv.Atoi(indexString); err != nil {
 		err = fmt.Errorf("invalid index %s", indexString)
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -6172,20 +6168,20 @@ func (module *APIModule) removeSecurityPolicyRule(w http.ResponseWriter, r *http
 	ResponseOK("", w)
 }
 
-func (module *APIModule) moveSecurityPolicyRule(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) moveSecurityPolicyRule(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	const (
-		directionUp   = "up"
+		directionUp = "up"
 		//directionDown = "down"
 	)
 	var err = module.verifyRequestSignature(r)
-	if  err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var policyID = params.ByName("id")
 	var indexString = params.ByName("index")
 	var index int
-	if index, err = strconv.Atoi(indexString); err != nil{
+	if index, err = strconv.Atoi(indexString); err != nil {
 		err = fmt.Errorf("invalid index %s", indexString)
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -6195,7 +6191,7 @@ func (module *APIModule) moveSecurityPolicyRule(w http.ResponseWriter, r *http.R
 		Direction string `json:"direction"`
 	}
 	var request RequestPayload
-	if err = decoder.Decode(&request);err != nil{
+	if err = decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse move security policy rule request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -6204,9 +6200,9 @@ func (module *APIModule) moveSecurityPolicyRule(w http.ResponseWriter, r *http.R
 	msg, _ := framework.CreateJsonMessage(framework.ChangePolicyRuleOrderRequest)
 	msg.SetString(framework.ParamKeyPolicy, policyID)
 	msg.SetInt(framework.ParamKeyIndex, index)
-	if directionUp == request.Direction{
+	if directionUp == request.Direction {
 		msg.SetBoolean(framework.ParamKeyFlag, true)
-	}else{
+	} else {
 		msg.SetBoolean(framework.ParamKeyFlag, false)
 	}
 	var respChan = make(chan ProxyResult, 1)
@@ -6224,9 +6220,9 @@ func (module *APIModule) moveSecurityPolicyRule(w http.ResponseWriter, r *http.R
 	ResponseOK("", w)
 }
 
-func (module *APIModule) getGuestSecurityPolicy(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) getGuestSecurityPolicy(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -6248,7 +6244,7 @@ func (module *APIModule) getGuestSecurityPolicy(w http.ResponseWriter, r *http.R
 	}
 
 	payload, err := parseGuestSecurityPolicy(resp)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> parse guest security policy result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -6256,9 +6252,9 @@ func (module *APIModule) getGuestSecurityPolicy(w http.ResponseWriter, r *http.R
 	ResponseOK(payload, w)
 }
 
-func (module *APIModule) changeGuestSecurityAction(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) changeGuestSecurityAction(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if  err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -6268,7 +6264,7 @@ func (module *APIModule) changeGuestSecurityAction(w http.ResponseWriter, r *htt
 		Action string `json:"action"`
 	}
 	var request RequestPayload
-	if err = decoder.Decode(&request);err != nil{
+	if err = decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse change guest policy action request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -6292,44 +6288,44 @@ func (module *APIModule) changeGuestSecurityAction(w http.ResponseWriter, r *htt
 	ResponseOK("", w)
 }
 
-func (module *APIModule) addGuestSecurityRule(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) addGuestSecurityRule(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if  err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var instanceID = params.ByName("id")
 	var decoder = json.NewDecoder(r.Body)
 	var request restSecurityPolicyRule
-	if err = decoder.Decode(&request);err != nil{
+	if err = decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse add guest policy rule request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	//check IP format
-	if "" != request.ToAddress{
+	if "" != request.ToAddress {
 		var ip = net.ParseIP(request.ToAddress)
-		if nil == ip{
+		if nil == ip {
 			err = fmt.Errorf("invalid source address '%s'", request.ToAddress)
 			ResponseFail(ResponseDefaultError, err.Error(), w)
 			return
 		}
 	}
-	if "" != request.FromAddress{
+	if "" != request.FromAddress {
 		var ip = net.ParseIP(request.FromAddress)
-		if nil == ip{
+		if nil == ip {
 			err = fmt.Errorf("invalid target address '%s'", request.FromAddress)
 			ResponseFail(ResponseDefaultError, err.Error(), w)
 			return
 		}
 	}
-	if request.ToPort > 0xFFFF{
+	if request.ToPort > 0xFFFF {
 		err = fmt.Errorf("invalid target port %d", request.ToPort)
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	msg, _ := framework.CreateJsonMessage(framework.AddGuestRuleRequest)
-	if err =request.buildForCell(msg); err != nil{
+	if err = request.buildForCell(msg); err != nil {
 		log.Printf("<api> build add guest policy rule request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -6350,51 +6346,51 @@ func (module *APIModule) addGuestSecurityRule(w http.ResponseWriter, r *http.Req
 	ResponseOK("", w)
 }
 
-func (module *APIModule) modifyGuestSecurityRule(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) modifyGuestSecurityRule(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if  err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var instanceID = params.ByName("id")
 	var indexString = params.ByName("index")
 	var index int
-	if index, err = strconv.Atoi(indexString); err != nil{
+	if index, err = strconv.Atoi(indexString); err != nil {
 		err = fmt.Errorf("invalid index %s", indexString)
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var decoder = json.NewDecoder(r.Body)
 	var request restSecurityPolicyRule
-	if err = decoder.Decode(&request);err != nil{
+	if err = decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse modify guest policy rule request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	//check IP format
-	if "" != request.ToAddress{
+	if "" != request.ToAddress {
 		var ip = net.ParseIP(request.ToAddress)
-		if nil == ip{
+		if nil == ip {
 			err = fmt.Errorf("invalid source address '%s'", request.ToAddress)
 			ResponseFail(ResponseDefaultError, err.Error(), w)
 			return
 		}
 	}
-	if "" != request.FromAddress{
+	if "" != request.FromAddress {
 		var ip = net.ParseIP(request.FromAddress)
-		if nil == ip{
+		if nil == ip {
 			err = fmt.Errorf("invalid target address '%s'", request.FromAddress)
 			ResponseFail(ResponseDefaultError, err.Error(), w)
 			return
 		}
 	}
-	if request.ToPort > 0xFFFF{
+	if request.ToPort > 0xFFFF {
 		err = fmt.Errorf("invalid target port %d", request.ToPort)
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	msg, _ := framework.CreateJsonMessage(framework.ModifyGuestRuleRequest)
-	if err =request.buildForCell(msg); err != nil{
+	if err = request.buildForCell(msg); err != nil {
 		log.Printf("<api> build modify guest policy rule request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -6416,16 +6412,16 @@ func (module *APIModule) modifyGuestSecurityRule(w http.ResponseWriter, r *http.
 	ResponseOK("", w)
 }
 
-func (module *APIModule) removeGuestSecurityRule(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) removeGuestSecurityRule(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if  err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var instanceID = params.ByName("id")
 	var indexString = params.ByName("index")
 	var index int
-	if index, err = strconv.Atoi(indexString); err != nil{
+	if index, err = strconv.Atoi(indexString); err != nil {
 		err = fmt.Errorf("invalid index %s", indexString)
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -6449,21 +6445,21 @@ func (module *APIModule) removeGuestSecurityRule(w http.ResponseWriter, r *http.
 	ResponseOK("", w)
 }
 
-func (module *APIModule) moveGuestSecurityRule(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) moveGuestSecurityRule(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	const (
 		directionUp = "up"
 		modeUp      = 1
 		modeDown    = -1
 	)
 	var err = module.verifyRequestSignature(r)
-	if  err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var instanceID = params.ByName("id")
 	var indexString = params.ByName("index")
 	var index int
-	if index, err = strconv.Atoi(indexString); err != nil{
+	if index, err = strconv.Atoi(indexString); err != nil {
 		err = fmt.Errorf("invalid index %s", indexString)
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -6473,7 +6469,7 @@ func (module *APIModule) moveGuestSecurityRule(w http.ResponseWriter, r *http.Re
 		Direction string `json:"direction"`
 	}
 	var request RequestPayload
-	if err = decoder.Decode(&request);err != nil{
+	if err = decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse move guest policy rule request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -6482,9 +6478,9 @@ func (module *APIModule) moveGuestSecurityRule(w http.ResponseWriter, r *http.Re
 	msg, _ := framework.CreateJsonMessage(framework.ChangeGuestRuleOrderRequest)
 	msg.SetString(framework.ParamKeyInstance, instanceID)
 	msg.SetInt(framework.ParamKeyIndex, index)
-	if directionUp == request.Direction{
+	if directionUp == request.Direction {
 		msg.SetInt(framework.ParamKeyMode, modeUp)
-	}else{
+	} else {
 		msg.SetInt(framework.ParamKeyMode, modeDown)
 	}
 	var respChan = make(chan ProxyResult, 1)

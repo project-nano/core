@@ -1,40 +1,39 @@
 package main
 
 import (
+	"github.com/project-nano/core/modules"
 	"github.com/project-nano/framework"
 	"log"
-	"github.com/project-nano/core/modules"
 )
 
 const (
-	CurrentVersion = "1.3.1"
+	CurrentVersion = "1.4.0"
 )
 
 type CoreService struct {
 	framework.EndpointService //base class
-	ConfigPath      string
-	DataPath        string
-	resourceManager *modules.ResourceManager
-	transManager    *CoreTransactionManager
-	apiModule       *modules.APIModule
+	ConfigPath                string
+	DataPath                  string
+	resourceManager           *modules.ResourceManager
+	transManager              *CoreTransactionManager
+	apiModule                 *modules.APIModule
 }
 
-func (core *CoreService) GetAPIServiceAddress() string{
-	if nil != core.apiModule{
+func (core *CoreService) GetAPIServiceAddress() string {
+	if nil != core.apiModule {
 		return core.apiModule.GetServiceAddress()
 	}
 	return ""
 }
 
-func (core *CoreService)GetVersion() string{
+func (core *CoreService) GetVersion() string {
 	return CurrentVersion
 }
 
+func (core *CoreService) OnMessageReceived(msg framework.Message) {
 
-func (core *CoreService)OnMessageReceived(msg framework.Message){
-
-	if targetSession := msg.GetToSession(); targetSession != 0{
-		if err := core.transManager.PushMessage(msg);err != nil{
+	if targetSession := msg.GetToSession(); targetSession != 0 {
+		if err := core.transManager.PushMessage(msg); err != nil {
 			log.Printf("<core> push message [%08X] from %s to session [%08X] fail: %s", msg.GetID(), msg.GetSender(), targetSession, err.Error())
 		}
 		return
@@ -181,18 +180,18 @@ func (core *CoreService)OnMessageReceived(msg framework.Message){
 	}
 	//Invoke transaction
 	err = core.transManager.InvokeTask(msg)
-	if err != nil{
+	if err != nil {
 		log.Printf("<core> invoke transaction with message [%08X] fail: %s", msg.GetID(), err.Error())
 	}
 }
-func (core *CoreService) handleIncomingMessage(msg framework.Message){
+func (core *CoreService) handleIncomingMessage(msg framework.Message) {
 	switch msg.GetID() {
 	default:
 		log.Printf("<core> message [%08X] from %s.[%08X] ignored", msg.GetID(), msg.GetSender(), msg.GetFromSession())
 	}
 }
 
-func (core *CoreService)OnServiceConnected(name string, t framework.ServiceType, remoteAddress string){
+func (core *CoreService) OnServiceConnected(name string, t framework.ServiceType, remoteAddress string) {
 	log.Printf("<core> service %s connected, type %d", name, t)
 	switch t {
 	case framework.ServiceTypeCell:
@@ -205,10 +204,10 @@ func (core *CoreService)OnServiceConnected(name string, t framework.ServiceType,
 	}
 }
 
-func (core *CoreService)OnServiceDisconnected(nodeName string, t framework.ServiceType, gracefullyClose bool){
-	if gracefullyClose{
+func (core *CoreService) OnServiceDisconnected(nodeName string, t framework.ServiceType, gracefullyClose bool) {
+	if gracefullyClose {
 		log.Printf("<core> service %s closed by remote, type %d", nodeName, t)
-	}else{
+	} else {
 		log.Printf("<core> service %s lost, type %d", nodeName, t)
 	}
 
@@ -225,56 +224,56 @@ func (core *CoreService)OnServiceDisconnected(nodeName string, t framework.Servi
 	}
 }
 
-func (core *CoreService)OnDependencyReady(){
+func (core *CoreService) OnDependencyReady() {
 	core.SetServiceReady()
 }
 
-func (core *CoreService)InitialEndpoint() (err error){
+func (core *CoreService) InitialEndpoint() (err error) {
 	log.Printf("<core> initial core service, v %s", CurrentVersion)
 	log.Printf("<core> domain %s, group address %s:%d", core.GetDomain(), core.GetGroupAddress(), core.GetGroupPort())
 
 	core.resourceManager, err = modules.CreateResourceManager(core.DataPath)
-	if err != nil{
+	if err != nil {
 		return err
 	}
 	core.transManager, err = CreateTransactionManager(core, core.resourceManager)
-	if err != nil{
+	if err != nil {
 		return err
 	}
 
 	core.apiModule, err = modules.CreateAPIModule(core.ConfigPath, core, core.resourceManager)
-	if err != nil{
+	if err != nil {
 		return err
 	}
 	//register submodules
-	if err = core.RegisterSubmodule(core.apiModule.GetModuleName(), core.apiModule.GetResponseChannel());err != nil{
+	if err = core.RegisterSubmodule(core.apiModule.GetModuleName(), core.apiModule.GetResponseChannel()); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (core *CoreService)OnEndpointStarted() (err error){
-	if err = core.resourceManager.Start(); err != nil{
+func (core *CoreService) OnEndpointStarted() (err error) {
+	if err = core.resourceManager.Start(); err != nil {
 		return err
 	}
-	if err = core.transManager.Start(); err != nil{
+	if err = core.transManager.Start(); err != nil {
 		return err
 	}
-	if err = core.apiModule.Start();err != nil{
+	if err = core.apiModule.Start(); err != nil {
 		return err
 	}
 	log.Print("<core> started")
 	return nil
 }
 
-func (core *CoreService)OnEndpointStopped(){
-	if err := core.apiModule.Stop(); err != nil{
+func (core *CoreService) OnEndpointStopped() {
+	if err := core.apiModule.Stop(); err != nil {
 		log.Printf("<core> stop api module fail: %s", err.Error())
 	}
-	if err := core.transManager.Stop(); err != nil{
+	if err := core.transManager.Stop(); err != nil {
 		log.Printf("<core> stop transaction manager fail: %s", err.Error())
 	}
-	if err := core.resourceManager.Stop(); err != nil{
+	if err := core.resourceManager.Stop(); err != nil {
 		log.Printf("<core> stop compute pool module fail: %s", err.Error())
 	}
 	log.Print("<core> stopped")
