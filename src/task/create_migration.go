@@ -1,12 +1,12 @@
 package task
 
 import (
-	"github.com/project-nano/framework"
-	"github.com/project-nano/core/modules"
 	"fmt"
+	"github.com/pkg/errors"
+	"github.com/project-nano/core/modules"
+	"github.com/project-nano/framework"
 	"log"
 	"time"
-	"github.com/pkg/errors"
 )
 
 type CreateMigrationExecutor struct {
@@ -95,7 +95,7 @@ func (executor *CreateMigrationExecutor) Execute(id framework.SessionID, request
 			executor.releaseMigration(id, migrationID, err)
 			return nil
 		}
-		timer := time.NewTimer(modules.DefaultOperateTimeout)
+		timer := time.NewTimer(modules.GetConfigurator().GetOperateTimeout())
 		select {
 		case cellResp := <-incoming:
 			if !cellResp.IsSuccess() {
@@ -123,7 +123,7 @@ func (executor *CreateMigrationExecutor) Execute(id framework.SessionID, request
 			executor.releaseMigration(id, migrationID, err)
 			return nil
 		}
-		timer := time.NewTimer(modules.DefaultOperateTimeout)
+		timer := time.NewTimer(modules.GetConfigurator().GetOperateTimeout())
 		select {
 		case cellResp := <-incoming:
 			if !cellResp.IsSuccess() {
@@ -157,13 +157,13 @@ func (executor *CreateMigrationExecutor) Execute(id framework.SessionID, request
 	return nil
 }
 
-func (executor *CreateMigrationExecutor) releaseMigration(id framework.SessionID, migration string, reason error){
+func (executor *CreateMigrationExecutor) releaseMigration(id framework.SessionID, migration string, reason error) {
 	var respChan = make(chan error, 1)
 	executor.ResourceModule.CancelMigration(migration, reason, respChan)
-	var err = <- respChan
-	if err != nil{
+	var err = <-respChan
+	if err != nil {
 		log.Printf("[%08X] warning: release migration fail: %s", id, migration)
-	}else{
+	} else {
 		log.Printf("[%08X] migration %s released", id, migration)
 	}
 }

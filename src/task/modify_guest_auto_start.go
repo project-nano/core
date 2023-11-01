@@ -13,15 +13,15 @@ type ModifyGuestAutoStartExecutor struct {
 	ResourceModule modules.ResourceModule
 }
 
-func (executor *ModifyGuestAutoStartExecutor)Execute(id framework.SessionID, request framework.Message,
+func (executor *ModifyGuestAutoStartExecutor) Execute(id framework.SessionID, request framework.Message,
 	incoming chan framework.Message, terminate chan bool) (err error) {
 	var guestID string
 	var enable bool
-	if guestID, err = request.GetString(framework.ParamKeyGuest); err != nil{
+	if guestID, err = request.GetString(framework.ParamKeyGuest); err != nil {
 		err = fmt.Errorf("get guest ID fail: %s", err.Error())
 		return
 	}
-	if enable, err = request.GetBoolean(framework.ParamKeyEnable); err != nil{
+	if enable, err = request.GetBoolean(framework.ParamKeyEnable); err != nil {
 		err = fmt.Errorf("get enable option fail: %s", err.Error())
 		return
 	}
@@ -35,17 +35,17 @@ func (executor *ModifyGuestAutoStartExecutor)Execute(id framework.SessionID, req
 	{
 		var respChan = make(chan modules.ResourceResult, 1)
 		executor.ResourceModule.GetInstanceStatus(guestID, respChan)
-		result := <- respChan
-		if result.Error != nil{
+		result := <-respChan
+		if result.Error != nil {
 			log.Printf("[%08X] fetch instance fail: %s", id, result.Error.Error())
 			resp.SetError(result.Error.Error())
 			return executor.Sender.SendMessage(resp, request.GetSender())
 		}
 		ins = result.Instance
-		if ins.AutoStart == enable{
-			if enable{
+		if ins.AutoStart == enable {
+			if enable {
 				err = fmt.Errorf("auto start of guest '%s' already enabled", ins.Name)
-			}else{
+			} else {
 				err = fmt.Errorf("auto start of guest '%s' already disabled", ins.Name)
 			}
 			resp.SetError(err.Error())
@@ -58,38 +58,38 @@ func (executor *ModifyGuestAutoStartExecutor)Execute(id framework.SessionID, req
 		forward.SetFromSession(id)
 		forward.SetString(framework.ParamKeyGuest, guestID)
 		forward.SetBoolean(framework.ParamKeyEnable, enable)
-		if err = executor.Sender.SendMessage(forward, ins.Cell); err != nil{
+		if err = executor.Sender.SendMessage(forward, ins.Cell); err != nil {
 			log.Printf("[%08X] forward modify auto start to cell '%s' fail: %s", id, ins.Cell, err.Error())
 			resp.SetError(err.Error())
 			return executor.Sender.SendMessage(resp, request.GetSender())
 		}
-		timer := time.NewTimer(modules.DefaultOperateTimeout)
-		select{
-		case cellResp := <- incoming:
-			if cellResp.IsSuccess(){
+		timer := time.NewTimer(modules.GetConfigurator().GetOperateTimeout())
+		select {
+		case cellResp := <-incoming:
+			if cellResp.IsSuccess() {
 				//update
 				var respChan = make(chan error, 1)
 				executor.ResourceModule.UpdateGuestAutoStart(guestID, enable, respChan)
-				err = <- respChan
-				if err != nil{
+				err = <-respChan
+				if err != nil {
 					log.Printf("[%08X] update auto start status of guest '%s' fail: %s", id, ins.Name, err.Error())
 					resp.SetError(err.Error())
 					return executor.Sender.SendMessage(resp, request.GetSender())
 				}
-				if enable{
+				if enable {
 					log.Printf("[%08X] guest '%s' enable auto start", id, guestID)
-				}else{
+				} else {
 					log.Printf("[%08X] guest '%s' disable auto start", id, guestID)
 				}
 
-			}else{
+			} else {
 				log.Printf("[%08X] modify auto start fail: %s", id, cellResp.GetError())
 			}
 			cellResp.SetFromSession(id)
 			cellResp.SetToSession(request.GetFromSession())
 			//forward
 			return executor.Sender.SendMessage(cellResp, request.GetSender())
-		case <- timer.C:
+		case <-timer.C:
 			//timeout
 			log.Printf("[%08X] wait modify auto start response timeout", id)
 			resp.SetError("request timeout")

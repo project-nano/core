@@ -1,7 +1,11 @@
 # Change Log
 
-## [1.4.0] - 2023-09-07
+## [1.4.0] - 2023-11-01
 
+### Added
+
+- Add option 'timeout' to configure file "domain.cfg", default value is 10 seconds
+ 
 ### Changed
 
 - update dependent packages

@@ -14,7 +14,7 @@ type ChangeStoragePathsExecutor struct {
 	ResourceModule modules.ResourceModule
 }
 
-func (executor *ChangeStoragePathsExecutor)Execute(id framework.SessionID, request framework.Message,
+func (executor *ChangeStoragePathsExecutor) Execute(id framework.SessionID, request framework.Message,
 	incoming chan framework.Message, terminate chan bool) (err error) {
 	var targetCell string
 	if targetCell, err = request.GetString(framework.ParamKeyCell); err != nil {
@@ -34,25 +34,25 @@ func (executor *ChangeStoragePathsExecutor)Execute(id framework.SessionID, reque
 	{
 		//redirect request
 		request.SetFromSession(id)
-		if err = executor.Sender.SendMessage(request, targetCell); err != nil{
+		if err = executor.Sender.SendMessage(request, targetCell); err != nil {
 			log.Printf("[%08X] redirect modify storage request to cell '%s' fail: %s", id, targetCell, err.Error())
 			resp.SetError(err.Error())
 			return executor.Sender.SendMessage(resp, request.GetSender())
 		}
-		timer := time.NewTimer(modules.DefaultOperateTimeout)
-		select{
-		case cellResp := <- incoming:
-			if !cellResp.IsSuccess(){
+		timer := time.NewTimer(modules.GetConfigurator().GetOperateTimeout())
+		select {
+		case cellResp := <-incoming:
+			if !cellResp.IsSuccess() {
 				err = errors.New(cellResp.GetError())
 				log.Printf("[%08X] cell change storage paths fail: %s", id, cellResp.GetError())
-			}else{
+			} else {
 				cellResp.SetSuccess(true)
 			}
 			cellResp.SetFromSession(id)
 			cellResp.SetToSession(fromSession)
 			//forward
 			return executor.Sender.SendMessage(cellResp, request.GetSender())
-		case <- timer.C:
+		case <-timer.C:
 			//timeout
 			log.Printf("[%08X] wait change response timeout", id)
 			resp.SetError("cell timeout")

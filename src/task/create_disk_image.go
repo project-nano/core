@@ -1,13 +1,13 @@
 package task
 
 import (
-	"github.com/project-nano/framework"
-	"github.com/project-nano/core/modules"
-	"log"
+	"errors"
 	"fmt"
+	"github.com/project-nano/core/modules"
+	"github.com/project-nano/framework"
+	"log"
 	"net/http"
 	"time"
-	"errors"
 )
 
 type CreateDiskImageExecutor struct {
@@ -40,30 +40,29 @@ func (executor *CreateDiskImageExecutor) Execute(id framework.SessionID, request
 	if config.Tags, err = request.GetStringArray(framework.ParamKeyTag); err != nil {
 		return err
 	}
-	if guestID != ""{
+	if guestID != "" {
 		log.Printf("[%08X] request create disk image '%s' from guest '%s'", id, config.Name, guestID)
-	}else{
+	} else {
 		log.Printf("[%08X] request create disk image '%s' for uploading", id, config.Name)
 	}
-
 
 	resp, _ := framework.CreateJsonMessage(framework.CreateDiskImageResponse)
 	resp.SetToSession(request.GetFromSession())
 	resp.SetFromSession(id)
 	resp.SetSuccess(false)
-	if err = QualifyImageName(config.Name); err != nil{
+	if err = QualifyImageName(config.Name); err != nil {
 		log.Printf("[%08X] invalid image name '%s' : %s", id, config.Name, err.Error())
 		err = fmt.Errorf("invalid image name '%s': %s", config.Name, err.Error())
 		resp.SetError(err.Error())
 		return executor.Sender.SendMessage(resp, request.GetSender())
 	}
-	if err = QualifyNormalName(config.Owner); err != nil{
+	if err = QualifyNormalName(config.Owner); err != nil {
 		log.Printf("[%08X] invalid owner name '%s' : %s", id, config.Owner, err.Error())
 		err = fmt.Errorf("invalid owner name '%s': %s", config.Owner, err.Error())
 		resp.SetError(err.Error())
 		return executor.Sender.SendMessage(resp, request.GetSender())
 	}
-	if err = QualifyNormalName(config.Group); err != nil{
+	if err = QualifyNormalName(config.Group); err != nil {
 		log.Printf("[%08X] invalid group name '%s' : %s", id, config.Group, err.Error())
 		err = fmt.Errorf("invalid group name '%s': %s", config.Group, err.Error())
 		resp.SetError(err.Error())
@@ -71,7 +70,7 @@ func (executor *CreateDiskImageExecutor) Execute(id framework.SessionID, request
 	}
 
 	var targetCell string
-	if guestID != ""{
+	if guestID != "" {
 		//check guest
 		var respChan = make(chan modules.ResourceResult)
 		executor.ResourceModule.GetInstanceStatus(guestID, respChan)
@@ -120,21 +119,21 @@ func (executor *CreateDiskImageExecutor) Execute(id framework.SessionID, request
 		var forwardCreate = framework.CloneJsonMessage(request)
 		forwardCreate.SetFromSession(id)
 		forwardCreate.SetToSession(0)
-		if err = executor.Sender.SendMessage(forwardCreate, imageServer); err != nil{
+		if err = executor.Sender.SendMessage(forwardCreate, imageServer); err != nil {
 			log.Printf("[%08X] request create disk image to imageserver fail: %s", id, err.Error())
 			resp.SetError(err.Error())
 			return executor.Sender.SendMessage(resp, request.GetSender())
 		}
 		//wait response
-		timer := time.NewTimer(modules.DefaultOperateTimeout)
-		select{
-		case forwardResp := <- incoming:
-			if !forwardResp.IsSuccess(){
+		timer := time.NewTimer(modules.GetConfigurator().GetOperateTimeout())
+		select {
+		case forwardResp := <-incoming:
+			if !forwardResp.IsSuccess() {
 				log.Printf("[%08X] create disk image fail: %s", id, forwardResp.GetError())
 				resp.SetError(forwardResp.GetError())
 				return executor.Sender.SendMessage(resp, request.GetSender())
 			}
-			if imageID, err = forwardResp.GetString(framework.ParamKeyImage); err != nil{
+			if imageID, err = forwardResp.GetString(framework.ParamKeyImage); err != nil {
 				log.Printf("[%08X] parse disk image ID fail: %s", id, forwardResp.GetError())
 				resp.SetError(forwardResp.GetError())
 				return executor.Sender.SendMessage(resp, request.GetSender())
@@ -142,14 +141,14 @@ func (executor *CreateDiskImageExecutor) Execute(id framework.SessionID, request
 			log.Printf("[%08X] new disk image '%s'('%s') created at image server '%s'",
 				id, config.Name, imageID, imageServer)
 
-		case <- timer.C:
+		case <-timer.C:
 			//timeout
 			log.Printf("[%08X] create disk image timeout", id)
 			resp.SetError("time out")
 			return executor.Sender.SendMessage(resp, request.GetSender())
 		}
 
-		if "" == guestID{
+		if "" == guestID {
 			//directly uploading
 			resp.SetSuccess(true)
 			resp.SetString(framework.ParamKeyImage, imageID)
@@ -164,7 +163,7 @@ func (executor *CreateDiskImageExecutor) Execute(id framework.SessionID, request
 		redirectedRequest.SetString(framework.ParamKeyGuest, guestID)
 		redirectedRequest.SetString(framework.ParamKeyHost, mediaHost)
 		redirectedRequest.SetUInt(framework.ParamKeyPort, uint(mediaPort))
-		if err = executor.Sender.SendMessage(redirectedRequest, targetCell);err != nil{
+		if err = executor.Sender.SendMessage(redirectedRequest, targetCell); err != nil {
 			log.Printf("[%08X] redirect create request to cell '%s' fail: %s", id, targetCell, err.Error())
 			resp.SetError(err.Error())
 			executor.releaseResource(id, imageID, imageServer)
@@ -172,10 +171,10 @@ func (executor *CreateDiskImageExecutor) Execute(id framework.SessionID, request
 		}
 
 		//wait for start
-		timer := time.NewTimer(modules.DefaultOperateTimeout)
-		select{
-		case cellResp := <- incoming:
-			if !cellResp.IsSuccess(){
+		timer := time.NewTimer(modules.GetConfigurator().GetOperateTimeout())
+		select {
+		case cellResp := <-incoming:
+			if !cellResp.IsSuccess() {
 				var errMsg = cellResp.GetError()
 				log.Printf("[%08X] create disk image remotely fail: %s", id, errMsg)
 				resp.SetError(errMsg)
@@ -185,13 +184,13 @@ func (executor *CreateDiskImageExecutor) Execute(id framework.SessionID, request
 			log.Printf("[%08X] remote disk image creation started", id)
 			resp.SetSuccess(true)
 			resp.SetString(framework.ParamKeyImage, imageID)
-			if err = executor.Sender.SendMessage(resp, request.GetSender());err != nil{
+			if err = executor.Sender.SendMessage(resp, request.GetSender()); err != nil {
 				log.Printf("[%08X] notify creation started fail: %s", id, err.Error())
 				executor.releaseResource(id, imageID, imageServer)
 				return err
 			}
 
-		case <- timer.C:
+		case <-timer.C:
 			err = fmt.Errorf("wait create response from cell '%s' timeout", targetCell)
 			log.Printf("[%08X] wait create request response fail: %s", id, err.Error())
 			resp.SetError(err.Error())
@@ -204,22 +203,22 @@ func (executor *CreateDiskImageExecutor) Execute(id framework.SessionID, request
 
 		var created bool
 		var latestUpdate = time.Now()
-		var checkTicker = time.NewTicker(1*time.Second)
+		var checkTicker = time.NewTicker(1 * time.Second)
 		for {
 			select {
-			case event := <- incoming:
-				if !event.IsSuccess(){
+			case event := <-incoming:
+				if !event.IsSuccess() {
 					err = errors.New(event.GetError())
 					log.Printf("[%08X] update progress fail: %s", id, err.Error())
 					executor.releaseResource(id, imageID, imageServer)
 					return err
 				}
-				if created, err = event.GetBoolean(framework.ParamKeyEnable);err != nil{
+				if created, err = event.GetBoolean(framework.ParamKeyEnable); err != nil {
 					log.Printf("[%08X] parse event status fail: %s", id, err.Error())
 					executor.releaseResource(id, imageID, imageServer)
 					return err
 				}
-				if _, err = event.GetUInt(framework.ParamKeyProgress);err != nil{
+				if _, err = event.GetUInt(framework.ParamKeyProgress); err != nil {
 					log.Printf("[%08X] parse event progress fail: %s", id, err.Error())
 					executor.releaseResource(id, imageID, imageServer)
 					return err
@@ -227,20 +226,20 @@ func (executor *CreateDiskImageExecutor) Execute(id framework.SessionID, request
 				event.SetString(framework.ParamKeyImage, imageID)
 				event.SetFromSession(id)
 				event.SetToSession(0)
-				if err = executor.Sender.SendMessage(event, imageServer); err != nil{
+				if err = executor.Sender.SendMessage(event, imageServer); err != nil {
 					log.Printf("[%08X] warning: forward disk image updated fail: %s", id, err.Error())
 				}
-				if created{
+				if created {
 					//finished
 					return nil
-				}else{
+				} else {
 					//unfinished
 					latestUpdate = time.Now()
 				}
 
-			case <- checkTicker.C:
+			case <-checkTicker.C:
 				//check
-				if time.Now().Sub(latestUpdate) > modules.DefaultOperateTimeout{
+				if time.Now().Sub(latestUpdate) > modules.GetConfigurator().GetOperateTimeout() {
 					err = errors.New("wait update timeout")
 					log.Printf("[%08X] wait create finish fail: %s", id, err.Error())
 					executor.releaseResource(id, imageID, imageServer)
@@ -252,12 +251,12 @@ func (executor *CreateDiskImageExecutor) Execute(id framework.SessionID, request
 }
 
 func (executor *CreateDiskImageExecutor) releaseResource(id framework.SessionID, imageID, imageServer string) {
-	if imageID != ""{
+	if imageID != "" {
 		delete, _ := framework.CreateJsonMessage(framework.DeleteDiskImageRequest)
 		delete.SetString(framework.ParamKeyImage, imageID)
 		delete.SetFromSession(id)
 		delete.SetToSession(0)
-		if err := executor.Sender.SendMessage(delete, imageServer); err != nil{
+		if err := executor.Sender.SendMessage(delete, imageServer); err != nil {
 			log.Printf("[%08X] warning: request delete disk image to imageserver fail: %s", id, err.Error())
 			return
 		}

@@ -13,10 +13,10 @@ type AddGuestSecurityRuleExecutor struct {
 	ResourceModule modules.ResourceModule
 }
 
-func (executor *AddGuestSecurityRuleExecutor)Execute(id framework.SessionID, request framework.Message,
+func (executor *AddGuestSecurityRuleExecutor) Execute(id framework.SessionID, request framework.Message,
 	incoming chan framework.Message, terminate chan bool) (err error) {
 	var instanceID string
-	if instanceID, err = request.GetString(framework.ParamKeyInstance);err != nil{
+	if instanceID, err = request.GetString(framework.ParamKeyInstance); err != nil {
 		err = fmt.Errorf("get instance ID fail: %s", err.Error())
 		return
 	}
@@ -29,8 +29,8 @@ func (executor *AddGuestSecurityRuleExecutor)Execute(id framework.SessionID, req
 	{
 		var respChan = make(chan modules.ResourceResult, 1)
 		executor.ResourceModule.GetInstanceStatus(instanceID, respChan)
-		var result = <- respChan
-		if result.Error != nil{
+		var result = <-respChan
+		if result.Error != nil {
 			err = result.Error
 			log.Printf("[%08X] get instance '%s' for add security rule fail: %s",
 				id, instanceID, err.Error())
@@ -43,17 +43,17 @@ func (executor *AddGuestSecurityRuleExecutor)Execute(id framework.SessionID, req
 		//forward request
 		var forward = framework.CloneJsonMessage(request)
 		forward.SetFromSession(id)
-		if err = executor.Sender.SendMessage(forward, instance.Cell); err != nil{
+		if err = executor.Sender.SendMessage(forward, instance.Cell); err != nil {
 			log.Printf("[%08X] forward add security rule to cell '%s' fail: %s", id, instance.Cell, err.Error())
 			resp.SetError(err.Error())
 			return executor.Sender.SendMessage(resp, request.GetSender())
 		}
-		timer := time.NewTimer(modules.DefaultOperateTimeout)
-		select{
-		case cellResp := <- incoming:
-			if cellResp.IsSuccess(){
+		timer := time.NewTimer(modules.GetConfigurator().GetOperateTimeout())
+		select {
+		case cellResp := <-incoming:
+			if cellResp.IsSuccess() {
 				log.Printf("[%08X] new security rule of instance '%s' added", id, instance.Name)
-			}else{
+			} else {
 				log.Printf("[%08X] cell add security rule fail: %s", id, cellResp.GetError())
 			}
 			cellResp.SetFromSession(id)
@@ -61,7 +61,7 @@ func (executor *AddGuestSecurityRuleExecutor)Execute(id framework.SessionID, req
 			cellResp.SetTransactionID(request.GetTransactionID())
 			//forward
 			return executor.Sender.SendMessage(cellResp, request.GetSender())
-		case <- timer.C:
+		case <-timer.C:
 			//timeout
 			log.Printf("[%08X] wait add security rule response timeout", id)
 			resp.SetError("cell timeout")

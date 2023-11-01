@@ -1,11 +1,11 @@
 package task
 
 import (
+	"fmt"
+	"github.com/project-nano/core/modules"
 	"github.com/project-nano/framework"
 	"log"
 	"time"
-	"github.com/project-nano/core/modules"
-	"fmt"
 )
 
 type InsertMediaExecutor struct {
@@ -13,14 +13,14 @@ type InsertMediaExecutor struct {
 	ResourceModule modules.ResourceModule
 }
 
-func (executor *InsertMediaExecutor)Execute(id framework.SessionID, request framework.Message,
+func (executor *InsertMediaExecutor) Execute(id framework.SessionID, request framework.Message,
 	incoming chan framework.Message, terminate chan bool) error {
 	instanceID, err := request.GetString(framework.ParamKeyInstance)
-	if err != nil{
+	if err != nil {
 		return err
 	}
 	mediaSource, err := request.GetString(framework.ParamKeyMedia)
-	if err != nil{
+	if err != nil {
 		return err
 	}
 
@@ -35,14 +35,14 @@ func (executor *InsertMediaExecutor)Execute(id framework.SessionID, request fram
 	{
 		var respChan = make(chan modules.ResourceResult)
 		executor.ResourceModule.GetInstanceStatus(instanceID, respChan)
-		result := <- respChan
-		if result.Error != nil{
+		result := <-respChan
+		if result.Error != nil {
 			log.Printf("[%08X] fetch instance fail: %s", id, result.Error.Error())
 			resp.SetError(result.Error.Error())
 			return executor.Sender.SendMessage(resp, request.GetSender())
 		}
 		ins = result.Instance
-		if !ins.Running{
+		if !ins.Running {
 			err = fmt.Errorf("instance '%s' is stopped", instanceID)
 			log.Printf("[%08X] instance '%s' is stopped", id, instanceID)
 			resp.SetError(err.Error())
@@ -70,24 +70,24 @@ func (executor *InsertMediaExecutor)Execute(id framework.SessionID, request fram
 		forward.SetString(framework.ParamKeyHost, result.Host)
 		forward.SetUInt(framework.ParamKeyPort, uint(result.Port))
 
-		if err = executor.Sender.SendMessage(forward, ins.Cell); err != nil{
+		if err = executor.Sender.SendMessage(forward, ins.Cell); err != nil {
 			log.Printf("[%08X] forward insert media to cell '%s' fail: %s", id, ins.Cell, err.Error())
 			resp.SetError(err.Error())
 			return executor.Sender.SendMessage(resp, request.GetSender())
 		}
-		timer := time.NewTimer(modules.DefaultOperateTimeout)
-		select{
-		case cellResp := <- incoming:
-			if cellResp.IsSuccess(){
+		timer := time.NewTimer(modules.GetConfigurator().GetOperateTimeout())
+		select {
+		case cellResp := <-incoming:
+			if cellResp.IsSuccess() {
 				log.Printf("[%08X] cell insert media success", id)
-			}else{
+			} else {
 				log.Printf("[%08X] cell insert media fail: %s", id, cellResp.GetError())
 			}
 			cellResp.SetFromSession(id)
 			cellResp.SetToSession(request.GetFromSession())
 			//forward
 			return executor.Sender.SendMessage(cellResp, request.GetSender())
-		case <- timer.C:
+		case <-timer.C:
 			//timeout
 			log.Printf("[%08X] wait insert response timeout", id)
 			resp.SetError("cell timeout")

@@ -1,8 +1,8 @@
 package task
 
 import (
-	"github.com/project-nano/framework"
 	"github.com/project-nano/core/modules"
+	"github.com/project-nano/framework"
 	"log"
 	"time"
 )
@@ -18,13 +18,13 @@ func (executor *DeleteDiskImageExecutor) Execute(id framework.SessionID, request
 	var originSession = request.GetFromSession()
 	var respChan = make(chan modules.ResourceResult, 1)
 	executor.ResourceModule.GetImageServer(respChan)
-	var result = <- respChan
+	var result = <-respChan
 	resp, _ := framework.CreateJsonMessage(framework.DeleteDiskImageResponse)
 	resp.SetSuccess(false)
 	resp.SetFromSession(id)
 	resp.SetToSession(request.GetFromSession())
 
-	if result.Error != nil{
+	if result.Error != nil {
 		err := result.Error
 		log.Printf("[%08X] get image server fail: %s", id, err.Error())
 		resp.SetError(err.Error())
@@ -36,16 +36,16 @@ func (executor *DeleteDiskImageExecutor) Execute(id framework.SessionID, request
 	request.SetToSession(0)
 	var imageServer = result.Name
 
-	if err = executor.Sender.SendMessage(request, imageServer); err != nil{
+	if err = executor.Sender.SendMessage(request, imageServer); err != nil {
 		log.Printf("[%08X] forward delete disk to image server fail: %s", id, err.Error())
 		resp.SetError(err.Error())
 		return executor.Sender.SendMessage(resp, request.GetSender())
 	}
 	//wait response
-	timer := time.NewTimer(modules.DefaultOperateTimeout)
-	select{
-	case forwardResp := <- incoming:
-		if !forwardResp.IsSuccess(){
+	timer := time.NewTimer(modules.GetConfigurator().GetOperateTimeout())
+	select {
+	case forwardResp := <-incoming:
+		if !forwardResp.IsSuccess() {
 			log.Printf("[%08X] delete disk image fail: %s", id, forwardResp.GetError())
 		}
 		forwardResp.SetFromSession(id)
@@ -54,7 +54,7 @@ func (executor *DeleteDiskImageExecutor) Execute(id framework.SessionID, request
 		//forward
 		return executor.Sender.SendMessage(forwardResp, request.GetSender())
 
-	case <- timer.C:
+	case <-timer.C:
 		//timeout
 		log.Printf("[%08X] delete disk image timeout", id)
 		resp.SetError("time out")

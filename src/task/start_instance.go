@@ -1,10 +1,10 @@
 package task
 
 import (
-	"github.com/project-nano/framework"
-	"github.com/project-nano/core/modules"
-	"log"
 	"fmt"
+	"github.com/project-nano/core/modules"
+	"github.com/project-nano/framework"
+	"log"
 	"time"
 )
 
@@ -13,14 +13,14 @@ type StartInstanceExecutor struct {
 	ResourceModule modules.ResourceModule
 }
 
-func (executor *StartInstanceExecutor)Execute(id framework.SessionID, request framework.Message,
+func (executor *StartInstanceExecutor) Execute(id framework.SessionID, request framework.Message,
 	incoming chan framework.Message, terminate chan bool) error {
 	instanceID, err := request.GetString(framework.ParamKeyInstance)
 	if err != nil {
 		return err
 	}
 	mediaOption, err := request.GetUInt(framework.ParamKeyOption)
-	if err != nil{
+	if err != nil {
 		return err
 	}
 	log.Printf("[%08X] request start instance '%s' from %s.[%08X]", id, instanceID,
@@ -36,15 +36,15 @@ func (executor *StartInstanceExecutor)Execute(id framework.SessionID, request fr
 		//check status first
 		var respChan = make(chan modules.ResourceResult)
 		executor.ResourceModule.GetInstanceStatus(instanceID, respChan)
-		result := <- respChan
-		if result.Error != nil{
+		result := <-respChan
+		if result.Error != nil {
 			errMsg := result.Error.Error()
 			log.Printf("[%08X] get instance fail: %s", id, errMsg)
 			resp.SetError(errMsg)
 			return executor.Sender.SendMessage(resp, request.GetSender())
 		}
 		ins = result.Instance
-		if ins.Running{
+		if ins.Running {
 			errMsg := fmt.Sprintf("instance '%s' already started", instanceID)
 			log.Printf("[%08X] start instance fail: %s", id, errMsg)
 			resp.SetError(errMsg)
@@ -64,15 +64,15 @@ func (executor *StartInstanceExecutor)Execute(id framework.SessionID, request fr
 				break
 			case modules.InstanceMediaOptionImage:
 				mediaSource, err := request.GetString(framework.ParamKeySource)
-				if err != nil{
+				if err != nil {
 					return err
 				}
 				{
 					//todo: get media name for display
 					var respChan = make(chan modules.ResourceResult)
 					executor.ResourceModule.GetImageServer(respChan)
-					var result = <- respChan
-					if result.Error != nil{
+					var result = <-respChan
+					if result.Error != nil {
 						errMsg := result.Error.Error()
 						log.Printf("[%08X] get image server fail: %s", id, errMsg)
 						resp.SetError(errMsg)
@@ -87,24 +87,24 @@ func (executor *StartInstanceExecutor)Execute(id framework.SessionID, request fr
 				return fmt.Errorf("unsupported media option %d", mediaOption)
 			}
 		}
-		if err = executor.Sender.SendMessage(forward, ins.Cell);err != nil{
+		if err = executor.Sender.SendMessage(forward, ins.Cell); err != nil {
 			log.Printf("[%08X] forward start request to cell '%s' fail: %s", id, ins.Cell, err.Error())
 			resp.SetError(err.Error())
 			return executor.Sender.SendMessage(resp, request.GetSender())
 		}
-		timer := time.NewTimer(modules.DefaultOperateTimeout)
-		select{
-		case cellResp := <- incoming:
-			if cellResp.IsSuccess(){
+		timer := time.NewTimer(modules.GetConfigurator().GetOperateTimeout())
+		select {
+		case cellResp := <-incoming:
+			if cellResp.IsSuccess() {
 				log.Printf("[%08X] cell start instance success", id)
-			}else{
+			} else {
 				log.Printf("[%08X] cell start instance fail: %s", id, cellResp.GetError())
 			}
 			cellResp.SetFromSession(id)
 			cellResp.SetToSession(fromSession)
 			//forward
 			return executor.Sender.SendMessage(cellResp, request.GetSender())
-		case <- timer.C:
+		case <-timer.C:
 			//timeout
 			log.Printf("[%08X] wait start response timeout", id)
 			resp.SetError("cell timeout")

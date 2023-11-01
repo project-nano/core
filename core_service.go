@@ -4,6 +4,7 @@ import (
 	"github.com/project-nano/core/modules"
 	"github.com/project-nano/framework"
 	"log"
+	"time"
 )
 
 const (
@@ -231,6 +232,7 @@ func (core *CoreService) OnDependencyReady() {
 func (core *CoreService) InitialEndpoint() (err error) {
 	log.Printf("<core> initial core service, v %s", CurrentVersion)
 	log.Printf("<core> domain %s, group address %s:%d", core.GetDomain(), core.GetGroupAddress(), core.GetGroupPort())
+	log.Printf("<core> default operate timeout %d seconds", modules.GetConfigurator().GetOperateTimeout()/time.Second)
 
 	core.resourceManager, err = modules.CreateResourceManager(core.DataPath)
 	if err != nil {

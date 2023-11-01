@@ -1,11 +1,11 @@
 package task
 
 import (
-	"github.com/project-nano/framework"
+	"fmt"
 	"github.com/project-nano/core/modules"
+	"github.com/project-nano/framework"
 	"log"
 	"time"
-	"fmt"
 )
 
 type HandleCellAvailableExecutor struct {
@@ -13,22 +13,22 @@ type HandleCellAvailableExecutor struct {
 	ResourceModule modules.ResourceModule
 }
 
-func (executor *HandleCellAvailableExecutor)Execute(id framework.SessionID, request framework.Message,
+func (executor *HandleCellAvailableExecutor) Execute(id framework.SessionID, request framework.Message,
 	incoming chan framework.Message, terminate chan bool) error {
 	cellName, err := request.GetString(framework.ParamKeyCell)
-	if err != nil{
+	if err != nil {
 		return err
 	}
 	cellAddress, err := request.GetString(framework.ParamKeyAddress)
-	if err != nil{
+	if err != nil {
 		return err
 	}
 	log.Printf("[%08X] cell '%s' (address %s) available", id, cellName, cellAddress)
 	{
 		var respChan = make(chan error)
 		executor.ResourceModule.UpdateCellInfo(cellName, cellAddress, respChan)
-		err = <- respChan
-		if err != nil{
+		err = <-respChan
+		if err != nil {
 			log.Printf("[%08X] update cell info fail: %s", id, err.Error())
 			return nil
 		}
@@ -39,49 +39,49 @@ func (executor *HandleCellAvailableExecutor)Execute(id framework.SessionID, requ
 		//get pool name
 		respChan := make(chan modules.ResourceResult, 1)
 		executor.ResourceModule.GetCellStatus(cellName, respChan)
-		result := <- respChan
-		if result.Error != nil{
+		result := <-respChan
+		if result.Error != nil {
 			log.Printf("[%08X] get cell status fail: %s", id, result.Error.Error())
 			return nil
 		}
-		if result.Pool == ""{
+		if result.Pool == "" {
 			log.Printf("[%08X] cell not allocated", id)
 			return nil
 		}
 		poolName = result.Pool
 		cellStatus = result.ComputeCell
 	}
-	if cellStatus.PurgeAppending{
+	if cellStatus.PurgeAppending {
 		//need purge
 		detach, _ := framework.CreateJsonMessage(framework.DetachInstanceRequest)
 		detach.SetFromSession(id)
 		detach.SetStringArray(framework.ParamKeyInstance, []string{})
-		if err = executor.Sender.SendMessage(detach, cellName); err != nil{
+		if err = executor.Sender.SendMessage(detach, cellName); err != nil {
 			log.Printf("[%08X] try purge cell '%s' fail: %s", id, cellName, err.Error())
 			return nil
 		}
 		log.Printf("[%08X] try purge remote cell '%s'...", id, cellName)
-		timer := time.NewTimer(10*time.Second)
+		timer := time.NewTimer(10 * time.Second)
 		select {
-		case purgeResp := <- incoming:
-			if purgeResp.GetID() != framework.DetachInstanceResponse{
+		case purgeResp := <-incoming:
+			if purgeResp.GetID() != framework.DetachInstanceResponse {
 				log.Printf("[%08X] unexpected message [%08X] from %s.[%08X]", id, purgeResp.GetID(),
 					purgeResp.GetSender(), purgeResp.GetFromSession())
 				return nil
 			}
-			if !purgeResp.IsSuccess(){
+			if !purgeResp.IsSuccess() {
 				log.Printf("[%08X] purge remote cell '%s' fail: %s", id, purgeResp.GetSender(), purgeResp.GetError())
 				return nil
 			}
 			var respChan = make(chan error, 1)
 			executor.ResourceModule.PurgeInstance(cellName, respChan)
-			err = <- respChan
-			if err != nil{
+			err = <-respChan
+			if err != nil {
 				log.Printf("[%08X] purge cell instance fail: %s", id, err.Error())
-			}else{
+			} else {
 				log.Printf("[%08X] instances on cell '%s' purged", id, cellName)
 			}
-		case <- timer.C:
+		case <-timer.C:
 			//timeout
 			log.Printf("[%08X] wait purge response timeout", id)
 			return nil
@@ -93,8 +93,8 @@ func (executor *HandleCellAvailableExecutor)Execute(id framework.SessionID, requ
 	{
 		var respChan = make(chan modules.ResourceResult, 1)
 		executor.ResourceModule.GetComputePool(poolName, respChan)
-		var result = <- respChan
-		if result.Error != nil{
+		var result = <-respChan
+		if result.Error != nil {
 			log.Printf("[%08X] get compute pool fail: %s", id, result.Error.Error())
 			return nil
 		}
@@ -107,11 +107,11 @@ func (executor *HandleCellAvailableExecutor)Execute(id framework.SessionID, requ
 		notify.SetString(framework.ParamKeyPool, poolName)
 		notify.SetString(framework.ParamKeyStorage, computePool.Storage)
 		notify.SetString(framework.ParamKeyNetwork, computePool.Network)
-		if "" != computePool.Storage{
+		if "" != computePool.Storage {
 			var respChan = make(chan modules.ResourceResult, 1)
 			executor.ResourceModule.GetStoragePool(computePool.Storage, respChan)
-			var result = <- respChan
-			if result.Error != nil{
+			var result = <-respChan
+			if result.Error != nil {
 				log.Printf("[%08X] get storage pool fail: %s", id, result.Error.Error())
 				return nil
 			}
@@ -120,11 +120,11 @@ func (executor *HandleCellAvailableExecutor)Execute(id framework.SessionID, requ
 			notify.SetString(framework.ParamKeyHost, storagePool.Host)
 			notify.SetString(framework.ParamKeyTarget, storagePool.Target)
 		}
-		if "" != computePool.Network{
+		if "" != computePool.Network {
 			var respChan = make(chan modules.ResourceResult, 1)
 			executor.ResourceModule.GetAddressPool(computePool.Network, respChan)
-			var result = <- respChan
-			if result.Error != nil{
+			var result = <-respChan
+			if result.Error != nil {
 				log.Printf("[%08X] get address pool fail: %s", id, result.Error.Error())
 				return nil
 			}
@@ -134,24 +134,24 @@ func (executor *HandleCellAvailableExecutor)Execute(id framework.SessionID, requ
 			notify.SetString(framework.ParamKeyMode, addressPool.Provider)
 		}
 		notify.SetFromSession(id)
-		if err = executor.Sender.SendMessage(notify, cellName);err != nil{
+		if err = executor.Sender.SendMessage(notify, cellName); err != nil {
 			log.Printf("[%08X] notify cell fail: %s", id, err.Error())
 			return nil
 		}
 
-		timer := time.NewTimer(modules.DefaultOperateTimeout)
+		timer := time.NewTimer(modules.GetConfigurator().GetOperateTimeout())
 		select {
-		case cellResp = <- incoming:
-			if cellResp.GetID() != framework.ComputeCellReadyEvent{
+		case cellResp = <-incoming:
+			if cellResp.GetID() != framework.ComputeCellReadyEvent {
 				log.Printf("[%08X] unexpected message [%08X] from %s.[%08X]", id, cellResp.GetID(),
 					cellResp.GetSender(), cellResp.GetFromSession())
 				return nil
 			}
-			if !cellResp.IsSuccess(){
+			if !cellResp.IsSuccess() {
 				log.Printf("[%08X] cell using storage '%s' fail: %s", id, computePool.Storage, cellResp.GetError())
 				return nil
 			}
-		case <- timer.C:
+		case <-timer.C:
 			//timeout
 			log.Printf("[%08X] wait cell instance timeout", id)
 			return nil
@@ -159,13 +159,13 @@ func (executor *HandleCellAvailableExecutor)Execute(id framework.SessionID, requ
 	}
 
 	count, err := cellResp.GetUInt(framework.ParamKeyCount)
-	if err != nil{
+	if err != nil {
 		return err
 	}
 	var instances []modules.InstanceStatus
-	if 0 == count{
+	if 0 == count {
 		log.Printf("[%08X] no instance available in cell '%s'", id, cellName)
-	}else {
+	} else {
 
 		var names, ids, users, groups, secrets, addresses, systems, internal, external, createTime, hardware []string
 		var cores, options, enables, progress, status, monitors, memories, disks, diskCounts, cpuPriorities, ioLimits []uint64
@@ -184,22 +184,22 @@ func (executor *HandleCellAvailableExecutor)Execute(id framework.SessionID, requ
 		if secrets, err = cellResp.GetStringArray(framework.ParamKeySecret); err != nil {
 			return err
 		}
-		if addresses, err = cellResp.GetStringArray(framework.ParamKeyAddress); err != nil{
+		if addresses, err = cellResp.GetStringArray(framework.ParamKeyAddress); err != nil {
 			return err
 		}
-		if systems, err = cellResp.GetStringArray(framework.ParamKeySystem); err != nil{
+		if systems, err = cellResp.GetStringArray(framework.ParamKeySystem); err != nil {
 			return err
 		}
-		if internal, err = cellResp.GetStringArray(framework.ParamKeyInternal); err != nil{
+		if internal, err = cellResp.GetStringArray(framework.ParamKeyInternal); err != nil {
 			return err
 		}
-		if external, err = cellResp.GetStringArray(framework.ParamKeyExternal); err != nil{
+		if external, err = cellResp.GetStringArray(framework.ParamKeyExternal); err != nil {
 			return err
 		}
-		if createTime, err = cellResp.GetStringArray(framework.ParamKeyCreate); err != nil{
+		if createTime, err = cellResp.GetStringArray(framework.ParamKeyCreate); err != nil {
 			return err
 		}
-		if hardware, err = cellResp.GetStringArray(framework.ParamKeyHardware); err != nil{
+		if hardware, err = cellResp.GetStringArray(framework.ParamKeyHardware); err != nil {
 			return err
 		}
 
@@ -231,16 +231,16 @@ func (executor *HandleCellAvailableExecutor)Execute(id framework.SessionID, requ
 			return err
 		}
 
-		if cpuPriorities, err = cellResp.GetUIntArray(framework.ParamKeyPriority); err != nil{
+		if cpuPriorities, err = cellResp.GetUIntArray(framework.ParamKeyPriority); err != nil {
 			return err
 		}
 
-		if ioLimits, err = cellResp.GetUIntArray(framework.ParamKeyLimit); err != nil{
+		if ioLimits, err = cellResp.GetUIntArray(framework.ParamKeyLimit); err != nil {
 			return err
 		}
 
 		const (
-			ReadSpeedOffset           = iota
+			ReadSpeedOffset = iota
 			WriteSpeedOffset
 			ReadIOPSOffset
 			WriteIOPSOffset
@@ -249,15 +249,15 @@ func (executor *HandleCellAvailableExecutor)Execute(id framework.SessionID, requ
 			ValidLimitParametersCount = 6
 		)
 
-		if len(cpuPriorities) != int(count){
+		if len(cpuPriorities) != int(count) {
 			return fmt.Errorf("unpected priority array size %d / %d", len(cpuPriorities), count)
 		}
 
-		if len(ioLimits) != int(count * ValidLimitParametersCount){
-			return fmt.Errorf("unpected limit array size %d / %d", len(ioLimits), count * ValidLimitParametersCount)
+		if len(ioLimits) != int(count*ValidLimitParametersCount) {
+			return fmt.Errorf("unpected limit array size %d / %d", len(ioLimits), count*ValidLimitParametersCount)
 		}
 
-		var diskOffset= 0
+		var diskOffset = 0
 		for i := 0; i < int(count); i++ {
 			var config modules.InstanceStatus
 			config.Pool = poolName
@@ -268,8 +268,8 @@ func (executor *HandleCellAvailableExecutor)Execute(id framework.SessionID, requ
 			config.Group = groups[i]
 			config.Cores = uint(cores[i])
 			config.Memory = uint(memories[i])
-			var diskCount= int(diskCounts[i])
-			for _, diskSize := range disks[diskOffset:diskOffset+diskCount] {
+			var diskCount = int(diskCounts[i])
+			for _, diskSize := range disks[diskOffset : diskOffset+diskCount] {
 				config.Disks = append(config.Disks, diskSize)
 			}
 			diskOffset += diskCount
@@ -286,20 +286,20 @@ func (executor *HandleCellAvailableExecutor)Execute(id framework.SessionID, requ
 			config.CreateTime = createTime[i]
 			config.HardwareAddress = hardware[i]
 			config.CPUPriority = modules.PriorityEnum(cpuPriorities[i])
-			config.ReadSpeed = ioLimits[ ValidLimitParametersCount * i + ReadSpeedOffset ]
-			config.WriteSpeed = ioLimits[ ValidLimitParametersCount * i + WriteSpeedOffset ]
-			config.ReadIOPS = ioLimits[ ValidLimitParametersCount * i + ReadIOPSOffset ]
-			config.WriteIOPS = ioLimits[ ValidLimitParametersCount * i + WriteIOPSOffset ]
-			config.ReceiveSpeed = ioLimits[ ValidLimitParametersCount * i + ReceiveOffset ]
-			config.SendSpeed = ioLimits[ ValidLimitParametersCount * i + SendOffset ]
+			config.ReadSpeed = ioLimits[ValidLimitParametersCount*i+ReadSpeedOffset]
+			config.WriteSpeed = ioLimits[ValidLimitParametersCount*i+WriteSpeedOffset]
+			config.ReadIOPS = ioLimits[ValidLimitParametersCount*i+ReadIOPSOffset]
+			config.WriteIOPS = ioLimits[ValidLimitParametersCount*i+WriteIOPSOffset]
+			config.ReceiveSpeed = ioLimits[ValidLimitParametersCount*i+ReceiveOffset]
+			config.SendSpeed = ioLimits[ValidLimitParametersCount*i+SendOffset]
 			instances = append(instances, config)
 		}
 	}
 	{
 		var respChan = make(chan error)
 		executor.ResourceModule.BatchUpdateInstanceStatus(poolName, cellName, instances, respChan)
-		err = <- respChan
-		if err != nil{
+		err = <-respChan
+		if err != nil {
 			log.Printf("[%08X] update cell instance fail: %s", id, err.Error())
 			return nil
 		}

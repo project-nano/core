@@ -7,8 +7,7 @@ import (
 )
 
 const (
-	DefaultConfigPerm     = 0640
-	DefaultOperateTimeout = 5 * time.Second
+	DefaultConfigPerm = 0640
 )
 
 type GuestQueryCondition struct {
@@ -583,4 +582,29 @@ func CellsFromMessage(message framework.Message) (cells []ComputeCellInfo, err e
 		cells = append(cells, cell)
 	}
 	return
+}
+
+type Configurator struct {
+	operateTimeout time.Duration
+}
+
+func (c *Configurator) SetOperateTimeout(timeoutInSeconds int) {
+	c.operateTimeout = time.Duration(timeoutInSeconds) * time.Second
+}
+
+// GetOperateTimeout : get operate timeout
+func (c *Configurator) GetOperateTimeout() time.Duration {
+	return c.operateTimeout
+}
+
+const (
+	defaultOperateTimeout = 10 //10 seconds
+)
+
+var globalConfigurator = Configurator{
+	operateTimeout: defaultOperateTimeout * time.Second,
+}
+
+func GetConfigurator() *Configurator {
+	return &globalConfigurator
 }

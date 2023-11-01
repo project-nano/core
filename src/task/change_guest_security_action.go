@@ -13,10 +13,10 @@ type ChangeGuestSecurityActionExecutor struct {
 	ResourceModule modules.ResourceModule
 }
 
-func (executor *ChangeGuestSecurityActionExecutor)Execute(id framework.SessionID, request framework.Message,
+func (executor *ChangeGuestSecurityActionExecutor) Execute(id framework.SessionID, request framework.Message,
 	incoming chan framework.Message, terminate chan bool) (err error) {
 	var instanceID string
-	if instanceID, err = request.GetString(framework.ParamKeyInstance);err != nil{
+	if instanceID, err = request.GetString(framework.ParamKeyInstance); err != nil {
 		err = fmt.Errorf("get instance ID fail: %s", err.Error())
 		return
 	}
@@ -29,8 +29,8 @@ func (executor *ChangeGuestSecurityActionExecutor)Execute(id framework.SessionID
 	{
 		var respChan = make(chan modules.ResourceResult, 1)
 		executor.ResourceModule.GetInstanceStatus(instanceID, respChan)
-		var result = <- respChan
-		if result.Error != nil{
+		var result = <-respChan
+		if result.Error != nil {
 			err = result.Error
 			log.Printf("[%08X] get instance '%s' for change default security action fail: %s",
 				id, instanceID, err.Error())
@@ -43,18 +43,18 @@ func (executor *ChangeGuestSecurityActionExecutor)Execute(id framework.SessionID
 		//forward request
 		var forward = framework.CloneJsonMessage(request)
 		forward.SetFromSession(id)
-		if err = executor.Sender.SendMessage(forward, instance.Cell); err != nil{
+		if err = executor.Sender.SendMessage(forward, instance.Cell); err != nil {
 			log.Printf("[%08X] forward change default security action to cell '%s' fail: %s", id, instance.Cell, err.Error())
 			resp.SetError(err.Error())
 			return executor.Sender.SendMessage(resp, request.GetSender())
 		}
-		timer := time.NewTimer(modules.DefaultOperateTimeout)
-		select{
-		case cellResp := <- incoming:
-			if cellResp.IsSuccess(){
+		timer := time.NewTimer(modules.GetConfigurator().GetOperateTimeout())
+		select {
+		case cellResp := <-incoming:
+			if cellResp.IsSuccess() {
 				log.Printf("[%08X] default security action of instance '%s' changed",
 					id, instance.Name)
-			}else{
+			} else {
 				log.Printf("[%08X] cell change default security action fail: %s", id, cellResp.GetError())
 			}
 			cellResp.SetFromSession(id)
@@ -62,7 +62,7 @@ func (executor *ChangeGuestSecurityActionExecutor)Execute(id framework.SessionID
 			cellResp.SetTransactionID(request.GetTransactionID())
 			//forward
 			return executor.Sender.SendMessage(cellResp, request.GetSender())
-		case <- timer.C:
+		case <-timer.C:
 			//timeout
 			log.Printf("[%08X] wait change default security action timeout", id)
 			resp.SetError("cell timeout")
