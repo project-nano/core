@@ -2,10 +2,24 @@
 
 ## [1.4.0] - 2023-11-01
 
+### 新增
+
+- 配置文件"domain.cfg"增加选项timeout，设置超时时间，单位为秒，默认值10
+
+### 变更
+
+- 更新依赖包
+
+### 修正
+
+- 搜索云主机时未按创建者和所属组进行过滤
+
+
+
 ### Added
 
 - Add option 'timeout' to configure file "domain.cfg", default value is 10 seconds
- 
+
 ### Changed
 
 - update dependent packages
