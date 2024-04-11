@@ -221,28 +221,13 @@ Core also supports the following command
 | status       | Check current service status              |
 | halt         | Force abort service when exception occurs |
 
-## Configure
 
-All configure files stores in the path: config. The module needs to be restarted before the changes take effect.
-
-### Domain Configuration
-
-Filename: domain.cfg
-
-See more detail about [Domain](<https://nanocloud.readthedocs.io/projects/guide/en/latest/concept.html#communicate-domain>)
-
-| Parameter          | Description                                                  |
-| ------------------ | ------------------------------------------------------------ |
-| **domain**         | The name of a communication domain, like 'nano' in default, only allows characters. |
-| **group_port**     | Multicast port, 5599 in default                              |
-| **group_address**  | Multicast address, '224.0.0.226' in default.                 |
-| **listen_address** | Listening Address of the core service，string in the IPv4 format |
 
 ### Configuration
 
 Core module configuration information is stored in files under the config path, and modifications require a restart of the module to take effect.
 
-#### Domain Communication Configuration
+#### Domain Communication
 
 The file `config/domain.cfg` manages the domain communication information for the Core module.
 
@@ -265,7 +250,7 @@ Assuming the working address of the Core module is 192.168.1.31, an example conf
 }
 ```
 
-### API Configuration
+### API
 
 The file `config/api.cfg` manages the API service
 
@@ -290,7 +275,7 @@ An example configuration file is as follows:
 }
 ```
 
-### Image Service Configuration
+### Image Service
 
 The file `config/image.cfg` manages the image service of the Core module.
 
